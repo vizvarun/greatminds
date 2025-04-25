@@ -16,6 +16,7 @@ import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import CustomAlert from "@/components/ui/CustomAlert";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function Verify() {
   const { verifyOtp, phoneNumber } = useAuth();
@@ -91,20 +92,40 @@ export default function Verify() {
   };
 
   const handleOtpChange = (text: string, index: number) => {
+    // Only accept digits and prevent re-renders if value is the same
+    if (!/^\d*$/.test(text) || (text.length === 1 && otp[index] === text))
+      return;
+
+    // Update OTP state
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
 
-    // Auto move to next input
+    // Auto move to next input - but only on Android if we have a full digit
     if (text.length === 1 && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+      // Use a more reliable approach for focus management
+      if (Platform.OS === "android") {
+        // Wait for the current render to complete
+        requestAnimationFrame(() => {
+          inputRefs.current[index + 1]?.focus();
+        });
+      } else {
+        // iOS is more stable with immediate focus changes
+        inputRefs.current[index + 1]?.focus();
+      }
     }
   };
 
   const handleKeyPress = (e: any, index: number) => {
-    // Handle backspace
+    // Handle backspace - but avoid unnecessary re-renders and focus changes
     if (e.nativeEvent.key === "Backspace" && index > 0 && otp[index] === "") {
-      inputRefs.current[index - 1]?.focus();
+      if (Platform.OS === "android") {
+        requestAnimationFrame(() => {
+          inputRefs.current[index - 1]?.focus();
+        });
+      } else {
+        inputRefs.current[index - 1]?.focus();
+      }
     }
   };
 
@@ -153,18 +174,42 @@ export default function Verify() {
     return `+91 ${number.slice(0, 5)} ${number.slice(5)}`;
   };
 
+  const handleBackPress = () => {
+    router.back();
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
       >
         {Platform.OS === "android" && keyboardVisible && (
           <KeyboardDismissBar isVisible={keyboardVisible} />
         )}
-        <View style={styles.content}>
-          <Text style={styles.title}>Verify Phone</Text>
+        <View
+          style={[
+            styles.content,
+            Platform.OS === "android" && styles.androidContent,
+          ]}
+        >
+          <View style={styles.titleContainer}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBackPress}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialCommunityIcons
+                name="chevron-left"
+                size={28}
+                color="#333"
+              />
+            </TouchableOpacity>
+            <Text style={styles.title}>Verify Phone</Text>
+          </View>
+
           <Text style={styles.subtitle}>
             Enter the 6-digit code sent to{"\n"}
             <Text style={styles.phoneText}>
@@ -177,7 +222,10 @@ export default function Verify() {
               <TextInput
                 key={index}
                 ref={(ref) => (inputRefs.current[index] = ref)}
-                style={styles.otpInput}
+                style={[
+                  styles.otpInput,
+                  Platform.OS === "android" && styles.otpInputAndroid,
+                ]}
                 keyboardType="number-pad"
                 keyboardAppearance="light"
                 maxLength={1}
@@ -187,7 +235,10 @@ export default function Verify() {
                 inputAccessoryViewID={
                   Platform.OS === "ios" ? inputAccessoryViewID : undefined
                 }
-                autoFocus={false} // Setting to false for more controlled focus management
+                autoFocus={false}
+                caretHidden={Platform.OS === "android"}
+                contextMenuHidden={true}
+                selectTextOnFocus={true}
               />
             ))}
           </View>
@@ -244,10 +295,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: -50,
   },
+  androidContent: {
+    paddingBottom: 20,
+    flex: 1,
+    justifyContent: "center",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  backButton: {
+    padding: 5,
+    marginRight: 8,
+  },
   title: {
     fontSize: 32,
     fontFamily: Typography.fontWeight.bold.primary,
-    marginBottom: 10,
     color: "#333",
   },
   subtitle: {
@@ -275,6 +339,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 20,
     fontFamily: Typography.fontWeight.medium.primary,
+  },
+  otpInputAndroid: {
+    padding: 0,
+    textAlign: "center",
+    includeFontPadding: false, // Prevents vertical padding inconsistencies
+    height: 50,
+    lineHeight: 50, // Match the height to ensure vertical centering
   },
   button: {
     backgroundColor: primary,

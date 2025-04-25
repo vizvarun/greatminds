@@ -15,7 +15,7 @@ import { useAuth } from "@/context/AuthContext";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
 
 const onboardingData = [
   {
@@ -61,15 +61,17 @@ export default function Onboarding() {
     completeOnboarding().then(() => router.replace("/(auth)/login"));
   };
 
-  const renderItem = ({ item }: { item: (typeof onboardingData)[0] }) => {
-    return (
-      <View style={styles.slide}>
+  const renderItem = ({ item }: { item: (typeof onboardingData)[0] }) => (
+    <View style={styles.slide}>
+      <View style={styles.imageContainer}>
         <Image source={item.image} style={styles.image} />
+      </View>
+      <View style={styles.textContainer}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.description}>{item.description}</Text>
       </View>
-    );
-  };
+    </View>
+  );
 
   const updateCurrentIndex = (e: any) => {
     const contentOffsetX = e.nativeEvent.contentOffset.x;
@@ -80,9 +82,12 @@ export default function Onboarding() {
   const isLastSlide = currentIndex === onboardingData.length - 1;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Remove individual StatusBar component as it's handled in _layout.tsx */}
-
+    <SafeAreaView
+      style={[
+        styles.container,
+        Platform.OS === "android" && styles.androidContainer,
+      ]}
+    >
       <FlatList
         ref={flatListRef}
         data={onboardingData}
@@ -128,17 +133,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
+  androidContainer: {
+    paddingTop: 30, // Add top padding for Android to account for status bar
+  },
   slide: {
     width,
+    flex: 1,
     alignItems: "center",
-    padding: 40,
-    paddingTop: 20, // reduced from 100
+  },
+  imageContainer: {
+    width: width,
+    height: height * 0.5, // Use 50% of screen height
+    overflow: "hidden",
+    marginBottom: 20,
   },
   image: {
-    width: width * 0.8,
-    height: width * 0.8,
-    resizeMode: "contain",
-    marginBottom: 30,
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover", // Will fill the container while maintaining aspect ratio
+  },
+  textContainer: {
+    paddingHorizontal: 20,
+    alignItems: "center",
   },
   title: {
     fontSize: 28,

@@ -14,6 +14,7 @@ import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import CustomAlert from "@/components/ui/CustomAlert";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 export default function ParentDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -49,49 +50,23 @@ export default function ParentDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["bottom"]}>
+    <View style={styles.safeArea}>
+      <StatusBar style="dark" />
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>Your Children</Text>
+        <Text style={styles.subtitle}>
+          View and manage your children's profiles
+        </Text>
+      </View>
       <ScrollView
         style={styles.container}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.header}>
-          <Text style={styles.welcomeText}>Welcome, Parent!</Text>
-          <Text style={styles.subtitle}>
-            Keep track of your child's progress
-          </Text>
-        </View>
-
-        <View style={styles.statsSection}>
-          <Text style={styles.progressTitle}>Today's Progress</Text>
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>3</Text>
-              <Text style={styles.statLabel}>Pending Tasks</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>85%</Text>
-              <Text style={styles.statLabel}>Attendance</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>2</Text>
-              <Text style={styles.statLabel}>New Messages</Text>
-            </View>
-          </View>
-        </View>
-
         <View style={styles.childrenSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your Children</Text>
-            <TouchableOpacity onPress={() => router.push("/(parent)/children")}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
             style={styles.childrenList}
           >
             <TouchableOpacity
@@ -102,11 +77,19 @@ export default function ParentDashboard() {
                 source={require("@/assets/images/onboarding.png")}
                 style={styles.childAvatar}
               />
-              <Text style={styles.childName}>Sarah</Text>
-              <Text style={styles.childGrade}>Grade 5</Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progress, { width: "75%" }]} />
+              <View style={styles.childInfo}>
+                <Text style={styles.childName}>Sarah Johnson</Text>
+                <Text style={styles.childGrade}>Grade 5-A</Text>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progress, { width: "75%" }]} />
+                </View>
+                <Text style={styles.progressText}>Academic Progress: 75%</Text>
               </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color="#ccc"
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -117,16 +100,30 @@ export default function ParentDashboard() {
                 source={require("@/assets/images/onboarding.png")}
                 style={styles.childAvatar}
               />
-              <Text style={styles.childName}>Michael</Text>
-              <Text style={styles.childGrade}>Grade 3</Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progress, { width: "60%" }]} />
+              <View style={styles.childInfo}>
+                <Text style={styles.childName}>Michael Johnson</Text>
+                <Text style={styles.childGrade}>Grade 3-B</Text>
+                <View style={styles.progressBar}>
+                  <View style={[styles.progress, { width: "60%" }]} />
+                </View>
+                <Text style={styles.progressText}>Academic Progress: 60%</Text>
               </View>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color="#ccc"
+              />
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.addChildCard}
-              onPress={() => console.log("Add child")}
+              onPress={() =>
+                showAlert(
+                  "Add Child",
+                  "Feature coming soon. You'll be able to add your child once their school provides the access code.",
+                  "info"
+                )
+              }
             >
               <View style={styles.addChildIcon}>
                 <MaterialCommunityIcons name="plus" size={30} color={primary} />
@@ -134,67 +131,6 @@ export default function ParentDashboard() {
               <Text style={styles.addChildText}>Add Child</Text>
             </TouchableOpacity>
           </ScrollView>
-        </View>
-
-        <View style={styles.upcomingSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Events</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.eventCard}>
-            <View style={styles.eventDateBadge}>
-              <Text style={styles.eventDateDay}>15</Text>
-              <Text style={styles.eventDateMonth}>May</Text>
-            </View>
-            <View style={styles.eventDetails}>
-              <Text style={styles.eventTitle}>Parent-Teacher Meeting</Text>
-              <Text style={styles.eventTime}>
-                <MaterialCommunityIcons
-                  name="clock-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                2:00 PM - 3:00 PM
-              </Text>
-              <Text style={styles.eventLocation}>
-                <MaterialCommunityIcons
-                  name="map-marker-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                Main Building, Room 105
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.eventCard}>
-            <View style={styles.eventDateBadge}>
-              <Text style={styles.eventDateDay}>22</Text>
-              <Text style={styles.eventDateMonth}>May</Text>
-            </View>
-            <View style={styles.eventDetails}>
-              <Text style={styles.eventTitle}>Annual Sports Day</Text>
-              <Text style={styles.eventTime}>
-                <MaterialCommunityIcons
-                  name="clock-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                9:00 AM - 4:00 PM
-              </Text>
-              <Text style={styles.eventLocation}>
-                <MaterialCommunityIcons
-                  name="map-marker-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                School Grounds
-              </Text>
-            </View>
-          </View>
         </View>
 
         <CustomAlert
@@ -205,7 +141,7 @@ export default function ParentDashboard() {
           onConfirm={hideAlert}
         />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -235,73 +171,19 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 4,
   },
-  statsSection: {
-    marginTop: 15,
-    paddingHorizontal: 20,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-  },
-  progressTitle: {
-    marginBottom: 15,
-    fontSize: 18,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: primary,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  statCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    width: "31%",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontFamily: Typography.fontWeight.bold.primary,
-    color: primary,
-    marginBottom: 5,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-    textAlign: "center",
-  },
   childrenSection: {
-    marginTop: 25,
     paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   childrenList: {
-    marginBottom: 15,
+    flex: 1,
   },
   childCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
-    marginRight: 15,
-    width: 120,
+    marginBottom: 15,
+    flexDirection: "row",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -313,7 +195,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    marginBottom: 10,
+  },
+  childInfo: {
+    flex: 1,
+    paddingHorizontal: 15,
   },
   childName: {
     fontSize: 16,
@@ -331,18 +216,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#e0e0e0",
     borderRadius: 3,
     width: "100%",
+    marginBottom: 5,
   },
   progress: {
     height: "100%",
     backgroundColor: primary,
     borderRadius: 3,
   },
+  progressText: {
+    fontSize: 10,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
   addChildCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
-    marginRight: 15,
-    width: 120,
+    marginBottom: 15,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -353,6 +243,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderWidth: 1,
     borderColor: "#ccc",
+    height: 120,
   },
   addChildIcon: {
     width: 60,
@@ -367,61 +258,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
-  },
-  upcomingSection: {
-    marginTop: 25,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  eventCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  eventDateBadge: {
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
-    borderRadius: 8,
-    padding: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 15,
-    width: 50,
-  },
-  eventDateDay: {
-    fontSize: 18,
-    fontFamily: Typography.fontWeight.bold.primary,
-    color: primary,
-  },
-  eventDateMonth: {
-    fontSize: 12,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: primary,
-  },
-  eventDetails: {
-    flex: 1,
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-    marginBottom: 5,
-  },
-  eventTime: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-    marginBottom: 3,
-  },
-  eventLocation: {
-    fontSize: 13,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
   },
 });

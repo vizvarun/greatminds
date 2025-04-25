@@ -40,7 +40,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        {/* Change status bar to dark for better visibility on light theme */}
+        {/* Use dark-content for better visibility on all screens */}
         <StatusBar style="dark" />
         <Stack
           screenOptions={{

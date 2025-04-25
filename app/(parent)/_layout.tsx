@@ -1,6 +1,6 @@
 import React from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Redirect, router, Slot } from "expo-router";
+import { Redirect, router, Slot, usePathname } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
@@ -16,6 +16,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function ParentLayout() {
   const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
     useAuth();
+  const pathname = usePathname();
+
+  // Check if current path is a child details screen or leave application screen
+  const isChildDetailsScreen = pathname.includes("/children/details/");
+  const isLeaveScreen = pathname.includes("/children/leave/");
+  const shouldBypassLayout = isChildDetailsScreen || isLeaveScreen;
 
   // Show loading state or redirect if not authenticated
   if (isLoading) {
@@ -54,6 +60,12 @@ export default function ParentLayout() {
     }
   };
 
+  // For child details view or leave screen, directly render the content
+  if (shouldBypassLayout) {
+    return <Slot />;
+  }
+
+  // For dashboard and other views, show the full layout with header and role switcher
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* Custom Header */}
@@ -76,7 +88,7 @@ export default function ParentLayout() {
       </View>
 
       {/* Main Content Area with ScrollView to enable scrolling */}
-      <ScrollView style={styles.contentContainer}>
+      <View style={styles.contentContainer}>
         {/* Role Switcher */}
         <TouchableOpacity
           style={styles.roleSwitcher}
@@ -97,7 +109,7 @@ export default function ParentLayout() {
         <View style={styles.slotContainer}>
           <Slot />
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }

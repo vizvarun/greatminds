@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  Platform,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -34,7 +35,12 @@ export default function RoleSelect() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        Platform.OS === "android" && styles.androidContainer,
+      ]}
+    >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.content}>
           <Text style={styles.title}>Choose Your Role</Text>
@@ -154,7 +160,10 @@ export default function RoleSelect() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f7fa",
+    backgroundColor: "#ffffff",
+  },
+  androidContainer: {
+    paddingTop: 30, // Add top padding for Android to account for status bar
   },
   scrollContainer: {
     flexGrow: 1,
