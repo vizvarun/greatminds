@@ -44,47 +44,153 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
   };
 
   const [attendanceData, setAttendanceData] = useState<AttendanceData>({
-    // May 2023 - Comprehensive dummy data
-    "2023-05-01": { status: "present", marked: true },
-    "2023-05-02": { status: "present", marked: true },
-    "2023-05-03": { status: "present", marked: true },
-    "2023-05-04": { status: "absent", marked: true },
-    "2023-05-05": { status: "present", marked: true },
-    "2023-05-08": { status: "late", marked: true },
-    "2023-05-09": { status: "present", marked: true },
-    "2023-05-10": { status: "present", marked: true },
-    "2023-05-11": { status: "leave", marked: true },
-    "2023-05-12": { status: "leave", marked: true },
-    "2023-05-15": { status: "present", marked: true },
-    "2023-05-16": { status: "present", marked: true },
-    "2023-05-17": { status: "present", marked: true },
-    "2023-05-18": { status: "present", marked: true },
-    "2023-05-19": { status: "absent", marked: true },
-    "2023-05-22": { status: "holiday", marked: true },
-    "2023-05-23": { status: "present", marked: true },
-    "2023-05-24": { status: "present", marked: true },
-    "2023-05-25": { status: "late", marked: true },
-    "2023-05-26": { status: "present", marked: true },
-    "2023-05-29": { status: "holiday", marked: true },
-    "2023-05-30": { status: "present", marked: true },
-    "2023-05-31": { status: "present", marked: true },
+    // Current month - Comprehensive dummy data
+    [normalizeDate(new Date())]: { status: "present", marked: true }, // Today
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 1)))]: {
+      status: "absent",
+      marked: true,
+    }, // Yesterday
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 2)))]: {
+      status: "late",
+      marked: true,
+    }, // Day before yesterday
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 3)))]: {
+      status: "leave",
+      marked: true,
+    }, // 3 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 4)))]: {
+      status: "holiday",
+      marked: true,
+    }, // 4 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 5)))]: {
+      status: "present",
+      marked: true,
+    }, // 5 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 6)))]: {
+      status: "present",
+      marked: true,
+    }, // 6 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 7)))]: {
+      status: "present",
+      marked: true,
+    }, // 7 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 8)))]: {
+      status: "absent",
+      marked: true,
+    }, // 8 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 9)))]: {
+      status: "present",
+      marked: true,
+    }, // 9 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 10)))]: {
+      status: "late",
+      marked: true,
+    }, // 10 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 11)))]: {
+      status: "present",
+      marked: true,
+    }, // 11 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 12)))]: {
+      status: "present",
+      marked: true,
+    }, // 12 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 13)))]: {
+      status: "leave",
+      marked: true,
+    }, // 13 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 14)))]: {
+      status: "leave",
+      marked: true,
+    }, // 14 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 15)))]: {
+      status: "present",
+      marked: true,
+    }, // 15 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 16)))]: {
+      status: "holiday",
+      marked: true,
+    }, // 16 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 17)))]: {
+      status: "present",
+      marked: true,
+    }, // 17 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 18)))]: {
+      status: "present",
+      marked: true,
+    }, // 18 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 19)))]: {
+      status: "absent",
+      marked: true,
+    }, // 19 days ago
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 20)))]: {
+      status: "present",
+      marked: true,
+    }, // 20 days ago
+
+    // Additional future planned absences/leaves
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 1)))]: {
+      status: "present",
+      marked: true,
+    },
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 2)))]: {
+      status: "absent",
+      marked: true,
+    },
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 3)))]: {
+      status: "late",
+      marked: true,
+    },
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 5)))]: {
+      status: "leave",
+      marked: true,
+    },
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 6)))]: {
+      status: "leave",
+      marked: true,
+    },
+    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 10)))]: {
+      status: "holiday",
+      marked: true,
+    },
   });
+
+  // Helper function to normalize date to YYYY-MM-DD format
+  function normalizeDate(date: Date): string {
+    return date.toISOString().split("T")[0];
+  }
 
   // Generate marked dates in the format required by the calendar
   const getMarkedDates = useCallback(() => {
     const markedDates: any = {};
 
     Object.entries(attendanceData).forEach(([date, data]) => {
-      let dotColor = statusColors[data.status];
+      const color = statusColors[data.status];
 
+      // Create a minimal, elegant indicator
       markedDates[date] = {
-        marked: true,
-        dotColor,
+        customStyles: {
+          container: {
+            borderRadius: 8,
+          },
+          text: {
+            color: "#333",
+          },
+          // Small dot indicator in top right corner
+          dotView: {
+            position: "absolute",
+            top: 3,
+            right: 3,
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: color,
+          },
+        },
       };
     });
 
     return markedDates;
-  }, [attendanceData]);
+  }, [attendanceData, statusColors]);
 
   // Check for leave application success message from the apply leave screen
   useEffect(() => {
@@ -184,11 +290,52 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
         <ScrollView>
           <View style={styles.calendarContainer}>
             <Calendar
+              markingType="custom"
               markedDates={getMarkedDates()}
+              hideExtraDays={true}
+              enableSwipeMonths={true}
+              renderDay={(day, item) => {
+                if (!day) return null; // Removed check for item
+                const dateString = day.dateString;
+                const data = attendanceData[dateString];
+                const isToday = dateString === normalizeDate(new Date());
+                return (
+                  <View
+                    style={[
+                      styles.dayContainer,
+                      isToday && styles.todayContainer,
+                    ]}
+                  >
+                    <Text style={[styles.dayText, isToday && styles.todayText]}>
+                      {day.day}
+                    </Text>
+                    {data && (
+                      <View
+                        style={[
+                          styles.statusIndicator,
+                          { backgroundColor: statusColors[data.status] },
+                        ]}
+                      />
+                    )}
+                  </View>
+                );
+              }}
               theme={{
-                selectedDayBackgroundColor: primary,
+                calendarBackground: "#fff",
                 todayTextColor: primary,
-                dotStyle: { marginBottom: 3 },
+                arrowColor: primary,
+                monthTextColor: "#333",
+                textDayFontFamily: Typography.fontFamily.primary,
+                textMonthFontFamily: Typography.fontWeight.semiBold.primary,
+                textDayHeaderFontFamily: Typography.fontWeight.medium.primary,
+                "stylesheet.day.basic": {
+                  base: {
+                    width: 40,
+                    height: 40,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                },
               }}
             />
 
@@ -512,5 +659,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
     color: "#333",
+  },
+  dayContainer: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  todayContainer: {
+    borderWidth: 2,
+    borderColor: primary,
+    borderRadius: 20,
+  },
+  dayText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  todayText: {
+    fontWeight: "bold",
+    color: primary,
+  },
+  statusIndicator: {
+    position: "absolute",
+    top: 3,
+    right: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
