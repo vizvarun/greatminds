@@ -47,212 +47,117 @@ export default function TeacherDashboard() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
+  const branches = [
+    {
+      id: "1",
+      name: "Main Campus",
+      address: "123 Education St, New York",
+      classes: 12,
+    },
+    {
+      id: "2",
+      name: "East Wing",
+      address: "456 Learning Ave, New York",
+      classes: 8,
+    },
+    {
+      id: "3",
+      name: "West Campus",
+      address: "789 School Road, New York",
+      classes: 10,
+    },
+  ];
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={["bottom"]}>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.header}>
-          <Text style={styles.welcomeText}>Welcome, Teacher!</Text>
-          <Text style={styles.subtitle}>Manage your classes and students</Text>
-        </View>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>Welcome, Teacher!</Text>
+        <Text style={styles.subtitle}>Manage your classes and students</Text>
+      </View>
 
-        <View style={styles.statsSection}>
-          <Text style={styles.sectionSubTitle}>Today's Summary</Text>
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>3</Text>
-              <Text style={styles.statLabel}>Classes Today</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>78</Text>
-              <Text style={styles.statLabel}>Students</Text>
-            </View>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>5</Text>
-              <Text style={styles.statLabel}>Pending Tasks</Text>
-            </View>
+      <View style={styles.statsSection}>
+        <Text style={styles.sectionSubTitle}>Today's Summary</Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>3</Text>
+            <Text style={styles.statLabel}>Classes Today</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>78</Text>
+            <Text style={styles.statLabel}>Students</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>5</Text>
+            <Text style={styles.statLabel}>Pending Tasks</Text>
           </View>
         </View>
+      </View>
 
-        <View style={styles.classSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Today's Schedule</Text>
-            <TouchableOpacity onPress={() => router.push("/(teacher)/classes")}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
+      <View style={styles.branchesSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Your School Branches</Text>
+          <TouchableOpacity>
+            <Text style={styles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.classCard}>
-            <View style={styles.classTimeContainer}>
-              <Text style={styles.classTime}>9:00 AM</Text>
-              <Text style={styles.classDuration}>90 min</Text>
+        {branches.map((branch) => (
+          <TouchableOpacity
+            key={branch.id}
+            style={styles.branchCard}
+            onPress={() =>
+              router.push(`/(teacher)/branches/${branch.id}/grades`)
+            }
+          >
+            <View style={styles.branchIconContainer}>
+              <MaterialCommunityIcons
+                name="school-outline"
+                size={24}
+                color={primary}
+              />
             </View>
-            <View style={styles.classDetails}>
-              <Text style={styles.className}>Mathematics - Grade 5</Text>
-              <Text style={styles.classRoom}>
+            <View style={styles.branchDetails}>
+              <Text style={styles.branchName}>{branch.name}</Text>
+              <Text style={styles.branchAddress}>
                 <MaterialCommunityIcons
                   name="map-marker-outline"
                   size={14}
                   color="#666"
                 />{" "}
-                Room 105
+                {branch.address}
               </Text>
-              <View style={styles.classStatsContainer}>
-                <Text style={styles.classStats}>
+              <View style={styles.branchStatsContainer}>
+                <Text style={styles.branchStats}>
                   <MaterialCommunityIcons
-                    name="account-group-outline"
+                    name="google-classroom"
                     size={14}
                     color="#666"
                   />{" "}
-                  28 Students
-                </Text>
-                <Text style={styles.classStats}>
-                  <MaterialCommunityIcons
-                    name="clipboard-check-outline"
-                    size={14}
-                    color="#666"
-                  />{" "}
-                  1 Assignment
+                  {branch.classes} Classes
                 </Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.classActionButton}>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={22}
-                color={primary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.classCard}>
-            <View style={styles.classTimeContainer}>
-              <Text style={styles.classTime}>11:00 AM</Text>
-              <Text style={styles.classDuration}>90 min</Text>
-            </View>
-            <View style={styles.classDetails}>
-              <Text style={styles.className}>Science - Grade 6</Text>
-              <Text style={styles.classRoom}>
-                <MaterialCommunityIcons
-                  name="map-marker-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                Lab 2
-              </Text>
-              <View style={styles.classStatsContainer}>
-                <Text style={styles.classStats}>
-                  <MaterialCommunityIcons
-                    name="account-group-outline"
-                    size={14}
-                    color="#666"
-                  />{" "}
-                  32 Students
-                </Text>
-                <Text style={styles.classStats}>
-                  <MaterialCommunityIcons
-                    name="clipboard-check-outline"
-                    size={14}
-                    color="#666"
-                  />{" "}
-                  2 Assignments
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.classActionButton}>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={22}
-                color={primary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.classCard}>
-            <View style={styles.classTimeContainer}>
-              <Text style={styles.classTime}>2:00 PM</Text>
-              <Text style={styles.classDuration}>90 min</Text>
-            </View>
-            <View style={styles.classDetails}>
-              <Text style={styles.className}>English - Grade 5</Text>
-              <Text style={styles.classRoom}>
-                <MaterialCommunityIcons
-                  name="map-marker-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                Room 103
-              </Text>
-              <View style={styles.classStatsContainer}>
-                <Text style={styles.classStats}>
-                  <MaterialCommunityIcons
-                    name="account-group-outline"
-                    size={14}
-                    color="#666"
-                  />{" "}
-                  30 Students
-                </Text>
-                <Text style={styles.classStats}>
-                  <MaterialCommunityIcons
-                    name="clipboard-check-outline"
-                    size={14}
-                    color="#666"
-                  />{" "}
-                  No Assignments
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.classActionButton}>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={22}
-                color={primary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.actionsSection}>
-          <Text style={styles.sectionSubTitle}>Quick Actions</Text>
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push("/(teacher)/assignments/create")}
-            >
-              <MaterialCommunityIcons
-                name="clipboard-plus-outline"
-                size={22}
-                color="#fff"
-              />
-              <Text style={styles.actionButtonText}>Create Assignment</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => router.push("/(teacher)/classes/attendance")}
-            >
-              <MaterialCommunityIcons
-                name="account-check-outline"
-                size={22}
-                color="#fff"
-              />
-              <Text style={styles.actionButtonText}>Take Attendance</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <CustomAlert
-          visible={alert.visible}
-          title={alert.title}
-          message={alert.message}
-          type={alert.type}
-          onConfirm={hideAlert}
-        />
-      </ScrollView>
-    </SafeAreaView>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={22}
+              color={primary}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onConfirm={hideAlert}
+      />
+    </ScrollView>
   );
 }
 
@@ -336,74 +241,60 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
   },
-  classSection: {
+  branchesSection: {
     marginTop: 25,
     paddingHorizontal: 20,
   },
-  classCard: {
+  branchCard: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
     flexDirection: "row",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
-  classTimeContainer: {
+  branchIconContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "rgba(11, 181, 191, 0.1)",
-    borderRadius: 8,
-    padding: 10,
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
     marginRight: 15,
-    width: 70,
   },
-  classTime: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.bold.primary,
-    color: primary,
-    marginBottom: 2,
-  },
-  classDuration: {
-    fontSize: 12,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: primary,
-  },
-  classDetails: {
+  branchDetails: {
     flex: 1,
   },
-  className: {
+  branchName: {
     fontSize: 16,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
     marginBottom: 4,
   },
-  classRoom: {
+  branchAddress: {
     fontSize: 13,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
     marginBottom: 6,
   },
-  classStatsContainer: {
+  branchStatsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  classStats: {
+  branchStats: {
     fontSize: 13,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
   },
-  classActionButton: {
-    justifyContent: "center",
-    alignItems: "center",
-    width: 40,
-  },
   actionsSection: {
     marginTop: 25,
     paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   actionButtonsContainer: {
     flexDirection: "row",

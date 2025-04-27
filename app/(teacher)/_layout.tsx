@@ -1,21 +1,70 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Redirect, router, Slot } from "expo-router";
+import { Redirect, router, Slot, usePathname } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Text,
-  ScrollView,
-} from "react-native";
+import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import CustomAlert from "@/components/ui/CustomAlert";
 
 export default function TeacherLayout() {
   const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
     useAuth();
+  const pathname = usePathname();
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "warning" as "success" | "error" | "info" | "warning",
+  });
+
+  // Determine if we're on the main dashboard with explicit debugging
+  console.log("Current pathname:", pathname);
+  const isDashboard =
+    pathname === "/(teacher)/dashboard" ||
+    pathname === "/(teacher)" ||
+    pathname === "/" ||
+    pathname === "/dashboard";
+
+  // Get screen title based on the current path
+  const getScreenTitle = () => {
+    if (isDashboard) return "Teacher Dashboard";
+    if (pathname.includes("/branches")) return "School Branches";
+    if (pathname.includes("/grades")) return "Grade Sections";
+    if (pathname.includes("/tracker")) return "Attendance Tracker";
+    if (pathname.includes("/diary")) return "Class Diary";
+    if (pathname.includes("/diary/add")) return "Add Diary Entry";
+    if (pathname.includes("/timetable")) return "Class Timetable";
+    if (pathname.includes("/support")) return "Support";
+    return "Teacher Portal";
+  };
+
+  const getHeaderRight = () => {
+    return (
+      <View style={{ flexDirection: "row" }}>
+        <TouchableOpacity
+          style={[styles.headerButton, { marginRight: 10 }]}
+          onPress={() => router.push("/(teacher)/support")}
+        >
+          <MaterialCommunityIcons name="lifebuoy" size={24} color={primary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() =>
+            setAlert({
+              visible: true,
+              title: "Logout",
+              message: "Are you sure you want to logout?",
+              type: "warning",
+            })
+          }
+        >
+          <MaterialCommunityIcons name="logout" size={24} color={primary} />
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   // Show loading state or redirect if not authenticated
   if (isLoading) {
@@ -45,7 +94,21 @@ export default function TeacherLayout() {
     }
   };
 
-  const handleLogout = async () => {
+  const showConfirmLogout = () => {
+    setAlert({
+      visible: true,
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out?",
+      type: "warning",
+    });
+  };
+
+  const hideAlert = () => {
+    setAlert((prev) => ({ ...prev, visible: false }));
+  };
+
+  const confirmLogout = async () => {
+    hideAlert();
     try {
       await logout();
       router.replace("/(auth)/login");
@@ -54,50 +117,106 @@ export default function TeacherLayout() {
     }
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
+  const handleSupportPress = () => {
+    router.push("/(teacher)/support");
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Custom Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Teacher Dashboard</Text>
+          <Text style={styles.headerTitle}>{getScreenTitle()}</Text>
         </View>
         <View style={styles.headerRightContainer}>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push("/(teacher)/notifications")}
+          >
             <MaterialCommunityIcons
               name="bell-outline"
               size={24}
               color={primary}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={handleSupportPress}
+          >
+            <MaterialCommunityIcons
+              name="help-circle-outline"
+              size={24}
+              color={primary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={showConfirmLogout}
+          >
             <MaterialCommunityIcons name="logout" size={24} color="#e74c3c" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Main Content Area with ScrollView to enable scrolling */}
-      <ScrollView style={styles.contentContainer}>
-        {/* Role Switcher */}
-        <TouchableOpacity
-          style={styles.roleSwitcher}
-          onPress={handleSwitchRole}
-        >
-          <View style={styles.roleSwitcherContent}>
+      {/* Main Content Area */}
+      <View style={styles.contentContainer}>
+        {isDashboard ? (
+          /* Role Switcher - only shown on dashboard */
+          <TouchableOpacity
+            style={styles.roleSwitcher}
+            onPress={handleSwitchRole}
+          >
+            <View style={styles.roleSwitcherContent}>
+              <MaterialCommunityIcons
+                name="account-switch"
+                size={22}
+                color={primary}
+              />
+              <Text style={styles.switchRoleText}>Switch to Parent Mode</Text>
+            </View>
             <MaterialCommunityIcons
-              name="account-switch"
+              name="chevron-right"
               size={22}
-              color={primary}
+              color="#999"
             />
-            <Text style={styles.switchRoleText}>Switch to Parent Mode</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color="#999" />
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ) : (
+          /* Internal Screen Header with Back Button */
+          <TouchableOpacity
+            style={styles.internalHeader}
+            onPress={handleGoBack}
+          >
+            <View style={styles.internalHeaderContent}>
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={22}
+                color={primary}
+              />
+              <Text style={styles.internalHeaderText}>Go Back</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
-        {/* Content */}
+        {/* Content - Render Slot directly without ScrollView */}
         <View style={styles.slotContainer}>
           <Slot />
         </View>
-      </ScrollView>
+      </View>
+
+      {/* Confirmation Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onConfirm={confirmLogout}
+        onCancel={hideAlert}
+        showCancelButton={true}
+      />
     </SafeAreaView>
   );
 }
@@ -161,6 +280,26 @@ const styles = StyleSheet.create({
     color: "#444",
     fontFamily: Typography.fontWeight.medium.primary,
   },
+  internalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eaeaea",
+    marginBottom: 8,
+  },
+  internalHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  internalHeaderText: {
+    fontSize: 15,
+    marginLeft: 10,
+    color: primary,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
   contentContainer: {
     flex: 1,
     backgroundColor: "#f5f5f5",
@@ -168,40 +307,7 @@ const styles = StyleSheet.create({
   slotContainer: {
     flex: 1,
   },
-  drawerContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  drawerItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  drawerItemFocused: {
-    backgroundColor: "#e6f7ff",
-  },
-  drawerLabel: {
-    marginLeft: 16,
-    fontSize: 16,
-    color: "#666",
-  },
-  drawerLabelFocused: {
-    color: primary,
-  },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#ddd",
-    marginTop: "auto",
-    backgroundColor: "#f8f8f8",
-  },
-  logoutText: {
-    marginLeft: 16,
-    fontSize: 16,
-    color: "#e74c3c",
-    fontFamily: Typography.fontWeight.medium.primary,
+  headerButton: {
+    padding: 8,
   },
 });

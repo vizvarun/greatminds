@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Redirect, router, Slot, usePathname } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -12,11 +12,18 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import CustomAlert from "@/components/ui/CustomAlert";
 
 export default function ParentLayout() {
   const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
     useAuth();
   const pathname = usePathname();
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "warning" as "success" | "error" | "info" | "warning",
+  });
 
   // Check if current path is a child details screen or leave application screen
   const isChildDetailsScreen = pathname.includes("/children/details/");
@@ -51,7 +58,21 @@ export default function ParentLayout() {
     }
   };
 
-  const handleLogout = async () => {
+  const showConfirmLogout = () => {
+    setAlert({
+      visible: true,
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out?",
+      type: "warning",
+    });
+  };
+
+  const hideAlert = () => {
+    setAlert((prev) => ({ ...prev, visible: false }));
+  };
+
+  const confirmLogout = async () => {
+    hideAlert();
     try {
       await logout();
       router.replace("/(auth)/login");
@@ -81,7 +102,17 @@ export default function ParentLayout() {
               color={primary}
             />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
+          <TouchableOpacity style={styles.iconButton}>
+            <MaterialCommunityIcons
+              name="help-circle-outline"
+              size={24}
+              color={primary}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={showConfirmLogout}
+          >
             <MaterialCommunityIcons name="logout" size={24} color="#e74c3c" />
           </TouchableOpacity>
         </View>
@@ -110,6 +141,17 @@ export default function ParentLayout() {
           <Slot />
         </View>
       </View>
+
+      {/* Confirmation Alert */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onConfirm={confirmLogout}
+        onCancel={hideAlert}
+        showCancelButton={true}
+      />
     </SafeAreaView>
   );
 }

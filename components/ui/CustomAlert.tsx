@@ -1,208 +1,168 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   StyleSheet,
   View,
   Text,
-  TouchableOpacity,
   Modal,
-  Keyboard,
-  Dimensions,
-  Animated,
+  TouchableOpacity,
   TouchableWithoutFeedback,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 
-interface CustomAlertProps {
+type AlertProps = {
   visible: boolean;
   title: string;
   message: string;
-  confirmText?: string;
-  cancelText?: string;
+  type: "success" | "error" | "info" | "warning";
   onConfirm: () => void;
   onCancel?: () => void;
-  type?: "success" | "error" | "info" | "warning";
-}
+  showCancelButton?: boolean;
+  cancelable?: boolean;
+};
 
-const { width } = Dimensions.get("window");
-
-export default function CustomAlert({
+const CustomAlert = ({
   visible,
   title,
   message,
-  confirmText = "OK",
-  cancelText,
+  type,
   onConfirm,
   onCancel,
-  type = "info",
-}: CustomAlertProps) {
-  const animation = new Animated.Value(0);
-
-  useEffect(() => {
-    if (visible) {
-      // Dismiss keyboard when alert appears
-      Keyboard.dismiss();
-
-      // Animate in
-      Animated.spring(animation, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 70,
-        friction: 10,
-      }).start();
-    } else {
-      // Animate out
-      Animated.timing(animation, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
-
-  // Color based on alert type - more subtle colors
-  const getColor = () => {
-    switch (type) {
-      case "success":
-        return "#69c779"; // softer green
-      case "error":
-        return "#f87171"; // softer red
-      case "warning":
-        return "#fbbf24"; // softer yellow
-      default:
-        return primary;
-    }
+  showCancelButton = false,
+  cancelable = true,
+}: AlertProps) => {
+  // Set the appropriate icon and color based on alert type
+  const alertConfig = {
+    success: {
+      icon: "check-circle",
+      color: "#4CAF50",
+    },
+    error: {
+      icon: "close-circle",
+      color: "#F44336",
+    },
+    info: {
+      icon: "information",
+      color: primary,
+    },
+    warning: {
+      icon: "alert",
+      color: "#FF9800",
+    },
   };
 
-  const alertColor = getColor();
-
-  const translateY = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [100, 0],
-  });
-
-  const opacity = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
-  // Don't render anything if not visible
-  if (!visible) return null;
+  const { icon, color } = alertConfig[type];
 
   return (
-    <Modal visible={true} transparent animationType="none">
-      <TouchableWithoutFeedback onPress={onCancel || onConfirm}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <Animated.View
-              style={[
-                styles.alertContainer,
-                {
-                  opacity,
-                  transform: [{ translateY }],
-                },
-              ]}
-            >
-              <View style={styles.content}>
-                <Text style={[styles.title, { color: alertColor }]}>
-                  {title}
-                </Text>
-                <Text style={styles.message}>{message}</Text>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="fade"
+      onRequestClose={cancelable ? onCancel : undefined}
+    >
+      <TouchableWithoutFeedback onPress={cancelable ? onCancel : undefined}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.modalContainer}>
+              <View style={styles.iconContainer}>
+                <MaterialCommunityIcons name={icon} size={40} color={color} />
               </View>
+
+              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.message}>{message}</Text>
+
               <View style={styles.buttonContainer}>
-                {cancelText && (
+                {showCancelButton && (
                   <TouchableOpacity
                     style={[styles.button, styles.cancelButton]}
                     onPress={onCancel}
                   >
-                    <Text style={styles.cancelText}>{cancelText}</Text>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 )}
+
                 <TouchableOpacity
                   style={[
                     styles.button,
                     styles.confirmButton,
-                    { flex: cancelText ? 1 : 2 },
+                    { backgroundColor: color },
                   ]}
                   onPress={onConfirm}
                 >
-                  <Text style={[styles.confirmText, { color: alertColor }]}>
-                    {confirmText}
+                  <Text style={styles.confirmButtonText}>
+                    {type === "info" && showCancelButton ? "Confirm" : "OK"}
                   </Text>
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
     </Modal>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
-  alertContainer: {
-    width: width * 0.85,
-    backgroundColor: "white",
+  modalContainer: {
+    width: "80%",
+    backgroundColor: "#fff",
     borderRadius: 12,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-    maxHeight: "80%",
+    padding: 24,
+    alignItems: "center",
   },
-  content: {
-    padding: 20,
+  iconContainer: {
+    marginBottom: 16,
   },
   title: {
-    fontSize: 17,
-    fontFamily: Typography.fontWeight.bold.primary,
-    marginBottom: 10,
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginBottom: 8,
     textAlign: "center",
   },
   message: {
     fontSize: 15,
-    color: "#555",
     fontFamily: Typography.fontFamily.primary,
+    color: "#666",
     textAlign: "center",
-    lineHeight: 22,
+    marginBottom: 24,
   },
   buttonContainer: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    justifyContent: "center",
+    width: "100%",
   },
   button: {
-    flex: 1,
-    padding: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    minWidth: 100,
     alignItems: "center",
-    justifyContent: "center",
-  },
-  cancelButton: {
-    borderRightWidth: 0.5,
-    borderRightColor: "#f0f0f0",
   },
   confirmButton: {
-    borderLeftWidth: 0.5,
-    borderLeftColor: "#f0f0f0",
+    backgroundColor: primary,
   },
-  cancelText: {
-    color: "#777",
-    fontSize: 15,
+  confirmButtonText: {
+    color: "#fff",
+    fontSize: 16,
     fontFamily: Typography.fontWeight.medium.primary,
   },
-  confirmText: {
-    fontSize: 15,
-    fontFamily: Typography.fontWeight.bold.primary,
+  cancelButton: {
+    backgroundColor: "#f5f5f5",
+    marginRight: 10,
+  },
+  cancelButtonText: {
+    color: "#666",
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.medium.primary,
   },
 });
+
+export default CustomAlert;
