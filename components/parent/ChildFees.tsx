@@ -9,6 +9,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
+import { router } from "expo-router";
 
 type Props = {
   childId: string;
@@ -96,7 +97,15 @@ export default function ChildFees({ childId, showAlert }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>School Fees</Text>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>School Fees</Text>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollContainer}>
@@ -238,6 +247,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
   },
   title: {
     fontSize: 18,

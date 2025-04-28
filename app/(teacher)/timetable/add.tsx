@@ -16,7 +16,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import CustomAlert from "@/components/ui/CustomAlert";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from "@react-native-community/datetimepicker";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 
@@ -94,52 +96,95 @@ export default function AddTimetableEntryScreen() {
   const handleStartTimePress = () => {
     setShowEndTimePicker(false);
     setTempStartTime(formData.startTime);
-    setShowStartTimePicker(true);
+
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: formData.startTime,
+        mode: "time",
+        display: "default", // Use default for material design clock
+        is24Hour: false,
+        onChange: (event, selectedTime) => {
+          if (event.type === "set" && selectedTime) {
+            const newStartTime = selectedTime;
+
+            let newEndTime = formData.endTime;
+            // If the new start time is after or equal to end time, adjust end time
+            if (newStartTime >= formData.endTime) {
+              newEndTime = new Date(newStartTime);
+              newEndTime.setMinutes(newEndTime.getMinutes() + 45); // Default to 45 minutes period
+            }
+
+            setFormData({
+              ...formData,
+              startTime: newStartTime,
+              endTime: newEndTime,
+            });
+          }
+        },
+        positiveButtonLabel: "Confirm",
+        negativeButtonLabel: "Cancel",
+        accentColor: primary,
+      });
+    } else {
+      setShowStartTimePicker(true);
+    }
   };
 
   const handleEndTimePress = () => {
     setShowStartTimePicker(false);
     setTempEndTime(formData.endTime);
-    setShowEndTimePicker(true);
+
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: formData.endTime,
+        mode: "time",
+        display: "default", // Use default for material design clock
+        is24Hour: false,
+        onChange: (event, selectedTime) => {
+          if (event.type === "set" && selectedTime) {
+            // Ensure end time is after start time
+            if (selectedTime <= formData.startTime) {
+              const validEndTime = new Date(formData.startTime.getTime());
+              validEndTime.setMinutes(validEndTime.getMinutes() + 45); // Add 45 minutes to start time
+              setFormData({ ...formData, endTime: validEndTime });
+              showAlert(
+                "Invalid Time",
+                "End time must be after start time",
+                "error"
+              );
+            } else {
+              setFormData({ ...formData, endTime: selectedTime });
+            }
+          }
+        },
+        positiveButtonLabel: "Confirm",
+        negativeButtonLabel: "Cancel",
+        accentColor: primary,
+      });
+    } else {
+      setShowEndTimePicker(true);
+    }
   };
 
   const handleStartTimeChange = (event: any, selectedTime?: Date) => {
+    const currentTime = selectedTime || formData.startTime;
+
     if (Platform.OS === "android") {
-      setShowStartTimePicker(false);
-      if (selectedTime) {
-        const newStartTime = selectedTime;
-
-        let newEndTime = formData.endTime;
-        // If the new start time is after or equal to end time, adjust end time
-        if (newStartTime >= formData.endTime) {
-          newEndTime = new Date(newStartTime);
-          newEndTime.setMinutes(newEndTime.getMinutes() + 45); // Default to 45 minutes period
-        }
-
-        setFormData({
-          ...formData,
-          startTime: newStartTime,
-          endTime: newEndTime,
-        });
-      }
-    } else if (selectedTime) {
-      setTempStartTime(selectedTime);
+      // This function will not be used for Android anymore
+      // It's handled directly in the DateTimePickerAndroid.open call
+    } else {
+      setTempStartTime(currentTime);
     }
   };
 
   const handleEndTimeChange = (event: any, selectedTime?: Date) => {
-    if (Platform.OS === "android") {
-      setShowEndTimePicker(false);
-      if (selectedTime) {
-        const validEndTime =
-          selectedTime <= formData.startTime
-            ? new Date(formData.startTime.getTime() + 45 * 60000) // Add 45 minutes to start time
-            : selectedTime;
+    const currentTime = selectedTime || formData.endTime;
 
-        setFormData({ ...formData, endTime: validEndTime });
-      }
-    } else if (selectedTime) {
-      setTempEndTime(selectedTime);
+    if (Platform.OS === "android") {
+      // This function will not be used for Android anymore
+      // It's handled directly in the DateTimePickerAndroid.open call
+    } else {
+      setTempEndTime(currentTime);
     }
   };
 
@@ -361,84 +406,87 @@ export default function AddTimetableEntryScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Start Time Modal Picker */}
-      <Modal
-        transparent={true}
-        visible={showStartTimePicker}
-        animationType="fade"
-        onRequestClose={() => setShowStartTimePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Start Time</Text>
-            <DateTimePicker
-              value={tempStartTime || formData.startTime}
-              mode="time"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleStartTimeChange}
-              style={styles.dateTimePicker}
-              textColor="#000000"
-              themeVariant="light"
-              minuteInterval={5}
-              accentColor={primary}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setShowStartTimePicker(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={confirmStartTime}
-              >
-                <Text style={styles.confirmButtonText}>Confirm</Text>
-              </TouchableOpacity>
+      {/* Start Time Picker - iOS modal only, Android uses imperative API */}
+      {showStartTimePicker && Platform.OS === "ios" && (
+        <Modal
+          transparent={true}
+          visible={showStartTimePicker}
+          animationType="fade"
+          onRequestClose={() => setShowStartTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Start Time</Text>
+              <DateTimePicker
+                value={tempStartTime || formData.startTime}
+                mode="time"
+                display="spinner"
+                onChange={handleStartTimeChange}
+                style={styles.dateTimePicker}
+                textColor="#000000"
+                themeVariant="light"
+                minuteInterval={5}
+                accentColor={primary}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowStartTimePicker(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={confirmStartTime}
+                >
+                  <Text style={styles.confirmButtonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
 
-      {/* End Time Modal Picker */}
-      <Modal
-        transparent={true}
-        visible={showEndTimePicker}
-        animationType="fade"
-        onRequestClose={() => setShowEndTimePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select End Time</Text>
-            <DateTimePicker
-              value={tempEndTime || formData.endTime}
-              mode="time"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleEndTimeChange}
-              style={styles.dateTimePicker}
-              textColor="#000000"
-              themeVariant="light"
-              minuteInterval={5}
-              accentColor={primary}
-              minimumDate={formData.startTime} // Not effective for time mode, handled in our code
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setShowEndTimePicker(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={confirmEndTime}
-              >
-                <Text style={styles.confirmButtonText}>Confirm</Text>
-              </TouchableOpacity>
+      {/* End Time Picker - iOS modal only, Android uses imperative API */}
+      {showEndTimePicker && Platform.OS === "ios" && (
+        <Modal
+          transparent={true}
+          visible={showEndTimePicker}
+          animationType="fade"
+          onRequestClose={() => setShowEndTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select End Time</Text>
+              <DateTimePicker
+                value={tempEndTime || formData.endTime}
+                mode="time"
+                display="spinner"
+                onChange={handleEndTimeChange}
+                style={styles.dateTimePicker}
+                textColor="#000000"
+                themeVariant="light"
+                minuteInterval={5}
+                accentColor={primary}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowEndTimePicker(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={confirmEndTime}
+                >
+                  <Text style={styles.confirmButtonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Add keyboard dismiss bar for iOS */}
       {Platform.OS === "ios" && (
@@ -525,9 +573,10 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontWeight.medium.primary,
   },
   dateTimePicker: {
-    width: Platform.OS === "ios" ? "100%" : 320,
-    height: Platform.OS === "ios" ? 200 : "auto",
+    width: "100%",
+    height: 200,
     marginVertical: 10,
+    backgroundColor: Platform.OS === "android" ? "#fff" : undefined,
   },
   modalOverlay: {
     flex: 1,

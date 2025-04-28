@@ -49,6 +49,18 @@ export default function ParentDashboard() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
+  const navigateToAttendance = (childId: string) => {
+    router.push(`/(parent)/children/attendance/${childId}`);
+  };
+
+  const navigateToDiary = (childId: string) => {
+    router.push(`/(parent)/children/diary/${childId}`);
+  };
+
+  const navigateToTimetable = (childId: string) => {
+    router.push(`/(parent)/children/timetable/${childId}`);
+  };
+
   return (
     <View style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -78,18 +90,91 @@ export default function ParentDashboard() {
                 style={styles.childAvatar}
               />
               <View style={styles.childInfo}>
-                <Text style={styles.childName}>Sarah Johnson</Text>
-                <Text style={styles.childGrade}>Grade 5-A</Text>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progress, { width: "75%" }]} />
+                <View style={styles.childHeaderRow}>
+                  <Text style={styles.childName}>Sarah Brandon</Text>
+                  <View style={styles.attendanceIndicator}>
+                    <MaterialCommunityIcons
+                      name="calendar-check"
+                      size={14}
+                      color="#4CAF50"
+                    />
+                    <Text style={styles.attendanceText}>95%</Text>
+                  </View>
                 </View>
-                <Text style={styles.progressText}>Academic Progress: 75%</Text>
+
+                <View style={styles.childDetailsRow}>
+                  <Text
+                    style={styles.childGrade}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Grade 5-A • Main Campus
+                  </Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>Present today</Text>
+                  </View>
+                </View>
+
+                <View style={styles.quickActionsRow}>
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToAttendance("1")}
+                  >
+                    <MaterialCommunityIcons
+                      name="clipboard-check-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToDiary("1")}
+                  >
+                    <MaterialCommunityIcons
+                      name="notebook-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToTimetable("1")}
+                  >
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.quickActionButton, styles.viewDetailsButton]}
+                    onPress={() => router.push("/(parent)/children/details/1")}
+                  >
+                    <Text style={styles.viewDetailsText}>View Details</Text>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={16}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.notificationsContainer}>
+                  <View style={styles.notificationItem}>
+                    <MaterialCommunityIcons
+                      name="bell-ring-outline"
+                      size={14}
+                      color="#FF9800"
+                    />
+                    <Text style={styles.notificationText}>
+                      Math test tomorrow
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={24}
-                color="#ccc"
-              />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -101,34 +186,191 @@ export default function ParentDashboard() {
                 style={styles.childAvatar}
               />
               <View style={styles.childInfo}>
-                <Text style={styles.childName}>Michael Johnson</Text>
-                <Text style={styles.childGrade}>Grade 3-B</Text>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progress, { width: "60%" }]} />
+                <View style={styles.childHeaderRow}>
+                  <Text style={styles.childName}>Michael Johnson</Text>
+                  <View style={styles.attendanceIndicator}>
+                    <MaterialCommunityIcons
+                      name="calendar-check"
+                      size={14}
+                      color="#FF9800"
+                    />
+                    <Text style={styles.attendanceText}>87%</Text>
+                  </View>
                 </View>
-                <Text style={styles.progressText}>Academic Progress: 60%</Text>
+
+                <View style={styles.childDetailsRow}>
+                  <Text
+                    style={styles.childGrade}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Grade 3-B • East Wing
+                  </Text>
+                  <View style={[styles.statusBadge, styles.absentBadge]}>
+                    <Text style={[styles.statusText, styles.absentText]}>
+                      Absent today
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.quickActionsRow}>
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToAttendance("2")}
+                  >
+                    <MaterialCommunityIcons
+                      name="clipboard-check-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToDiary("2")}
+                  >
+                    <MaterialCommunityIcons
+                      name="notebook-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToTimetable("2")}
+                  >
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.quickActionButton, styles.viewDetailsButton]}
+                    onPress={() => router.push("/(parent)/children/details/2")}
+                  >
+                    <Text style={styles.viewDetailsText}>View Details</Text>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={16}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.notificationsContainer}>
+                  <View style={styles.notificationItem}>
+                    <MaterialCommunityIcons
+                      name="file-document-outline"
+                      size={14}
+                      color="#F44336"
+                    />
+                    <Text style={styles.notificationText}>
+                      2 pending assignments
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={24}
-                color="#ccc"
-              />
             </TouchableOpacity>
 
+            {/* New child with long school name */}
             <TouchableOpacity
-              style={styles.addChildCard}
-              onPress={() =>
-                showAlert(
-                  "Add Child",
-                  "Feature coming soon. You'll be able to add your child once their school provides the access code.",
-                  "info"
-                )
-              }
+              style={styles.childCard}
+              onPress={() => router.push("/(parent)/children/details/3")}
             >
-              <View style={styles.addChildIcon}>
-                <MaterialCommunityIcons name="plus" size={30} color={primary} />
+              <Image
+                source={require("@/assets/images/onboarding.png")}
+                style={styles.childAvatar}
+              />
+              <View style={styles.childInfo}>
+                <View style={styles.childHeaderRow}>
+                  <Text style={styles.childName}>Elizabeth Williamson</Text>
+                  <View style={styles.attendanceIndicator}>
+                    <MaterialCommunityIcons
+                      name="calendar-check"
+                      size={14}
+                      color="#4CAF50"
+                    />
+                    <Text style={styles.attendanceText}>91%</Text>
+                  </View>
+                </View>
+
+                <View style={styles.childDetailsRow}>
+                  <Text
+                    style={styles.childGrade}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Grade 4-C • International School of Excellence and
+                    Leadership Academy
+                  </Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>Present today</Text>
+                  </View>
+                </View>
+
+                <View style={styles.quickActionsRow}>
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToAttendance("3")}
+                  >
+                    <MaterialCommunityIcons
+                      name="clipboard-check-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToDiary("3")}
+                  >
+                    <MaterialCommunityIcons
+                      name="notebook-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.quickActionButton}
+                    onPress={() => navigateToTimetable("3")}
+                  >
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={18}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.quickActionButton, styles.viewDetailsButton]}
+                    onPress={() => router.push("/(parent)/children/details/3")}
+                  >
+                    <Text style={styles.viewDetailsText}>View Details</Text>
+                    <MaterialCommunityIcons
+                      name="chevron-right"
+                      size={16}
+                      color={primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.notificationsContainer}>
+                  <View style={styles.notificationItem}>
+                    <MaterialCommunityIcons
+                      name="map-marker-outline"
+                      size={14}
+                      color="#2196F3"
+                    />
+                    <Text style={styles.notificationText}>
+                      Field trip next Friday
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <Text style={styles.addChildText}>Add Child</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -209,24 +451,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 3,
-    width: "100%",
-    marginBottom: 5,
-  },
-  progress: {
-    height: "100%",
-    backgroundColor: primary,
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 10,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
+    flex: 1,
+    marginRight: 8,
   },
   addChildCard: {
     backgroundColor: "#fff",
@@ -258,5 +484,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
+  },
+  childHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  childDetailsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  attendanceIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  attendanceText: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#333",
+    marginLeft: 3,
+  },
+  statusBadge: {
+    backgroundColor: "rgba(76, 175, 80, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  absentBadge: {
+    backgroundColor: "rgba(244, 67, 54, 0.1)",
+  },
+  statusText: {
+    fontSize: 10,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#4CAF50",
+  },
+  absentText: {
+    color: "#F44336",
+  },
+  quickActionsRow: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  quickActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(11, 181, 191, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+  viewDetailsButton: {
+    flex: 1,
+    width: "auto",
+    borderRadius: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: primary,
+  },
+  notificationsContainer: {
+    marginTop: 4,
+  },
+  notificationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  notificationText: {
+    fontSize: 11,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    marginLeft: 4,
   },
 });

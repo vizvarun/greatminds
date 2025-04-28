@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
@@ -64,6 +65,7 @@ export default function SectionDetailsScreen() {
     <View style={styles.container}>
       <ScrollView
         style={styles.contentContainer}
+        contentContainerStyle={styles.scrollContentContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -269,6 +271,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     padding: 16,
+  },
+  scrollContentContainer: {
+    paddingBottom: Platform.OS === "android" ? 30 : 0,
   },
   infoCard: {
     backgroundColor: "#fff",

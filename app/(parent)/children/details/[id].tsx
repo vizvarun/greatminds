@@ -1,213 +1,100 @@
-import React, { useState, useEffect, useRef } from "react";
+import CustomAlert from "@/components/ui/CustomAlert";
+import { Typography } from "@/constants/Typography";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useState } from "react";
 import {
+  RefreshControl,
+  ScrollView,
+  StatusBar,
   StyleSheet,
-  View,
   Text,
   TouchableOpacity,
-  ScrollView,
-  Dimensions,
-  Animated,
+  View,
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
-import ChildAttendance from "@/components/parent/ChildAttendance";
-import ChildDiary from "@/components/parent/ChildDiary";
-import ChildTimetable from "@/components/parent/ChildTimetable";
-import ChildFees from "@/components/parent/ChildFees";
-import ChildSupport from "@/components/parent/ChildSupport";
-import CustomAlert from "@/components/ui/CustomAlert";
-import { StatusBar } from "expo-status-bar";
-
-type TabType = "attendance" | "diary" | "timetable" | "fees" | "support";
-
-type TabItem = {
-  id: TabType;
-  label: string;
-  icon: string;
-};
 
 export default function ChildDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState<TabType>("attendance");
-  const [childData, setChildData] = useState({
-    name: "",
-    enrollmentNumber: "",
-    class: "",
-    section: "",
-  });
+  const { id } = useLocalSearchParams();
+  const [refreshing, setRefreshing] = useState(false);
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
     message: "",
     type: "info" as "success" | "error" | "info" | "warning",
+    onConfirm: () => {},
+    onCancel: () => {},
   });
-  const [showRightIndicator, setShowRightIndicator] = useState(true);
-  const [showLeftIndicator, setShowLeftIndicator] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
 
-  // Animated values for indicator animations
-  const leftArrowAnim = useRef(new Animated.Value(0)).current;
-  const rightArrowAnim = useRef(new Animated.Value(0)).current;
+  // Dummy child data
+  const childData = {
+    id: id as string,
+    name: "Emily Johnson",
+    enrollmentNumber: "EN2023056",
+    class: "Grade 5",
+    section: "Section B",
+    image: null,
+  };
 
-  // Tab configuration
-  const tabs: TabItem[] = [
-    { id: "attendance", label: "Attendance", icon: "calendar-check" },
-    { id: "diary", label: "Diary", icon: "notebook" },
-    { id: "timetable", label: "Timetable", icon: "timetable" },
-    { id: "fees", label: "Fees", icon: "cash" },
-    { id: "support", label: "Support", icon: "lifebuoy" },
-  ];
-
-  useEffect(() => {
-    // Fetch child data - mock data for now
-    if (id === "1") {
-      setChildData({
-        name: "Sarah Johnson",
-        enrollmentNumber: "EN2023005",
-        class: "5",
-        section: "A",
-      });
-    } else if (id === "2") {
-      setChildData({
-        name: "Michael Johnson",
-        enrollmentNumber: "EN2023006",
-        class: "3",
-        section: "B",
-      });
-    }
-  }, [id]);
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
+  }, []);
 
   const showAlert = (
     title: string,
     message: string,
-    type: "success" | "error" | "info" | "warning" = "info"
+    type: "success" | "error" | "info" | "warning" = "info",
+    onConfirm = () => {},
+    onCancel = () => {}
   ) => {
     setAlert({
       visible: true,
       title,
       message,
       type,
+      onConfirm,
+      onCancel,
     });
   };
 
-  const hideAlert = () => {
-    setAlert((prev) => ({ ...prev, visible: false }));
-  };
-
-  const handleTabChange = (tabId: TabType) => {
-    setActiveTab(tabId);
-  };
-
-  // Completely rebuild components on tab change with improved styling for scroll and height issues
-  const renderIsolatedTabContent = () => {
-    switch (activeTab) {
-      case "attendance":
-        return (
-          <View key={`attendance-static`} style={{ flex: 1, height: "100%" }}>
-            <ChildAttendance childId={id} showAlert={showAlert} />
-          </View>
-        );
-      case "diary":
-        return (
-          <View key={`diary-static`} style={{ flex: 1 }}>
-            <ChildDiary childId={id} showAlert={showAlert} />
-          </View>
-        );
-      case "timetable":
-        return (
-          <View key={`timetable-static`} style={styles.timetableContainer}>
-            <ChildTimetable childId={id} />
-          </View>
-        );
-      case "fees":
-        return (
-          <View key={`fees-static`} style={{ flex: 1 }}>
-            <ChildFees childId={id} showAlert={showAlert} />
-          </View>
-        );
-      case "support":
-        return (
-          <View key={`support-static`} style={{ flex: 1 }}>
-            <ChildSupport childId={id} showAlert={showAlert} />
-          </View>
-        );
-      default:
-        return null;
-    }
+  const hideAlert = (confirmed: boolean = false) => {
+    setAlert((prev) => {
+      if (confirmed) {
+        prev.onConfirm();
+      } else {
+        prev.onCancel();
+      }
+      return { ...prev, visible: false };
+    });
   };
 
   const handleBack = () => {
     router.back();
   };
 
-  // Setup arrow animations
-  useEffect(() => {
-    if (showLeftIndicator) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(leftArrowAnim, {
-            toValue: -3,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(leftArrowAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      leftArrowAnim.setValue(0);
-    }
-
-    if (showRightIndicator) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(rightArrowAnim, {
-            toValue: 3,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(rightArrowAnim, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      rightArrowAnim.setValue(0);
-    }
-  }, [showLeftIndicator, showRightIndicator]);
-
-  const handleScroll = (event: any) => {
-    const contentWidth = event.nativeEvent.contentSize.width;
-    const layoutWidth = event.nativeEvent.layoutMeasurement.width;
-    const xOffset = event.nativeEvent.contentOffset.x;
-
-    setShowLeftIndicator(xOffset > 10);
-    setShowRightIndicator(xOffset < contentWidth - layoutWidth - 10);
+  // Card navigation handlers
+  const navigateToAttendance = () => {
+    router.push(`/(parent)/children/attendance/${id}`);
   };
 
-  useEffect(() => {
-    const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
+  const navigateToDiary = () => {
+    router.push(`/(parent)/children/diary/${id}`);
+  };
 
-    if (activeIndex > 1 && scrollViewRef.current) {
-      const tabWidth = 120;
-      const screenWidth = Dimensions.get("window").width;
-      const scrollToX = Math.max(
-        0,
-        activeIndex * tabWidth - screenWidth / 2 + tabWidth / 2
-      );
+  const navigateToTimetable = () => {
+    router.push(`/(parent)/children/timetable/${id}`);
+  };
 
-      scrollViewRef.current.scrollTo({ x: scrollToX, animated: true });
-    }
-  }, [activeTab]);
+  const navigateToFees = () => {
+    router.push(`/(parent)/children/fees/${id}`);
+  };
+
+  const navigateToSupport = () => {
+    router.push(`/(parent)/children/support/${id}`);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -227,87 +114,127 @@ export default function ChildDetailsScreen() {
         </View>
       </View>
 
-      <View style={styles.tabsContainer}>
-        {showLeftIndicator && (
-          <Animated.View
-            style={[
-              styles.leftIndicator,
-              { transform: [{ translateX: leftArrowAnim }] },
-            ]}
+      <ScrollView
+        style={styles.contentContainer}
+        contentContainerStyle={styles.scrollContentContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.actionCardsContainer}>
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={navigateToAttendance}
           >
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={20}
-              color={primary}
-            />
-          </Animated.View>
-        )}
-
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.tabsScrollContainer}
-          contentContainerStyle={styles.tabsContentContainer}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            {
-              useNativeDriver: false,
-              listener: handleScroll,
-            }
-          )}
-          scrollEventThrottle={16}
-        >
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
+            <View
               style={[
-                styles.tabButton,
-                activeTab === tab.id && styles.activeTabButton,
+                styles.actionIconContainer,
+                { backgroundColor: "rgba(76, 175, 80, 0.1)" },
               ]}
-              onPress={() => handleTabChange(tab.id)}
             >
               <MaterialCommunityIcons
-                name={tab.icon}
-                size={20}
-                color={activeTab === tab.id ? primary : "#666"}
+                name="clipboard-check-outline"
+                size={24}
+                color="#4CAF50"
               />
-              <Text
-                style={[
-                  styles.tabButtonText,
-                  activeTab === tab.id && styles.activeTabButtonText,
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+            </View>
+            <Text style={styles.actionTitle}>Attendance</Text>
+            <Text style={styles.actionDescription}>
+              View attendance history and reports
+            </Text>
+          </TouchableOpacity>
 
-        {showRightIndicator && (
-          <Animated.View
-            style={[
-              styles.rightIndicator,
-              { transform: [{ translateX: rightArrowAnim }] },
-            ]}
+          <TouchableOpacity style={styles.actionCard} onPress={navigateToDiary}>
+            <View
+              style={[
+                styles.actionIconContainer,
+                { backgroundColor: "rgba(33, 150, 243, 0.1)" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="notebook-outline"
+                size={24}
+                color="#2196F3"
+              />
+            </View>
+            <Text style={styles.actionTitle}>Class Diary</Text>
+            <Text style={styles.actionDescription}>
+              View homework and assignments
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={navigateToTimetable}
           >
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={20}
-              color={primary}
-            />
-          </Animated.View>
-        )}
-      </View>
+            <View
+              style={[
+                styles.actionIconContainer,
+                { backgroundColor: "rgba(255, 152, 0, 0.1)" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="clock-outline"
+                size={24}
+                color="#FF9800"
+              />
+            </View>
+            <Text style={styles.actionTitle}>Timetable</Text>
+            <Text style={styles.actionDescription}>
+              View class schedule and subjects
+            </Text>
+          </TouchableOpacity>
 
-      <View style={{ flex: 1 }}>{renderIsolatedTabContent()}</View>
+          <TouchableOpacity style={styles.actionCard} onPress={navigateToFees}>
+            <View
+              style={[
+                styles.actionIconContainer,
+                { backgroundColor: "rgba(244, 67, 54, 0.1)" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="currency-usd"
+                size={24}
+                color="#F44336"
+              />
+            </View>
+            <Text style={styles.actionTitle}>Fees</Text>
+            <Text style={styles.actionDescription}>
+              View fee details and payment history
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={navigateToSupport}
+          >
+            <View
+              style={[
+                styles.actionIconContainer,
+                { backgroundColor: "rgba(156, 39, 176, 0.1)" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="help-circle-outline"
+                size={24}
+                color="#9C27B0"
+              />
+            </View>
+            <Text style={styles.actionTitle}>Support</Text>
+            <Text style={styles.actionDescription}>
+              Contact teachers and submit inquiries
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       <CustomAlert
         visible={alert.visible}
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onConfirm={hideAlert}
+        onConfirm={() => hideAlert(true)}
+        onCancel={() => hideAlert(false)}
       />
     </SafeAreaView>
   );
@@ -319,24 +246,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f7fa",
   },
   header: {
-    backgroundColor: "#fff",
+    flexDirection: "row",
     padding: 16,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-    flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   backButton: {
-    marginRight: 12,
+    marginRight: 15,
+    marginTop: 5,
   },
   childInfoContainer: {
     flex: 1,
   },
   childName: {
-    fontSize: 22,
-    fontFamily: Typography.fontWeight.bold.primary,
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
-    marginBottom: 5,
+    marginBottom: 4,
   },
   childDetails: {
     fontSize: 14,
@@ -344,76 +272,47 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 2,
   },
-  tabsContainer: {
-    position: "relative",
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    alignItems: "center",
-  },
-  tabsScrollContainer: {
-    flex: 1,
-    maxHeight: 50,
-  },
-  tabsContentContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 8,
-  },
-  leftIndicator: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 30,
-    zIndex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderTopRightRadius: 15,
-    borderBottomRightRadius: 15,
-  },
-  rightIndicator: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 30,
-    zIndex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderTopLeftRadius: 15,
-    borderBottomLeftRadius: 15,
-  },
-  tabButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 5,
-    marginHorizontal: 4,
-  },
-  activeTabButton: {
-    borderBottomWidth: 2,
-    borderBottomColor: primary,
-  },
-  tabButtonText: {
-    fontFamily: Typography.fontWeight.medium.primary,
-    fontSize: 14,
-    color: "#666",
-  },
-  activeTabButtonText: {
-    color: primary,
-  },
   contentContainer: {
     flex: 1,
+    padding: 16,
   },
-  timetableContainer: {
-    flex: 1,
-    height: "100%",
-    backgroundColor: "#f5f7fa",
-    paddingTop: 0,
+  scrollContentContainer: {
+    paddingBottom: 20,
+  },
+  actionCardsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  actionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    width: "48%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  actionIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginBottom: 6,
+  },
+  actionDescription: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
   },
 });

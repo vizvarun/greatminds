@@ -35,9 +35,15 @@ type DiaryEntry = {
 
 export default function SectionDiaryScreen() {
   const { branchId, gradeId, sectionId } = useLocalSearchParams();
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+
+  const normalizeDate = (date: Date): string => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState(normalizeDate(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -55,7 +61,7 @@ export default function SectionDiaryScreen() {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([
     {
       id: "1",
-      date: new Date().toISOString().split("T")[0], // Today
+      date: normalizeDate(new Date()),
       formattedDate: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -67,7 +73,7 @@ export default function SectionDiaryScreen() {
     },
     {
       id: "2",
-      date: new Date().toISOString().split("T")[0], // Today
+      date: normalizeDate(new Date()),
       formattedDate: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -80,9 +86,9 @@ export default function SectionDiaryScreen() {
     },
     {
       id: "3",
-      date: new Date(new Date().setDate(new Date().getDate() + 1))
-        .toISOString()
-        .split("T")[0], // Tomorrow
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 1))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 1)
       ).toLocaleDateString("en-US", {
@@ -97,9 +103,9 @@ export default function SectionDiaryScreen() {
     },
     {
       id: "4",
-      date: new Date(new Date().setDate(new Date().getDate() + 2))
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 2))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 2)
       ).toLocaleDateString("en-US", {
@@ -113,9 +119,9 @@ export default function SectionDiaryScreen() {
     },
     {
       id: "5",
-      date: new Date(new Date().setDate(new Date().getDate() + 3))
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 3))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 3)
       ).toLocaleDateString("en-US", {
@@ -199,14 +205,6 @@ export default function SectionDiaryScreen() {
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
-
-  // Add a helper function to normalize dates for consistent comparison
-  const normalizeDate = (date: Date): string => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(date.getDate()).padStart(2, "0")}`;
-  };
 
   const goToToday = () => {
     const today = new Date();

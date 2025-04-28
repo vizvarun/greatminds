@@ -20,6 +20,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
+import { router } from "expo-router";
 
 type Props = {
   childId: string;
@@ -327,7 +328,15 @@ export default function ChildSupport({ childId, showAlert }: Props) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Text style={styles.title}>Support & Help</Text>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Support & Help</Text>
+        </View>
       </View>
 
       <View style={styles.tabButtons}>
@@ -699,6 +708,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
   },
   title: {
     fontSize: 18,

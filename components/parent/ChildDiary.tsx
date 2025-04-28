@@ -12,6 +12,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
+import { router } from "expo-router";
 
 type Props = {
   childId: string;
@@ -33,9 +34,16 @@ type DiaryEntry = {
 };
 
 export default function ChildDiary({ childId, showAlert }: Props) {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  // Add normalizeDate function declaration at the beginning for use in initialization
+  const normalizeDate = (date: Date): string => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+
+  // Fix: Use normalizeDate instead of toISOString for consistent date handling
+  const [selectedDate, setSelectedDate] = useState(normalizeDate(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -43,7 +51,8 @@ export default function ChildDiary({ childId, showAlert }: Props) {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([
     {
       id: "6",
-      date: new Date().toISOString().split("T")[0], // Today
+      // Fix: Use normalizeDate for consistent date formatting
+      date: normalizeDate(new Date()), // Today
       formattedDate: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -55,7 +64,8 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     },
     {
       id: "7",
-      date: new Date().toISOString().split("T")[0], // Today
+      // Fix: Use normalizeDate for consistent date formatting
+      date: normalizeDate(new Date()), // Today
       formattedDate: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -69,9 +79,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Create a date for tomorrow
     {
       id: "8",
-      date: new Date(new Date().setDate(new Date().getDate() + 1))
-        .toISOString()
-        .split("T")[0], // Tomorrow
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 1))
+      ), // Tomorrow
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 1)
       ).toLocaleDateString("en-US", {
@@ -86,9 +96,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Create a date for day after tomorrow
     {
       id: "9",
-      date: new Date(new Date().setDate(new Date().getDate() + 2))
-        .toISOString()
-        .split("T")[0], // Day after tomorrow
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 2))
+      ), // Day after tomorrow
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 2)
       ).toLocaleDateString("en-US", {
@@ -104,9 +114,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Create a date for 3 days from now
     {
       id: "10",
-      date: new Date(new Date().setDate(new Date().getDate() + 3))
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 3))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 3)
       ).toLocaleDateString("en-US", {
@@ -121,9 +131,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Create a date for 5 days from now
     {
       id: "11",
-      date: new Date(new Date().setDate(new Date().getDate() + 5))
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 5))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 5)
       ).toLocaleDateString("en-US", {
@@ -138,9 +148,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Create a date for 1 week from now
     {
       id: "12",
-      date: new Date(new Date().setDate(new Date().getDate() + 7))
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 7))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 7)
       ).toLocaleDateString("en-US", {
@@ -156,9 +166,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Create a date for 2 weeks from now
     {
       id: "13",
-      date: new Date(new Date().setDate(new Date().getDate() + 14))
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().setDate(new Date().getDate() + 14))
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 14)
       ).toLocaleDateString("en-US", {
@@ -173,9 +183,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Last month entry
     {
       id: "14",
-      date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20)
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20)
+      ),
       formattedDate: new Date(
         new Date().getFullYear(),
         new Date().getMonth() - 1,
@@ -193,9 +203,9 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     // Next month entry
     {
       id: "15",
-      date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10)
-        .toISOString()
-        .split("T")[0],
+      date: normalizeDate(
+        new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10)
+      ),
       formattedDate: new Date(
         new Date().getFullYear(),
         new Date().getMonth() + 1,
@@ -246,14 +256,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
-
-  // Add a helper function to normalize dates for consistent comparison
-  const normalizeDate = (date: Date): string => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-      2,
-      "0"
-    )}-${String(date.getDate()).padStart(2, "0")}`;
-  };
 
   const goToToday = () => {
     const today = new Date();
@@ -466,7 +468,15 @@ export default function ChildDiary({ childId, showAlert }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>School Diary</Text>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>School Diary</Text>
+        </View>
         <TouchableOpacity
           style={styles.refreshButton}
           onPress={onRefresh}
@@ -604,6 +614,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
   },
   title: {
     fontSize: 18,

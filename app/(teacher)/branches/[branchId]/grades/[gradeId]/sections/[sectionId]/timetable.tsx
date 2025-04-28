@@ -38,7 +38,25 @@ type DaySchedule = {
 
 export default function SectionTimetableScreen() {
   const { branchId, gradeId, sectionId } = useLocalSearchParams();
-  const [selectedDay, setSelectedDay] = useState<Day>("Monday");
+
+  // Get today's day name (Monday, Tuesday, etc.)
+  const getTodayDayName = (): Day => {
+    const days: Day[] = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const today = new Date().getDay();
+    // Convert from JS day (0=Sunday) to our app's days (0=Monday), handle Sunday by defaulting to Monday
+    const dayIndex = today === 0 ? 0 : today - 1;
+    // If today is Sunday or the index is somehow invalid, default to Monday
+    return dayIndex >= 0 && dayIndex < days.length ? days[dayIndex] : "Monday";
+  };
+
+  const [selectedDay, setSelectedDay] = useState<Day>(getTodayDayName());
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(
     new Set()
   );

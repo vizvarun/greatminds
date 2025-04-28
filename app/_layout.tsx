@@ -1,16 +1,12 @@
-import { SplashScreen, Stack } from "expo-router";
-import { useFonts } from "expo-font";
-import { useEffect } from "react";
-import { StatusBar } from "expo-status-bar";
-import { AuthProvider } from "@/context/AuthContext";
 import { Typography } from "@/constants/Typography";
-import Toast from "react-native-toast-message";
+import { AuthProvider } from "@/context/AuthContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
+import { useFonts } from "expo-font";
+import { SplashScreen, Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import {
-  DrawerContentScrollView,
-  createDrawerNavigator,
-} from "@react-navigation/drawer";
+import Toast from "react-native-toast-message";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -40,7 +36,6 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        {/* Use dark-content for better visibility on all screens */}
         <StatusBar style="dark" />
         <Stack
           screenOptions={{
@@ -60,7 +55,6 @@ export default function RootLayout() {
           <Stack.Screen name="(parent)" options={{ headerShown: false }} />
           <Stack.Screen name="(teacher)" options={{ headerShown: false }} />
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
         <Toast />
       </AuthProvider>

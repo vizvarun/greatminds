@@ -1,24 +1,25 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Platform,
-  Modal,
-  Keyboard,
-  InputAccessoryView,
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
 import CustomAlert from "@/components/ui/CustomAlert";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import CustomDropdown from "@/components/ui/CustomDropdown";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  Keyboard,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function AddDiaryEntryScreen() {
   const params = useLocalSearchParams();
@@ -102,57 +103,95 @@ export default function AddDiaryEntryScreen() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toDateString();
+    // Format date as "Wed, May 28" with comma between day and date
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "short",
+      month: "long",
+      day: "numeric",
+    };
+    return date.toLocaleDateString("en-US", options);
   };
 
   const handleEffectiveDatePress = () => {
     setShowDueDatePicker(false);
     setTempEffectiveDate(formData.effectiveDate);
-    setShowEffectiveDatePicker(true);
+
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: formData.effectiveDate,
+        mode: "date",
+        onChange: (event, selectedDate) => {
+          if (event.type === "set" && selectedDate) {
+            const newEffectiveDate = selectedDate;
+
+            let newDueDate = formData.dueDate;
+            if (newEffectiveDate > formData.dueDate) {
+              newDueDate = new Date(newEffectiveDate);
+              newDueDate.setDate(newEffectiveDate.getDate() + 7);
+            }
+
+            setFormData({
+              ...formData,
+              effectiveDate: newEffectiveDate,
+              dueDate: newDueDate,
+            });
+          }
+        },
+        positiveButtonLabel: "Confirm",
+        negativeButtonLabel: "Cancel",
+      });
+    } else {
+      setShowEffectiveDatePicker(true);
+    }
   };
 
   const handleDueDatePress = () => {
     setShowEffectiveDatePicker(false);
     setTempDueDate(formData.dueDate);
-    setShowDueDatePicker(true);
+
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: formData.dueDate,
+        mode: "date",
+        minimumDate: formData.effectiveDate,
+        onChange: (event, selectedDate) => {
+          if (event.type === "set" && selectedDate) {
+            const validDueDate =
+              selectedDate < formData.effectiveDate
+                ? new Date(formData.effectiveDate.getTime())
+                : selectedDate;
+
+            setFormData({ ...formData, dueDate: validDueDate });
+          }
+        },
+        positiveButtonLabel: "Confirm",
+        negativeButtonLabel: "Cancel",
+        accentColor: primary,
+      });
+    } else {
+      setShowDueDatePicker(true);
+    }
   };
 
   const handleEffectiveDateChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || formData.effectiveDate;
+
     if (Platform.OS === "android") {
-      setShowEffectiveDatePicker(false);
-      if (selectedDate) {
-        const newEffectiveDate = selectedDate;
-
-        let newDueDate = formData.dueDate;
-        if (newEffectiveDate > formData.dueDate) {
-          newDueDate = new Date(newEffectiveDate);
-          newDueDate.setDate(newEffectiveDate.getDate() + 7);
-        }
-
-        setFormData({
-          ...formData,
-          effectiveDate: newEffectiveDate,
-          dueDate: newDueDate,
-        });
-      }
-    } else if (selectedDate) {
-      setTempEffectiveDate(selectedDate);
+      // This function will not be used for Android anymore
+      // It's handled directly in the DateTimePickerAndroid.open call
+    } else {
+      setTempEffectiveDate(currentDate);
     }
   };
 
   const handleDueDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === "android") {
-      setShowDueDatePicker(false);
-      if (selectedDate) {
-        const validDueDate =
-          selectedDate < formData.effectiveDate
-            ? new Date(formData.effectiveDate.getTime())
-            : selectedDate;
+    const currentDate = selectedDate || formData.dueDate;
 
-        setFormData({ ...formData, dueDate: validDueDate });
-      }
-    } else if (selectedDate) {
-      setTempDueDate(selectedDate);
+    if (Platform.OS === "android") {
+      // This function will not be used for Android anymore
+      // It's handled directly in the DateTimePickerAndroid.open call
+    } else {
+      setTempDueDate(currentDate);
     }
   };
 
@@ -442,82 +481,86 @@ export default function AddDiaryEntryScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Effective Date Modal Picker */}
-      <Modal
-        transparent={true}
-        visible={showEffectiveDatePicker}
-        animationType="fade"
-        onRequestClose={() => setShowEffectiveDatePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Effective Date</Text>
-            <DateTimePicker
-              value={tempEffectiveDate || formData.effectiveDate}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleEffectiveDateChange}
-              style={styles.dateTimePicker}
-              textColor="#000000"
-              themeVariant="light"
-              accentColor={primary}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setShowEffectiveDatePicker(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={confirmEffectiveDate}
-              >
-                <Text style={styles.confirmButtonText}>Confirm</Text>
-              </TouchableOpacity>
+      {/* Effective Date Picker - iOS modal only, Android uses imperative API */}
+      {showEffectiveDatePicker && Platform.OS === "ios" && (
+        <Modal
+          transparent={true}
+          visible={showEffectiveDatePicker}
+          animationType="fade"
+          onRequestClose={() => setShowEffectiveDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Effective Date</Text>
+              <DateTimePicker
+                value={tempEffectiveDate || formData.effectiveDate}
+                mode="date"
+                display="spinner"
+                onChange={handleEffectiveDateChange}
+                style={styles.dateTimePicker}
+                textColor="#000000"
+                themeVariant="light"
+                accentColor={primary}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowEffectiveDatePicker(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={confirmEffectiveDate}
+                >
+                  <Text style={styles.confirmButtonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
 
-      {/* Due Date Modal Picker */}
-      <Modal
-        transparent={true}
-        visible={showDueDatePicker}
-        animationType="fade"
-        onRequestClose={() => setShowDueDatePicker(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Due Date</Text>
-            <DateTimePicker
-              value={tempDueDate || formData.dueDate}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleDueDateChange}
-              style={styles.dateTimePicker}
-              textColor="#000000"
-              themeVariant="light"
-              accentColor={primary}
-              minimumDate={formData.effectiveDate} // Prevent selecting dates before effective date
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalButton}
-                onPress={() => setShowDueDatePicker(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={confirmDueDate}
-              >
-                <Text style={styles.confirmButtonText}>Confirm</Text>
-              </TouchableOpacity>
+      {/* Due Date Picker - iOS modal only, Android uses imperative API */}
+      {showDueDatePicker && Platform.OS === "ios" && (
+        <Modal
+          transparent={true}
+          visible={showDueDatePicker}
+          animationType="fade"
+          onRequestClose={() => setShowDueDatePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Select Due Date</Text>
+              <DateTimePicker
+                value={tempDueDate || formData.dueDate}
+                mode="date"
+                display="spinner"
+                onChange={handleDueDateChange}
+                style={styles.dateTimePicker}
+                textColor="#000000"
+                themeVariant="light"
+                accentColor={primary}
+                minimumDate={formData.effectiveDate}
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowDueDatePicker(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={confirmDueDate}
+                >
+                  <Text style={styles.confirmButtonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Add keyboard dismiss bar for iOS */}
       {Platform.OS === "ios" && (
@@ -635,8 +678,10 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontWeight.medium.primary,
   },
   dateTimePicker: {
-    width: Platform.OS === "ios" ? "100%" : 300,
-    height: Platform.OS === "ios" ? 180 : "auto",
+    width: "100%",
+    height: 200,
+    marginVertical: 10,
+    backgroundColor: Platform.OS === "android" ? "#fff" : undefined,
   },
   modalOverlay: {
     flex: 1,

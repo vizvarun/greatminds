@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
+import { router } from "expo-router";
 
 type Props = {
   childId: string;
@@ -38,7 +39,24 @@ type DaySchedule = {
 };
 
 export default function ChildTimetable({ childId }: Props) {
-  const [selectedDay, setSelectedDay] = useState<Day>("Monday");
+  // Get today's day name (Monday, Tuesday, etc.)
+  const getTodayDayName = (): Day => {
+    const days: Day[] = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const today = new Date().getDay();
+    // Convert from JS day (0=Sunday) to our app's days (0=Monday), handle Sunday by defaulting to Monday
+    const dayIndex = today === 0 ? 0 : today - 1;
+    // If today is Sunday or the index is somehow invalid, default to Monday
+    return dayIndex >= 0 && dayIndex < days.length ? days[dayIndex] : "Monday";
+  };
+
+  const [selectedDay, setSelectedDay] = useState<Day>(getTodayDayName());
 
   // Sample timetable data
   const timetableData: DaySchedule[] = [
@@ -297,7 +315,15 @@ export default function ChildTimetable({ childId }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>School Timetable</Text>
+        <View style={styles.titleContainer}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>School Timetable</Text>
+        </View>
       </View>
 
       <View style={styles.daysOuterContainer}>
@@ -378,6 +404,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
   },
   title: {
     fontSize: 18,

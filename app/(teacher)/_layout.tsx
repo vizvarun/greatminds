@@ -27,43 +27,26 @@ export default function TeacherLayout() {
     pathname === "/" ||
     pathname === "/dashboard";
 
+  // Check if we're on a main screen (not an internal screen)
+  const isMainScreen =
+    isDashboard ||
+    pathname === "/(teacher)/support" ||
+    pathname === "/(teacher)/notifications";
+
   // Get screen title based on the current path
   const getScreenTitle = () => {
     if (isDashboard) return "Teacher Dashboard";
-    if (pathname.includes("/branches")) return "School Branches";
-    if (pathname.includes("/grades")) return "Grade Sections";
+    if (pathname.includes("/branches") && !pathname.includes("/grades"))
+      return "School Branches";
+    if (pathname.includes("/grades") && !pathname.includes("/sections"))
+      return "Grade Sections";
     if (pathname.includes("/tracker")) return "Attendance Tracker";
-    if (pathname.includes("/diary")) return "Class Diary";
+    if (pathname.includes("/diary") && !pathname.includes("/add"))
+      return "Class Diary";
     if (pathname.includes("/diary/add")) return "Add Diary Entry";
     if (pathname.includes("/timetable")) return "Class Timetable";
     if (pathname.includes("/support")) return "Support";
     return "Teacher Portal";
-  };
-
-  const getHeaderRight = () => {
-    return (
-      <View style={{ flexDirection: "row" }}>
-        <TouchableOpacity
-          style={[styles.headerButton, { marginRight: 10 }]}
-          onPress={() => router.push("/(teacher)/support")}
-        >
-          <MaterialCommunityIcons name="lifebuoy" size={24} color={primary} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() =>
-            setAlert({
-              visible: true,
-              title: "Logout",
-              message: "Are you sure you want to logout?",
-              type: "warning",
-            })
-          }
-        >
-          <MaterialCommunityIcons name="logout" size={24} color={primary} />
-        </TouchableOpacity>
-      </View>
-    );
   };
 
   // Show loading state or redirect if not authenticated
@@ -127,40 +110,42 @@ export default function TeacherLayout() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      {/* Custom Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{getScreenTitle()}</Text>
+      {/* Main Header - Only shown on main screens */}
+      {isMainScreen && (
+        <View style={styles.header}>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>{getScreenTitle()}</Text>
+          </View>
+          <View style={styles.headerRightContainer}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => router.push("/(teacher)/notifications")}
+            >
+              <MaterialCommunityIcons
+                name="bell-outline"
+                size={24}
+                color={primary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleSupportPress}
+            >
+              <MaterialCommunityIcons
+                name="help-circle-outline"
+                size={24}
+                color={primary}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={showConfirmLogout}
+            >
+              <MaterialCommunityIcons name="logout" size={24} color="#e74c3c" />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.headerRightContainer}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push("/(teacher)/notifications")}
-          >
-            <MaterialCommunityIcons
-              name="bell-outline"
-              size={24}
-              color={primary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={handleSupportPress}
-          >
-            <MaterialCommunityIcons
-              name="help-circle-outline"
-              size={24}
-              color={primary}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={showConfirmLogout}
-          >
-            <MaterialCommunityIcons name="logout" size={24} color="#e74c3c" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      )}
 
       {/* Main Content Area */}
       <View style={styles.contentContainer}>
@@ -184,25 +169,32 @@ export default function TeacherLayout() {
               color="#999"
             />
           </TouchableOpacity>
-        ) : (
-          /* Internal Screen Header with Back Button */
-          <TouchableOpacity
-            style={styles.internalHeader}
-            onPress={handleGoBack}
-          >
-            <View style={styles.internalHeaderContent}>
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={22}
-                color={primary}
-              />
-              <Text style={styles.internalHeaderText}>Go Back</Text>
+        ) : !isMainScreen ? (
+          /* Minimal Back Button - for internal screens */
+          <View style={styles.internalHeader}>
+            <View style={styles.internalHeaderGroup}>
+              <TouchableOpacity
+                style={styles.internalHeaderButton}
+                onPress={handleGoBack}
+              >
+                <MaterialCommunityIcons
+                  name="arrow-left"
+                  size={22}
+                  color="#333"
+                />
+              </TouchableOpacity>
+              <Text style={styles.internalHeaderTitle}>{getScreenTitle()}</Text>
             </View>
-          </TouchableOpacity>
-        )}
+          </View>
+        ) : null}
 
         {/* Content - Render Slot directly without ScrollView */}
-        <View style={styles.slotContainer}>
+        <View
+          style={[
+            styles.slotContainer,
+            !isMainScreen && styles.internalSlotContainer,
+          ]}
+        >
           <Slot />
         </View>
       </View>
@@ -283,22 +275,37 @@ const styles = StyleSheet.create({
   internalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#ffffff",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#eaeaea",
-    marginBottom: 8,
+    height: 56,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
   },
-  internalHeaderContent: {
+  internalHeaderGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  internalHeaderButton: {
     flexDirection: "row",
     alignItems: "center",
   },
   internalHeaderText: {
     fontSize: 15,
-    marginLeft: 10,
+    marginLeft: 6,
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
+  },
+  internalHeaderTitle: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginLeft: 10,
   },
   contentContainer: {
     flex: 1,
@@ -306,6 +313,9 @@ const styles = StyleSheet.create({
   },
   slotContainer: {
     flex: 1,
+  },
+  internalSlotContainer: {
+    paddingTop: 2, // Add a bit of spacing after the back button
   },
   headerButton: {
     padding: 8,

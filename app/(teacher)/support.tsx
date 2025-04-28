@@ -19,6 +19,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// Import notification utilities
+import {
+  configureNotifications,
+  requestNotificationPermissions,
+  sendLocalNotification,
+} from "@/utils/notifications";
 
 // Types for support tickets
 type SupportTicket = {
@@ -97,6 +103,8 @@ export default function SupportScreen() {
   });
   const scrollViewRef = useRef<ScrollView>(null);
   const replyInputRef = useRef<TextInput>(null);
+  const [isInitialRender, setIsInitialRender] = useState(true);
+  const lastTextChangeTime = useRef(0);
 
   // Flag to determine if we're coming from an internal screen
   const isFromInternal = from === "section" && gradeId;
@@ -277,39 +285,56 @@ export default function SupportScreen() {
     }
   }, [from, gradeId]);
 
+  // Initialize notifications when component mounts
+  useEffect(() => {
+    configureNotifications();
+    requestNotificationPermissions();
+  }, []);
+
+  // Debounced scroll function to prevent excessive scrolling
   const scrollToActiveInput = () => {
+    // Skip scrolling on initial render or if scrolled recently
+    if (isInitialRender || Date.now() - lastTextChangeTime.current < 300) {
+      return;
+    }
+
     if (expandedTicket && replyInputRef.current) {
+      lastTextChangeTime.current = Date.now();
       setTimeout(() => {
         replyInputRef.current.measureInWindow((x, y, width, height) => {
           const inputBottom = y + height;
           const screenHeight = Dimensions.get("window").height;
           const keyboardHeight = keyboardVisible
             ? Platform.OS === "ios"
-              ? 270
+              ? 300
               : 300
             : 0;
           const availableHeight = screenHeight - keyboardHeight;
 
-          if (inputBottom > availableHeight - 100) {
-            const additionalScroll = inputBottom - (availableHeight - 150);
+          if (inputBottom > availableHeight - 150) {
+            const additionalScroll = inputBottom - (availableHeight - 200);
             scrollViewRef.current?.scrollTo({
               y: additionalScroll,
               animated: true,
             });
           }
         });
-      }, 300);
+      }, 100);
     }
   };
 
   // Keyboard listeners
   useEffect(() => {
+    // Set initial render to false after component mounts
+    setIsInitialRender(false);
+
     const keyboardDidShowListener = Keyboard.addListener(
       "keyboardDidShow",
       (event) => {
         setKeyboardVisible(true);
         setShowKeyboardBar(true);
-        scrollToActiveInput();
+        // Only scroll on keyboard show, not for every text change
+        setTimeout(() => scrollToActiveInput(), 300);
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
@@ -456,12 +481,31 @@ export default function SupportScreen() {
       "Close Ticket",
       "Are you sure you want to close this ticket? This will mark the issue as resolved.",
       "warning",
-      () => {
+      async () => {
+        const ticket = supportTickets.find((t) => t.id === ticketId);
         const updatedTickets = supportTickets.map((ticket) =>
           ticket.id === ticketId ? { ...ticket, status: "closed" } : ticket
         );
         setSupportTickets(updatedTickets);
         showAlert("Success", "The ticket has been closed", "success");
+
+        // Send a notification
+        if (ticket) {
+          try {
+            await sendLocalNotification(
+              "Ticket Closed",
+              `Support ticket regarding "${ticket.subject}" has been closed successfully.`,
+              {
+                ticketId,
+                category: ticket.category,
+                parentName: ticket.parentName,
+                studentName: ticket.studentName,
+              }
+            );
+          } catch (error) {
+            console.error("Failed to send notification:", error);
+          }
+        }
       }
     );
   };
@@ -626,7 +670,10 @@ export default function SupportScreen() {
                   placeholder="Type your reply here..."
                   placeholderTextColor={inputPlaceholderText}
                   value={replyText}
-                  onChangeText={setReplyText}
+                  onChangeText={(text) => {
+                    setReplyText(text);
+                    // Don't trigger scrolling on every text change
+                  }}
                   multiline
                   textAlignVertical="top"
                   inputAccessoryViewID={
@@ -634,9 +681,8 @@ export default function SupportScreen() {
                   }
                   onFocus={() => {
                     setShowKeyboardBar(true);
-                    setTimeout(() => {
-                      scrollToActiveInput();
-                    }, 100);
+                    // Scroll to input when focused with a delay
+                    setTimeout(scrollToActiveInput, 300);
                   }}
                 />
                 <View style={styles.replyActions}>
@@ -755,382 +801,397 @@ export default function SupportScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-      enabled={keyboardVisible}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 64 : 0}
+      contentContainerStyle={{ flex: 1 }}
     >
-      <View style={styles.header}>
-        <View style={styles.searchFilterContainer}>
-          <View style={styles.searchContainer}>
-            <MaterialCommunityIcons name="magnify" size={20} color="#555" />
-            <TextInput
-              style={[styles.searchInput, { color: inputTextColor }]}
-              placeholder="Search support tickets..."
-              placeholderTextColor={searchPlaceholderText}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <MaterialCommunityIcons name="close" size={20} color="#555" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {!isFromInternal && (
-            <TouchableOpacity
-              style={styles.filterButton}
-              onPress={() => setShowGradeFilter(!showGradeFilter)}
-            >
-              <MaterialCommunityIcons
-                name="filter-variant"
-                size={22}
-                color={primary}
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.searchFilterContainer}>
+            <View style={styles.searchContainer}>
+              <MaterialCommunityIcons name="magnify" size={20} color="#555" />
+              <TextInput
+                style={[styles.searchInput, { color: inputTextColor }]}
+                placeholder="Search support tickets..."
+                placeholderTextColor={searchPlaceholderText}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
               />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {isFromInternal && (
-          <View style={styles.currentClassBanner}>
-            <MaterialCommunityIcons
-              name="google-classroom"
-              size={18}
-              color={primary}
-            />
-            <Text style={styles.currentClassText}>
-              {currentGradeName}{" "}
-              {currentSectionName && `- ${currentSectionName}`}
-            </Text>
-          </View>
-        )}
-
-        {showGradeFilter && !isFromInternal && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.gradeFilterScroll}
-            contentContainerStyle={styles.gradeFilterContainer}
-          >
-            {grades.map((grade) => (
-              <TouchableOpacity
-                key={grade.id}
-                style={[
-                  styles.gradeFilterChip,
-                  selectedGrade === grade.id && styles.selectedGradeFilterChip,
-                ]}
-                onPress={() => setSelectedGrade(grade.id)}
-              >
-                <Text
-                  style={[
-                    styles.gradeFilterText,
-                    selectedGrade === grade.id &&
-                      styles.selectedGradeFilterText,
-                  ]}
-                >
-                  {grade.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "new" && styles.activeTab]}
-            onPress={() => setActiveTab("new")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "new" && styles.activeTabText,
-              ]}
-            >
-              New ({tabCounts.new})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "replied" && styles.activeTab]}
-            onPress={() => setActiveTab("replied")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "replied" && styles.activeTabText,
-              ]}
-            >
-              Replied ({tabCounts.replied})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "closed" && styles.activeTab]}
-            onPress={() => setActiveTab("closed")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "closed" && styles.activeTabText,
-              ]}
-            >
-              Closed ({tabCounts.closed})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "faqs" && styles.activeTab]}
-            onPress={() => setActiveTab("faqs")}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "faqs" && styles.activeTabText,
-              ]}
-            >
-              FAQs
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.contentContainer}
-        contentContainerStyle={[
-          styles.contentScrollContainer,
-          keyboardVisible && { paddingBottom: 120 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-      >
-        {activeTab === "faqs" ? (
-          renderFAQList()
-        ) : (
-          <>
-            {filteredTickets.length > 0 ? (
-              filteredTickets.map((ticket) => renderTicketItem(ticket))
-            ) : (
-              <View style={styles.emptyContainer}>
-                <MaterialCommunityIcons
-                  name="ticket-outline"
-                  size={60}
-                  color="#ddd"
-                />
-                <Text style={styles.emptyText}>
-                  No {activeTab} support tickets found
-                </Text>
-              </View>
-            )}
-          </>
-        )}
-      </ScrollView>
-
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setTimeout(() => setModalVisible(false), 100);
-        }}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {editingFAQ ? "Edit FAQ" : "Add New FAQ"}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setTimeout(() => setModalVisible(false), 100);
-                  }}
-                  style={styles.modalCloseButton}
-                >
-                  <MaterialCommunityIcons name="close" size={22} color="#666" />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <MaterialCommunityIcons name="close" size={20} color="#555" />
                 </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.modalFormContainer}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={
-                  modalKeyboardVisible && { paddingBottom: 60 }
-                }
-              >
-                <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Question</Text>
-                  <TextInput
-                    style={[styles.formInput, { color: inputTextColor }]}
-                    value={editingFAQ ? editingFAQ.question : newFAQ.question}
-                    onChangeText={(text) =>
-                      editingFAQ
-                        ? setEditingFAQ({ ...editingFAQ, question: text })
-                        : setNewFAQ((prev) => ({ ...prev, question: text }))
-                    }
-                    placeholder="Enter FAQ question"
-                    placeholderTextColor={inputPlaceholderText}
-                    multiline
-                  />
-                </View>
-
-                <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Answer</Text>
-                  <TextInput
-                    style={[
-                      styles.formInput,
-                      styles.formTextArea,
-                      { color: inputTextColor },
-                    ]}
-                    value={editingFAQ ? editingFAQ.answer : newFAQ.answer}
-                    onChangeText={(text) =>
-                      editingFAQ
-                        ? setEditingFAQ({ ...editingFAQ, answer: text })
-                        : setNewFAQ((prev) => ({ ...prev, answer: text }))
-                    }
-                    placeholder="Enter FAQ answer"
-                    placeholderTextColor={inputPlaceholderText}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                </View>
-
-                <View style={styles.formField}>
-                  <Text style={styles.formLabel}>Category</Text>
-                  <View style={styles.categoryButtons}>
-                    {[
-                      "general",
-                      "academic",
-                      "attendance",
-                      "diary",
-                      "timetable",
-                    ].map((category) => (
-                      <TouchableOpacity
-                        key={category}
-                        style={[
-                          styles.categoryButton,
-                          (editingFAQ?.category || newFAQ.category) ===
-                            category && styles.selectedCategoryButton,
-                        ]}
-                        onPress={() =>
-                          editingFAQ
-                            ? setEditingFAQ({ ...editingFAQ, category })
-                            : setNewFAQ({ ...newFAQ, category })
-                        }
-                      >
-                        <Text
-                          style={[
-                            styles.categoryButtonText,
-                            (editingFAQ?.category || newFAQ.category) ===
-                              category && styles.selectedCategoryButtonText,
-                          ]}
-                        >
-                          {category.charAt(0).toUpperCase() + category.slice(1)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              </ScrollView>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setTimeout(() => setModalVisible(false), 100);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-
-                {editingFAQ && editingFAQ.id && (
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.deleteButton]}
-                    onPress={() => {
-                      if (editingFAQ.id) {
-                        handleDeleteFAQ(editingFAQ.id);
-                      }
-                    }}
-                  >
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={[
-                    styles.modalButton,
-                    styles.saveButton,
-                    isLoading && styles.disabledButton,
-                  ]}
-                  onPress={() => {
-                    handleSaveFAQ();
-                  }}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              {Platform.OS === "android" && modalKeyboardVisible && (
-                <View style={styles.modalKeyboardAccessory}>
-                  <TouchableOpacity
-                    style={styles.keyboardDoneButton}
-                    onPress={() => Keyboard.dismiss()}
-                  >
-                    <Text style={styles.doneButtonText}>Done</Text>
-                  </TouchableOpacity>
-                </View>
               )}
             </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
-      {Platform.OS === "ios" && (
-        <InputAccessoryView nativeID={inputAccessoryViewID}>
-          <View style={styles.keyboardAccessory}>
+            {!isFromInternal && (
+              <TouchableOpacity
+                style={styles.filterButton}
+                onPress={() => setShowGradeFilter(!showGradeFilter)}
+              >
+                <MaterialCommunityIcons
+                  name="filter-variant"
+                  size={22}
+                  color={primary}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {isFromInternal && (
+            <View style={styles.currentClassBanner}>
+              <MaterialCommunityIcons
+                name="google-classroom"
+                size={18}
+                color={primary}
+              />
+              <Text style={styles.currentClassText}>
+                {currentGradeName}{" "}
+                {currentSectionName && `- ${currentSectionName}`}
+              </Text>
+            </View>
+          )}
+
+          {showGradeFilter && !isFromInternal && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.gradeFilterScroll}
+              contentContainerStyle={styles.gradeFilterContainer}
+            >
+              {grades.map((grade) => (
+                <TouchableOpacity
+                  key={grade.id}
+                  style={[
+                    styles.gradeFilterChip,
+                    selectedGrade === grade.id &&
+                      styles.selectedGradeFilterChip,
+                  ]}
+                  onPress={() => setSelectedGrade(grade.id)}
+                >
+                  <Text
+                    style={[
+                      styles.gradeFilterText,
+                      selectedGrade === grade.id &&
+                        styles.selectedGradeFilterText,
+                    ]}
+                  >
+                    {grade.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          <View style={styles.tabsContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "new" && styles.activeTab]}
+              onPress={() => setActiveTab("new")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "new" && styles.activeTabText,
+                ]}
+              >
+                New ({tabCounts.new})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "replied" && styles.activeTab]}
+              onPress={() => setActiveTab("replied")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "replied" && styles.activeTabText,
+                ]}
+              >
+                Replied ({tabCounts.replied})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "closed" && styles.activeTab]}
+              onPress={() => setActiveTab("closed")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "closed" && styles.activeTabText,
+                ]}
+              >
+                Closed ({tabCounts.closed})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === "faqs" && styles.activeTab]}
+              onPress={() => setActiveTab("faqs")}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === "faqs" && styles.activeTabText,
+                ]}
+              >
+                FAQs
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.contentContainer}
+          contentContainerStyle={[
+            styles.contentScrollContainer,
+            keyboardVisible && {
+              paddingBottom: Platform.OS === "ios" ? 180 : 220,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          scrollEventThrottle={16}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+            autoscrollToTopThreshold: 100,
+          }}
+        >
+          {activeTab === "faqs" ? (
+            renderFAQList()
+          ) : (
+            <>
+              {filteredTickets.length > 0 ? (
+                filteredTickets.map((ticket) => renderTicketItem(ticket))
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <MaterialCommunityIcons
+                    name="ticket-outline"
+                    size={60}
+                    color="#ddd"
+                  />
+                  <Text style={styles.emptyText}>
+                    No {activeTab} support tickets found
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </ScrollView>
+
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => {
+            Keyboard.dismiss();
+            setTimeout(() => setModalVisible(false), 100);
+          }}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {editingFAQ ? "Edit FAQ" : "Add New FAQ"}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setTimeout(() => setModalVisible(false), 100);
+                    }}
+                    style={styles.modalCloseButton}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={22}
+                      color="#666"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  style={styles.modalFormContainer}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={
+                    modalKeyboardVisible && { paddingBottom: 60 }
+                  }
+                >
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Question</Text>
+                    <TextInput
+                      style={[styles.formInput, { color: inputTextColor }]}
+                      value={editingFAQ ? editingFAQ.question : newFAQ.question}
+                      onChangeText={(text) =>
+                        editingFAQ
+                          ? setEditingFAQ({ ...editingFAQ, question: text })
+                          : setNewFAQ((prev) => ({ ...prev, question: text }))
+                      }
+                      placeholder="Enter FAQ question"
+                      placeholderTextColor={inputPlaceholderText}
+                      multiline
+                    />
+                  </View>
+
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Answer</Text>
+                    <TextInput
+                      style={[
+                        styles.formInput,
+                        styles.formTextArea,
+                        { color: inputTextColor },
+                      ]}
+                      value={editingFAQ ? editingFAQ.answer : newFAQ.answer}
+                      onChangeText={(text) =>
+                        editingFAQ
+                          ? setEditingFAQ({ ...editingFAQ, answer: text })
+                          : setNewFAQ((prev) => ({ ...prev, answer: text }))
+                      }
+                      placeholder="Enter FAQ answer"
+                      placeholderTextColor={inputPlaceholderText}
+                      multiline
+                      textAlignVertical="top"
+                    />
+                  </View>
+
+                  <View style={styles.formField}>
+                    <Text style={styles.formLabel}>Category</Text>
+                    <View style={styles.categoryButtons}>
+                      {[
+                        "general",
+                        "academic",
+                        "attendance",
+                        "diary",
+                        "timetable",
+                      ].map((category) => (
+                        <TouchableOpacity
+                          key={category}
+                          style={[
+                            styles.categoryButton,
+                            (editingFAQ?.category || newFAQ.category) ===
+                              category && styles.selectedCategoryButton,
+                          ]}
+                          onPress={() =>
+                            editingFAQ
+                              ? setEditingFAQ({ ...editingFAQ, category })
+                              : setNewFAQ({ ...newFAQ, category })
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.categoryButtonText,
+                              (editingFAQ?.category || newFAQ.category) ===
+                                category && styles.selectedCategoryButtonText,
+                            ]}
+                          >
+                            {category.charAt(0).toUpperCase() +
+                              category.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setTimeout(() => setModalVisible(false), 100);
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  {editingFAQ && editingFAQ.id && (
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.deleteButton]}
+                      onPress={() => {
+                        if (editingFAQ.id) {
+                          handleDeleteFAQ(editingFAQ.id);
+                        }
+                      }}
+                    >
+                      <Text style={styles.deleteButtonText}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.saveButton,
+                      isLoading && styles.disabledButton,
+                    ]}
+                    onPress={() => {
+                      handleSaveFAQ();
+                    }}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>Save</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {Platform.OS === "android" && modalKeyboardVisible && (
+                  <View style={styles.modalKeyboardAccessory}>
+                    <TouchableOpacity
+                      style={styles.keyboardDoneButton}
+                      onPress={() => Keyboard.dismiss()}
+                    >
+                      <Text style={styles.doneButtonText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {Platform.OS === "ios" && (
+          <InputAccessoryView nativeID={inputAccessoryViewID}>
+            <View style={styles.keyboardAccessory}>
+              <TouchableOpacity
+                style={styles.keyboardDoneButton}
+                onPress={() => Keyboard.dismiss()}
+              >
+                <Text style={styles.doneButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </InputAccessoryView>
+        )}
+
+        {Platform.OS === "android" && keyboardVisible && showKeyboardBar && (
+          <View style={styles.androidKeyboardAccessory}>
             <TouchableOpacity
               style={styles.keyboardDoneButton}
-              onPress={() => Keyboard.dismiss()}
+              onPress={() => {
+                Keyboard.dismiss();
+                setShowKeyboardBar(false);
+              }}
             >
               <Text style={styles.doneButtonText}>Done</Text>
             </TouchableOpacity>
           </View>
-        </InputAccessoryView>
-      )}
+        )}
 
-      {Platform.OS === "android" && keyboardVisible && showKeyboardBar && (
-        <View style={styles.androidKeyboardAccessory}>
-          <TouchableOpacity
-            style={styles.keyboardDoneButton}
-            onPress={() => {
-              Keyboard.dismiss();
-              setShowKeyboardBar(false);
-            }}
-          >
-            <Text style={styles.doneButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <CustomAlert
-        visible={alert.visible}
-        title={alert.title}
-        message={alert.message}
-        type={alert.type}
-        onConfirm={() => hideAlert(true)}
-        onCancel={() => hideAlert(false)}
-        showCancelButton={alert.type === "warning"}
-      />
+        <CustomAlert
+          visible={alert.visible}
+          title={alert.title}
+          message={alert.message}
+          type={alert.type}
+          onConfirm={() => hideAlert(true)}
+          onCancel={() => hideAlert(false)}
+          showCancelButton={alert.type === "warning"}
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -1335,16 +1396,15 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     marginBottom: 10,
+    width: "75%", // Set fixed width for all reply bubbles
   },
   teacherReply: {
     backgroundColor: "rgba(11, 181, 191, 0.08)",
     alignSelf: "flex-end",
-    maxWidth: "85%",
   },
   parentReply: {
     backgroundColor: "#f0f0f0",
     alignSelf: "flex-start",
-    maxWidth: "85%",
   },
   replyMessage: {
     fontSize: 14,
@@ -1362,11 +1422,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Typography.fontWeight.medium.primary,
     color: "#555",
+    flex: 1, // Take available space
   },
   replyDate: {
     fontSize: 11,
     fontFamily: Typography.fontFamily.primary,
     color: "#888",
+    textAlign: "right", // Align text to the right
   },
   replyInputContainer: {
     backgroundColor: "#f9f9f9",

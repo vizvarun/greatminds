@@ -101,9 +101,6 @@ export default function TeacherDashboard() {
       <View style={styles.branchesSection}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Your School Branches</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAllText}>See All</Text>
-          </TouchableOpacity>
         </View>
 
         {branches.map((branch) => (
