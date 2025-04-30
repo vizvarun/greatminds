@@ -352,6 +352,19 @@ export default function AddTimetableEntryScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>
+            {isEditMode ? "Update Period Details" : "Add Period Details"}
+          </Text>
+        </View>
+      </View>
       <ScrollView style={styles.formContainer}>
         <CustomDropdown
           options={subjects}
@@ -548,6 +561,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f7fa",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    paddingTop: 11,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
   },
   formContainer: {
     padding: 16,

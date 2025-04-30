@@ -378,8 +378,20 @@ export default function AddDiaryEntryScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>
+            {isEditMode ? "Update Diary Entry" : "Add Diary Entry"}
+          </Text>
+        </View>
+      </View>
       <ScrollView style={styles.formContainer}>
-        {/* Entry Type as the first field using dropdown */}
         <CustomDropdown
           options={entryTypeOptions}
           selectedValue={formData.type}
@@ -680,6 +692,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f7fa",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    paddingTop: 14,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
   },
   formContainer: {
     padding: 16,

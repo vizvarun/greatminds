@@ -13,6 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { StatusBar } from "expo-status-bar";
 
 export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -92,28 +95,61 @@ export default function NotificationsScreen() {
   };
 
   const markAllAsRead = () => {
+    setAlert({
+      visible: true,
+      title: "Mark All as Read",
+      message: "Are you sure you want to mark all notifications as read?",
+      type: "info",
+    });
+  };
+
+  const confirmMarkAllAsRead = () => {
     const updatedNotifications = notifications.map((item) => ({
       ...item,
       read: true,
     }));
     setNotifications(updatedNotifications);
+    setAlert((prev) => ({ ...prev, visible: false }));
   };
 
   return (
-    <View style={styles.container}>
-      {notifications.length > 0 && (
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={markAllAsRead}>
-            <Text style={styles.actionButtonText}>Mark all as read</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      <View style={styles.header}>
+        <View style={styles.titleContainer}>
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={clearAllNotifications}
+            style={styles.backButton}
+            onPress={() => router.back()}
           >
-            <Text style={styles.actionButtonText}>Clear all</Text>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
           </TouchableOpacity>
+          <Text style={styles.title}>Notifications</Text>
+          {notifications.length > 0 && (
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={markAllAsRead}
+              >
+                <MaterialCommunityIcons
+                  name="eye-check-outline"
+                  size={22}
+                  color={primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={clearAllNotifications}
+              >
+                <MaterialCommunityIcons
+                  name="trash-can-outline"
+                  size={22}
+                  color={primary}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      )}
+      </View>
 
       <ScrollView
         style={styles.notificationList}
@@ -216,11 +252,15 @@ export default function NotificationsScreen() {
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onConfirm={confirmClearNotifications}
+        onConfirm={
+          alert.title === "Clear Notifications"
+            ? confirmClearNotifications
+            : confirmMarkAllAsRead
+        }
         onCancel={hideAlert}
         showCancelButton={true}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -229,24 +269,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f7fa",
   },
-  actionsContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  header: {
+    padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginLeft: 8,
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  actionButtonText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: primary,
+  backButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginLeft: "auto",
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(11, 181, 191, 0.1)",
   },
   notificationList: {
     flex: 1,

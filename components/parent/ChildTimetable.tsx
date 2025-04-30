@@ -467,6 +467,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
     justifyContent: "center",
+    paddingTop: 4,
   },
   daysScrollContent: {
     paddingHorizontal: 16,

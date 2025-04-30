@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { router } from "expo-router";
 
 export default function ParentNotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -93,154 +94,223 @@ export default function ParentNotificationsScreen() {
   };
 
   const markAllAsRead = () => {
+    setAlert({
+      visible: true,
+      title: "Mark All as Read",
+      message: "Are you sure you want to mark all notifications as read?",
+      type: "info",
+    });
+  };
+
+  const confirmMarkAllAsRead = () => {
     const updatedNotifications = notifications.map((item) => ({
       ...item,
       read: true,
     }));
     setNotifications(updatedNotifications);
+    setAlert((prev) => ({ ...prev, visible: false }));
   };
 
   return (
-    <View style={styles.container}>
-      {/* Remove any header here if one exists - we're using the one from parent layout */}
-
-      {notifications.length > 0 && (
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={markAllAsRead}>
-            <Text style={styles.actionButtonText}>Mark all as read</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={clearAllNotifications}
-          >
-            <Text style={styles.actionButtonText}>Clear all</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <ScrollView
-        style={styles.notificationList}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {notifications.length > 0 ? (
-          notifications.map((notification) => (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.titleContainer}>
             <TouchableOpacity
-              key={notification.id}
-              style={styles.notificationItem}
-              onPress={() => handleNotificationPress(notification)}
-              activeOpacity={0.7}
+              style={styles.backButton}
+              onPress={() => router.back()}
             >
-              <View
-                style={[
-                  styles.notificationIcon,
-                  {
-                    backgroundColor: notification.read
-                      ? "#f1f1f1"
-                      : "rgba(11, 181, 191, 0.1)",
-                  },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name="bell-outline"
-                  size={24}
-                  color={notification.read ? "#999" : primary}
-                />
-              </View>
-              <View style={styles.notificationContent}>
-                <Text style={styles.notificationTitle}>
-                  {notification.title}
-                </Text>
-                <Text style={styles.notificationMessage}>
-                  {notification.message}
-                </Text>
-                <Text style={styles.notificationTime}>{notification.time}</Text>
-              </View>
-              {!notification.read && <View style={styles.unreadIndicator} />}
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#333"
+              />
             </TouchableOpacity>
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="bell-off-outline"
-              size={60}
-              color="#ccc"
-            />
-            <Text style={styles.emptyText}>No notifications</Text>
+            <Text style={styles.title}>Notifications</Text>
+            {notifications.length > 0 && (
+              <View style={styles.actionsContainer}>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={markAllAsRead}
+                >
+                  <MaterialCommunityIcons
+                    name="eye-check-outline"
+                    size={22}
+                    color={primary}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={clearAllNotifications}
+                >
+                  <MaterialCommunityIcons
+                    name="trash-can-outline"
+                    size={22}
+                    color={primary}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-        )}
-      </ScrollView>
+        </View>
 
-      {/* Notification Details Modal */}
-      <Modal
-        visible={detailsModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setDetailsModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {selectedNotification?.title}
-              </Text>
+        <ScrollView
+          style={styles.notificationList}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {notifications.length > 0 ? (
+            notifications.map((notification) => (
               <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setDetailsModalVisible(false)}
+                key={notification.id}
+                style={styles.notificationItem}
+                onPress={() => handleNotificationPress(notification)}
+                activeOpacity={0.7}
               >
-                <MaterialCommunityIcons name="close" size={24} color="#555" />
+                <View
+                  style={[
+                    styles.notificationIcon,
+                    {
+                      backgroundColor: notification.read
+                        ? "#f1f1f1"
+                        : "rgba(11, 181, 191, 0.1)",
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="bell-outline"
+                    size={24}
+                    color={notification.read ? "#999" : primary}
+                  />
+                </View>
+                <View style={styles.notificationContent}>
+                  <Text style={styles.notificationTitle}>
+                    {notification.title}
+                  </Text>
+                  <Text style={styles.notificationMessage}>
+                    {notification.message}
+                  </Text>
+                  <Text style={styles.notificationTime}>
+                    {notification.time}
+                  </Text>
+                </View>
+                {!notification.read && <View style={styles.unreadIndicator} />}
               </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons
+                name="bell-off-outline"
+                size={60}
+                color="#ccc"
+              />
+              <Text style={styles.emptyText}>No notifications</Text>
             </View>
+          )}
+        </ScrollView>
 
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.notificationTime}>
-                {selectedNotification?.time}
-              </Text>
-              <Text style={styles.modalMessage}>
-                {selectedNotification?.details || selectedNotification?.message}
-              </Text>
-            </ScrollView>
+        {/* Notification Details Modal */}
+        <Modal
+          visible={detailsModalVisible}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setDetailsModalVisible(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {selectedNotification?.title}
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setDetailsModalVisible(false)}
+                >
+                  <MaterialCommunityIcons name="close" size={24} color="#555" />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.dismissButton}
-                onPress={() => setDetailsModalVisible(false)}
-              >
-                <Text style={styles.dismissButtonText}>Dismiss</Text>
-              </TouchableOpacity>
+              <ScrollView style={styles.modalBody}>
+                <Text style={styles.notificationTime}>
+                  {selectedNotification?.time}
+                </Text>
+                <Text style={styles.modalMessage}>
+                  {selectedNotification?.details ||
+                    selectedNotification?.message}
+                </Text>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.dismissButton}
+                  onPress={() => setDetailsModalVisible(false)}
+                >
+                  <Text style={styles.dismissButtonText}>Dismiss</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        </SafeAreaView>
-      </Modal>
+          </SafeAreaView>
+        </Modal>
 
-      <CustomAlert
-        visible={alert.visible}
-        title={alert.title}
-        message={alert.message}
-        type={alert.type}
-        onConfirm={confirmClearNotifications}
-        onCancel={hideAlert}
-        showCancelButton={true}
-      />
-    </View>
+        <CustomAlert
+          visible={alert.visible}
+          title={alert.title}
+          message={alert.message}
+          type={alert.type}
+          onConfirm={
+            alert.title === "Clear Notifications"
+              ? confirmClearNotifications
+              : confirmMarkAllAsRead
+          }
+          onCancel={hideAlert}
+          showCancelButton={true}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f5f7fa",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f7fa",
   },
-  actionsContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  header: {
+    padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    padding: 4,
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginLeft: "auto",
+  },
+  iconButton: {
+    padding: 8,
+    marginLeft: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(11, 181, 191, 0.1)",
+  },
+
   actionButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,

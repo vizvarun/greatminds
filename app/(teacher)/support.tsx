@@ -19,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 // Import notification utilities
 import {
   configureNotifications,
@@ -807,23 +808,22 @@ export default function SupportScreen() {
       contentContainerStyle={{ flex: 1 }}
     >
       <View style={styles.container}>
-        {isFromInternal && (
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => router.back()}
-              >
-                <MaterialCommunityIcons
-                  name="arrow-left"
-                  size={24}
-                  color="#333"
-                />
-              </TouchableOpacity>
-              <Text style={styles.title}>Support</Text>
-            </View>
+        <StatusBar style="dark" />
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#333"
+              />
+            </TouchableOpacity>
+            <Text style={styles.title}>Support</Text>
           </View>
-        )}
+        </View>
 
         <View style={styles.header}>
           <View style={styles.searchFilterContainer}>

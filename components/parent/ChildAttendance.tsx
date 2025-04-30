@@ -34,10 +34,10 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
   );
   const params = useLocalSearchParams();
 
-  // Define color constants to ensure consistency
+  // Define brighter color constants that are more visible while still somewhat subtle
   const statusColors = {
-    present: "#4CAF50", // Green
-    absent: "#F44336", // Red
+    present: "#4CAF50", // Brighter Green
+    absent: "#FF5252", // Brighter Red
     late: "#FF9800", // Orange
     leave: "#9C27B0", // Purple
     holiday: "#2196F3", // Blue
@@ -159,30 +159,58 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
     return date.toISOString().split("T")[0];
   }
 
-  // Generate marked dates in the format required by the calendar
+  // Enhanced rendering for calendar days with brighter colors
+  const renderDay = (day: any, item: any) => {
+    if (!day) return null;
+    const dateString = day.dateString;
+    const data = attendanceData[dateString];
+    const isToday = dateString === normalizeDate(new Date());
+
+    return (
+      <View style={[styles.dayContainer, isToday && styles.todayContainer]}>
+        <Text style={[styles.dayText, isToday && styles.todayText]}>
+          {day.day}
+        </Text>
+        {data && (
+          <View
+            style={[
+              styles.statusIndicator,
+              {
+                backgroundColor: statusColors[data.status],
+                width: 12, // Increase size for better visibility
+                height: 12,
+                borderRadius: 6,
+              },
+            ]}
+          />
+        )}
+      </View>
+    );
+  };
+
+  // Modify getMarkedDates to apply styling for all statuses
   const getMarkedDates = useCallback(() => {
     const markedDates: any = {};
 
     Object.entries(attendanceData).forEach(([date, data]) => {
       const color = statusColors[data.status];
 
-      // Create a minimal, elegant indicator
       markedDates[date] = {
         customStyles: {
           container: {
             borderRadius: 8,
+            backgroundColor: `${color}20`, // Adding a light background for all statuses
           },
           text: {
             color: "#333",
           },
-          // Small dot indicator in top right corner
           dotView: {
             position: "absolute",
             top: 3,
             right: 3,
-            width: 8,
-            height: 8,
-            borderRadius: 4,
+            width: 10,
+            height: 10,
+            borderRadius: 5,
             backgroundColor: color,
           },
         },
@@ -302,32 +330,7 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
               markedDates={getMarkedDates()}
               hideExtraDays={true}
               enableSwipeMonths={true}
-              renderDay={(day, item) => {
-                if (!day) return null; // Removed check for item
-                const dateString = day.dateString;
-                const data = attendanceData[dateString];
-                const isToday = dateString === normalizeDate(new Date());
-                return (
-                  <View
-                    style={[
-                      styles.dayContainer,
-                      isToday && styles.todayContainer,
-                    ]}
-                  >
-                    <Text style={[styles.dayText, isToday && styles.todayText]}>
-                      {day.day}
-                    </Text>
-                    {data && (
-                      <View
-                        style={[
-                          styles.statusIndicator,
-                          { backgroundColor: statusColors[data.status] },
-                        ]}
-                      />
-                    )}
-                  </View>
-                );
-              }}
+              renderDay={renderDay}
               theme={{
                 calendarBackground: "#fff",
                 todayTextColor: primary,

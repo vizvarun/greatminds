@@ -7,6 +7,7 @@ import { Redirect, router, Slot, usePathname } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 export default function TeacherLayout() {
   const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
@@ -114,7 +115,7 @@ export default function TeacherLayout() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      {/* Main Header - Only shown on main screens */}
+      <StatusBar style="dark" />
       {isMainScreen && (
         <View style={styles.header}>
           <View style={styles.headerTitleContainer}>
@@ -151,10 +152,8 @@ export default function TeacherLayout() {
         </View>
       )}
 
-      {/* Main Content Area */}
       <View style={styles.contentContainer}>
         {isDashboard ? (
-          /* Role Switcher - only shown on dashboard */
           <View style={styles.roleSwitcherContainer}>
             <TouchableOpacity
               style={styles.roleSwitcher}
@@ -188,12 +187,7 @@ export default function TeacherLayout() {
           </View>
         ) : null}
 
-        <View
-          style={[
-            styles.slotContainer,
-            !isMainScreen && styles.internalSlotContainer,
-          ]}
-        >
+        <View style={[styles.slotContainer]}>
           <Slot />
         </View>
       </View>

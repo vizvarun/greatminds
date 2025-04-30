@@ -8,6 +8,7 @@ import {
   InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -24,6 +25,7 @@ export default function ApplyLeaveScreen() {
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [leaveReason, setLeaveReason] = useState("");
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const inputAccessoryViewID = "leaveReasonInput";
@@ -98,16 +100,23 @@ export default function ApplyLeaveScreen() {
 
   const handleApplyLeave = () => {
     if (selectedDates.length > 0) {
-      // Navigate back to the previous screen
-      router.back();
-
-      // Show success alert (this needs to be handled by the parent component)
-      // We'll pass the success message as a parameter
-      router.setParams({
-        leaveApplied: "true",
-        selectedDates: selectedDates.join(","),
-      });
+      // Show confirmation modal instead of navigating immediately
+      setShowConfirmationModal(true);
     }
+  };
+
+  const confirmAndSubmitLeave = () => {
+    // Close modal
+    setShowConfirmationModal(false);
+
+    // Navigate back to the previous screen
+    router.back();
+
+    // Show success alert (this needs to be handled by the parent component)
+    router.setParams({
+      leaveApplied: "true",
+      selectedDates: selectedDates.join(","),
+    });
   };
 
   return (
@@ -212,6 +221,109 @@ export default function ApplyLeaveScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Confirmation Modal */}
+        <Modal
+          visible={showConfirmationModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowConfirmationModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              {/* Improved header design */}
+              <View style={styles.modalHeaderContainer}>
+                <MaterialCommunityIcons
+                  name="calendar-check"
+                  size={24}
+                  color={primary}
+                />
+                <Text style={styles.modalTitle}>Confirm Leave Application</Text>
+              </View>
+
+              <View style={styles.modalDivider} />
+
+              <Text style={styles.modalText}>
+                You are requesting leave for {selectedDates.length} day(s):
+              </Text>
+
+              {/* Scrollable date container for many dates */}
+              <ScrollView
+                style={[
+                  styles.dateScrollView,
+                  selectedDates.length > 6 && styles.dateScrollViewTall,
+                ]}
+                contentContainerStyle={styles.calendarContainer}
+                showsVerticalScrollIndicator={selectedDates.length > 6}
+              >
+                {selectedDates.sort().map((date) => {
+                  const dateObj = new Date(date);
+                  const day = dateObj.getDate();
+                  const month = dateObj.toLocaleString("default", {
+                    month: "short",
+                  });
+                  const weekday = dateObj.toLocaleString("default", {
+                    weekday: "short",
+                  });
+
+                  return (
+                    <View key={date} style={styles.dateCard}>
+                      {/* Make remove button more prominent */}
+                      <TouchableOpacity
+                        style={styles.removeDateButton}
+                        onPress={() => {
+                          setSelectedDates(
+                            selectedDates.filter((d) => d !== date)
+                          );
+                          // If removing the last date, close the modal
+                          if (selectedDates.length === 1) {
+                            setShowConfirmationModal(false);
+                          }
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name="close-circle"
+                          size={18}
+                          color="white"
+                        />
+                      </TouchableOpacity>
+                      <View style={styles.dateHeader}>
+                        <Text style={styles.dateMonth}>{month}</Text>
+                      </View>
+                      <View style={styles.dateBody}>
+                        <Text style={styles.dateNumber}>{day}</Text>
+                        <Text style={styles.dateWeekday}>{weekday}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              {leaveReason.trim() !== "" && (
+                <>
+                  <Text style={styles.modalText}>Reason:</Text>
+                  <Text style={styles.modalReason}>{leaveReason}</Text>
+                </>
+              )}
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => setShowConfirmationModal(false)}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalConfirmButton}
+                  onPress={confirmAndSubmitLeave}
+                >
+                  <Text style={styles.modalConfirmButtonText}>Confirm</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -224,7 +336,6 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -239,6 +350,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
+    marginLeft: 4,
   },
   rightPlaceholder: {
     width: 24, // To balance the header
@@ -322,5 +434,155 @@ const styles = StyleSheet.create({
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
     fontSize: 16,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 20,
+    width: "90%",
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalHeaderContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: "#ddd",
+    marginVertical: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginLeft: 8,
+    textAlign: "center",
+  },
+  modalText: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#444",
+    marginBottom: 8,
+  },
+  modalDates: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: primary,
+    marginBottom: 16,
+  },
+  modalReason: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    marginBottom: 20,
+    fontStyle: "italic",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  modalCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginRight: 10,
+    flex: 1,
+    alignItems: "center",
+  },
+  modalCancelButtonText: {
+    color: "#666",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
+  },
+  modalConfirmButton: {
+    backgroundColor: primary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    flex: 1,
+    alignItems: "center",
+  },
+  modalConfirmButtonText: {
+    color: "white",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
+  },
+  calendarContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  dateScrollView: {
+    maxHeight: 200,
+  },
+  dateScrollViewTall: {
+    maxHeight: 300,
+  },
+  dateCard: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    margin: 8,
+    width: 60,
+    alignItems: "center",
+    paddingBottom: 8,
+    position: "relative",
+  },
+  removeDateButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    backgroundColor: primary,
+    borderRadius: 12,
+    width: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  dateHeader: {
+    backgroundColor: primary,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    width: "100%",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  dateMonth: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  dateBody: {
+    alignItems: "center",
+    marginTop: 4,
+  },
+  dateNumber: {
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: primary,
+  },
+  dateWeekday: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
   },
 });

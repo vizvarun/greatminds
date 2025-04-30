@@ -7,6 +7,7 @@ import { Redirect, router, Slot, usePathname } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 export default function ParentLayout() {
   const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
@@ -65,10 +66,11 @@ export default function ParentLayout() {
     isDiaryScreen ||
     isTimetableScreen ||
     isSupportScreen ||
-    isPaymentScreen;
+    isPaymentScreen ||
+    isNotificationScreen;
 
   // Hide role switcher on certain screens but keep the layout
-  const hideRoleSwitcher = isNotificationScreen;
+  const hideRoleSwitcher = false;
 
   // Show loading state or redirect if not authenticated
   if (isLoading) {
@@ -106,38 +108,23 @@ export default function ParentLayout() {
   // For dashboard and other views, show the full layout with header and role switcher
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <StatusBar style="dark" />
       {/* Custom Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
-          {isNotificationScreen && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={24}
-                color="#333"
-              />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.headerTitle}>
-            {isNotificationScreen ? "Notifications" : "Parent Dashboard"}
-          </Text>
+          <Text style={styles.headerTitle}>Parent Dashboard</Text>
         </View>
         <View style={styles.headerRightContainer}>
-          {!isNotificationScreen && (
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => router.push("/(parent)/notifications")}
-            >
-              <MaterialCommunityIcons
-                name="bell-outline"
-                size={24}
-                color={primary}
-              />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push("/(parent)/notifications")}
+          >
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={24}
+              color={primary}
+            />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={24} color="#e74c3c" />
           </TouchableOpacity>
