@@ -409,7 +409,15 @@ export default function SectionTimetableScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Class Timetable</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Class Timetable</Text>
+        </View>
         <TouchableOpacity style={styles.addButton} onPress={handleAddPeriod}>
           <MaterialCommunityIcons name="plus" size={18} color="#fff" />
           <Text style={styles.addButtonText}>Add Period</Text>
@@ -554,6 +562,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
+  },
   title: {
     fontSize: 18,
     fontFamily: Typography.fontWeight.semiBold.primary,
@@ -579,6 +594,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
     justifyContent: "center",
+    paddingTop: 4,
   },
   daysScrollContent: {
     paddingHorizontal: 16,

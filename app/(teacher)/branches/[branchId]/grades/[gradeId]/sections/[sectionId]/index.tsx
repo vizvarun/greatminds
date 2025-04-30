@@ -62,6 +62,37 @@ export default function SectionDetailsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.backButtonContainer}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#333"
+              />
+            </TouchableOpacity>
+            <Text style={styles.title}>
+              {sectionDetails.grade} - {sectionDetails.name}
+            </Text>
+          </View>
+          <View style={styles.studentCountBlock}>
+            <MaterialCommunityIcons
+              name="account-group-outline"
+              size={18}
+              color="#333"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={styles.studentCount}>
+              {sectionDetails.students} Students
+            </Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.contentContainer}
         contentContainerStyle={styles.scrollContentContainer}
@@ -69,20 +100,6 @@ export default function SectionDetailsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.infoCard}>
-          <Text style={styles.sectionTitle}>
-            {sectionDetails.grade} - {sectionDetails.name}
-          </Text>
-          <Text style={styles.studentCount}>
-            <MaterialCommunityIcons
-              name="account-group-outline"
-              size={16}
-              color="#666"
-            />{" "}
-            {sectionDetails.students} Students
-          </Text>
-        </View>
-
         <View style={styles.attendanceStatsCard}>
           <Text style={styles.cardTitle}>Today's Attendance</Text>
           <View style={styles.statsGrid}>
@@ -267,6 +284,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f7fa",
   },
+  header: {
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  backButtonContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
   contentContainer: {
     flex: 1,
     padding: 16,
@@ -291,10 +331,16 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 8,
   },
+  studentCountBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   studentCount: {
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
-    color: "#666",
+    color: "#333",
+    marginLeft: 2,
+    fontWeight: "500",
   },
   attendanceStatsCard: {
     backgroundColor: "#fff",

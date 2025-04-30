@@ -2,7 +2,7 @@ import CustomAlert from "@/components/ui/CustomAlert";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -807,6 +807,24 @@ export default function SupportScreen() {
       contentContainerStyle={{ flex: 1 }}
     >
       <View style={styles.container}>
+        {isFromInternal && (
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <MaterialCommunityIcons
+                  name="arrow-left"
+                  size={24}
+                  color="#333"
+                />
+              </TouchableOpacity>
+              <Text style={styles.title}>Support</Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.header}>
           <View style={styles.searchFilterContainer}>
             <View style={styles.searchContainer}>
@@ -1207,6 +1225,20 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
   },
   searchFilterContainer: {
     flexDirection: "row",

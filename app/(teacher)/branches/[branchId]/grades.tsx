@@ -126,6 +126,18 @@ export default function GradesScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Grade Sections</Text>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.contentContainer}
         contentContainerStyle={styles.scrollContentContainer}
@@ -226,6 +238,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f9fafb", // Lighter, more neutral background
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
   },
   contentContainer: {
     flex: 1,

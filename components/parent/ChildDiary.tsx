@@ -30,11 +30,9 @@ type DiaryEntry = {
   title: string;
   description: string;
   type: "homework" | "note" | "reminder" | "test";
-  completed?: boolean;
 };
 
 export default function ChildDiary({ childId, showAlert }: Props) {
-  // Add normalizeDate function declaration at the beginning for use in initialization
   const normalizeDate = (date: Date): string => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
       2,
@@ -42,7 +40,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     )}-${String(date.getDate()).padStart(2, "0")}`;
   };
 
-  // Fix: Use normalizeDate instead of toISOString for consistent date handling
   const [selectedDate, setSelectedDate] = useState(normalizeDate(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,8 +48,7 @@ export default function ChildDiary({ childId, showAlert }: Props) {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([
     {
       id: "6",
-      // Fix: Use normalizeDate for consistent date formatting
-      date: normalizeDate(new Date()), // Today
+      date: normalizeDate(new Date()),
       formattedDate: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -64,8 +60,7 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     },
     {
       id: "7",
-      // Fix: Use normalizeDate for consistent date formatting
-      date: normalizeDate(new Date()), // Today
+      date: normalizeDate(new Date()),
       formattedDate: new Date().toLocaleDateString("en-US", {
         day: "numeric",
         month: "short",
@@ -74,14 +69,12 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       title: "Homework Submission",
       description: "Submit science project outline",
       type: "homework",
-      completed: false,
     },
-    // Create a date for tomorrow
     {
       id: "8",
       date: normalizeDate(
         new Date(new Date().setDate(new Date().getDate() + 1))
-      ), // Tomorrow
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 1)
       ).toLocaleDateString("en-US", {
@@ -93,12 +86,11 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       description: "Chapters 7-9 vocabulary will be tested",
       type: "test",
     },
-    // Create a date for day after tomorrow
     {
       id: "9",
       date: normalizeDate(
         new Date(new Date().setDate(new Date().getDate() + 2))
-      ), // Day after tomorrow
+      ),
       formattedDate: new Date(
         new Date().setDate(new Date().getDate() + 2)
       ).toLocaleDateString("en-US", {
@@ -109,9 +101,7 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       title: "Geography Project Due",
       description: "Submit completed world map project",
       type: "homework",
-      completed: true,
     },
-    // Create a date for 3 days from now
     {
       id: "10",
       date: normalizeDate(
@@ -128,7 +118,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       description: "Return all borrowed books to avoid late fees",
       type: "reminder",
     },
-    // Create a date for 5 days from now
     {
       id: "11",
       date: normalizeDate(
@@ -145,7 +134,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       description: "Bring sports uniform and water bottle",
       type: "note",
     },
-    // Create a date for 1 week from now
     {
       id: "12",
       date: normalizeDate(
@@ -161,9 +149,7 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       title: "History Presentation",
       description: "Group presentation on Ancient Egypt",
       type: "homework",
-      completed: false,
     },
-    // Create a date for 2 weeks from now
     {
       id: "13",
       date: normalizeDate(
@@ -180,7 +166,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       description: "Final mathematics examination for the term",
       type: "test",
     },
-    // Last month entry
     {
       id: "14",
       date: normalizeDate(
@@ -198,9 +183,7 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       title: "Last Month Assignment",
       description: "Science lab report on plant growth experiment",
       type: "homework",
-      completed: true,
     },
-    // Next month entry
     {
       id: "15",
       date: normalizeDate(
@@ -221,13 +204,11 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     },
   ]);
 
-  // Add rotation animation value
   const syncIconRotation = useRef(new Animated.Value(0)).current;
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
 
-    // Start rotation animation
     Animated.loop(
       Animated.timing(syncIconRotation, {
         toValue: 1,
@@ -237,9 +218,7 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       })
     ).start();
 
-    // Simulate fetching data from server
     setTimeout(() => {
-      // Reset date to today on sync
       const today = new Date();
       setCurrentMonth(today.getMonth());
       setCurrentYear(today.getFullYear());
@@ -252,13 +231,11 @@ export default function ChildDiary({ childId, showAlert }: Props) {
         "success"
       );
       setRefreshing(false);
-      // Stop rotation animation
       syncIconRotation.setValue(0);
       Animated.timing(syncIconRotation).stop();
     }, 1000);
   }, [showAlert, syncIconRotation]);
 
-  // Create an interpolation for rotation
   const spin = syncIconRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
@@ -344,7 +321,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     ];
     const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-    // Add header with month and year
     days.push(
       <View key="header" style={styles.calendarHeader}>
         <TouchableOpacity onPress={() => changeMonth(-1)}>
@@ -359,7 +335,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       </View>
     );
 
-    // Add day names row
     days.push(
       <View key="daynames" style={styles.dayNamesRow}>
         {dayNames.map((day) => (
@@ -370,7 +345,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       </View>
     );
 
-    // Add empty cells for days before the first day of the month
     const rows = [];
     let cells = [];
 
@@ -378,7 +352,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       cells.push(<View key={`empty-${i}`} style={styles.emptyDay} />);
     }
 
-    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const cellDate = new Date(currentYear, currentMonth, day);
       const dateString = normalizeDate(cellDate);
@@ -413,7 +386,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
         </TouchableOpacity>
       );
 
-      // If we've reached the end of a week, start a new row
       if ((firstDay + day) % 7 === 0) {
         rows.push(
           <View key={`row-${day}`} style={styles.calendarRow}>
@@ -424,7 +396,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       }
     }
 
-    // Add any remaining days to a final row
     if (cells.length > 0) {
       while (cells.length < 7) {
         cells.push(
@@ -441,16 +412,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
     days.push(...rows);
 
     return <View style={styles.customCalendar}>{days}</View>;
-  };
-
-  const toggleCompleted = (id: string) => {
-    setDiaryEntries(
-      diaryEntries.map((entry) =>
-        entry.id === id && entry.type === "homework"
-          ? { ...entry, completed: !entry.completed }
-          : entry
-      )
-    );
   };
 
   const entriesForSelectedDate = diaryEntries.filter(
@@ -555,38 +516,6 @@ export default function ChildDiary({ childId, showAlert }: Props) {
                   <Text style={styles.entryDescription}>
                     {item.description}
                   </Text>
-                  {item.type === "homework" && (
-                    <View style={styles.homeworkStatus}>
-                      <TouchableOpacity
-                        onPress={() => toggleCompleted(item.id)}
-                        style={styles.checkbox}
-                      >
-                        {item.completed ? (
-                          <MaterialCommunityIcons
-                            name="checkbox-marked"
-                            size={22}
-                            color={primary}
-                          />
-                        ) : (
-                          <MaterialCommunityIcons
-                            name="checkbox-blank-outline"
-                            size={22}
-                            color="#666"
-                          />
-                        )}
-                      </TouchableOpacity>
-                      <Text
-                        style={[
-                          styles.statusText,
-                          {
-                            color: item.completed ? "#4CAF50" : "#FF9800",
-                          },
-                        ]}
-                      >
-                        {item.completed ? "Completed" : "Pending"}
-                      </Text>
-                    </View>
-                  )}
                 </View>
               </View>
             )}
@@ -727,17 +656,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
     marginBottom: 8,
-  },
-  homeworkStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  checkbox: {
-    marginRight: 6,
-  },
-  statusText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.medium.primary,
   },
   noEntriesContainer: {
     flex: 1,

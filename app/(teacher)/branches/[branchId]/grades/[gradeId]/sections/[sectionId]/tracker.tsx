@@ -526,8 +526,30 @@ export default function AttendanceTrackerScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Header with search and mode toggle */}
       <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Attendance Tracker</Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.modeButton, isBulkMode && styles.activeModeButton]}
+          onPress={() => setIsBulkMode(!isBulkMode)}
+        >
+          <MaterialCommunityIcons
+            name={isBulkMode ? "close-circle" : "account-multiple-check"}
+            size={24}
+            color={isBulkMode ? "#fff" : primary}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Header with search and mode toggle */}
+      <View style={styles.searchHeader}>
         <View style={styles.searchContainer}>
           <MaterialCommunityIcons name="magnify" size={20} color="#999" />
           <TextInput
@@ -542,17 +564,6 @@ export default function AttendanceTrackerScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        <TouchableOpacity
-          style={[styles.modeButton, isBulkMode && styles.activeModeButton]}
-          onPress={() => setIsBulkMode(!isBulkMode)}
-        >
-          <MaterialCommunityIcons
-            name={isBulkMode ? "close-circle" : "account-multiple-check"}
-            size={24}
-            color={isBulkMode ? "#fff" : primary}
-          />
-        </TouchableOpacity>
       </View>
 
       {/* Bulk action panel */}
@@ -793,6 +804,27 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
+  searchHeader: {
+    flexDirection: "row",
     padding: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
@@ -807,7 +839,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginRight: 10,
   },
   searchInput: {
     flex: 1,

@@ -29,7 +29,6 @@ type DiaryEntry = {
     | "note"
     | "reminder"
     | "test";
-  completed?: boolean;
 };
 
 export default function SectionDiaryScreen() {
@@ -81,7 +80,6 @@ export default function SectionDiaryScreen() {
       title: "Science Homework Due",
       description: "Complete exercise 3 in the workbook",
       type: "homework",
-      completed: false,
     },
     {
       id: "3",
@@ -98,7 +96,6 @@ export default function SectionDiaryScreen() {
       title: "English Essay Due",
       description: "2-page essay on Shakespeare's Hamlet",
       type: "homework",
-      completed: false,
     },
     {
       id: "4",
@@ -436,7 +433,15 @@ export default function SectionDiaryScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Class Diary</Text>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Class Diary</Text>
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.addButton} onPress={handleAddEntry}>
             <MaterialCommunityIcons name="plus" size={20} color="#fff" />
@@ -521,20 +526,6 @@ export default function SectionDiaryScreen() {
                   <Text style={styles.entryDescription}>
                     {item.description}
                   </Text>
-                  {item.type === "homework" && (
-                    <View style={styles.homeworkStatus}>
-                      <Text
-                        style={[
-                          styles.statusText,
-                          {
-                            color: item.completed ? "#4CAF50" : "#FF9800",
-                          },
-                        ]}
-                      >
-                        {item.completed ? "Completed" : "Pending"}
-                      </Text>
-                    </View>
-                  )}
                 </View>
                 <View style={styles.entryActions}>
                   <TouchableOpacity
@@ -607,6 +598,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  backButton: {
+    marginRight: 10,
   },
   headerActions: {
     flexDirection: "row",
@@ -734,14 +732,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
     marginBottom: 8,
-  },
-  homeworkStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.medium.primary,
   },
   entryActions: {
     flexDirection: "row",

@@ -33,6 +33,10 @@ export default function TeacherLayout() {
     pathname === "/(teacher)/support" ||
     pathname === "/(teacher)/notifications";
 
+  const isHavingHeader =
+    pathname.includes("/(teacher)/diary") ||
+    pathname.includes("/(teacher)/timetable");
+
   // Get screen title based on the current path
   const getScreenTitle = () => {
     if (isDashboard) return "Teacher Dashboard";
@@ -182,26 +186,8 @@ export default function TeacherLayout() {
               </View>
             </TouchableOpacity>
           </View>
-        ) : !isMainScreen ? (
-          /* Minimal Back Button - for internal screens */
-          <View style={styles.internalHeader}>
-            <View style={styles.internalHeaderGroup}>
-              <TouchableOpacity
-                style={styles.internalHeaderButton}
-                onPress={handleGoBack}
-              >
-                <MaterialCommunityIcons
-                  name="arrow-left"
-                  size={22}
-                  color="#333"
-                />
-              </TouchableOpacity>
-              <Text style={styles.internalHeaderTitle}>{getScreenTitle()}</Text>
-            </View>
-          </View>
         ) : null}
 
-        {/* Content - Render Slot directly without ScrollView */}
         <View
           style={[
             styles.slotContainer,
