@@ -55,7 +55,9 @@ export default function ParentLayout() {
   const isTimetableScreen = pathname.includes("/children/timetable/");
   const isSupportScreen = pathname.includes("/children/support/");
   const isPaymentScreen = pathname.includes("/children/fees/");
+  const isNotificationScreen = pathname.includes("/notifications");
 
+  // These screens should completely bypass the layout
   const shouldBypassLayout =
     isChildDetailsScreen ||
     isLeaveScreen ||
@@ -64,6 +66,9 @@ export default function ParentLayout() {
     isTimetableScreen ||
     isSupportScreen ||
     isPaymentScreen;
+
+  // Hide role switcher on certain screens but keep the layout
+  const hideRoleSwitcher = isNotificationScreen;
 
   // Show loading state or redirect if not authenticated
   if (isLoading) {
@@ -104,16 +109,35 @@ export default function ParentLayout() {
       {/* Custom Header */}
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Parent Dashboard</Text>
+          {isNotificationScreen && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#333"
+              />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerTitle}>
+            {isNotificationScreen ? "Notifications" : "Parent Dashboard"}
+          </Text>
         </View>
         <View style={styles.headerRightContainer}>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialCommunityIcons
-              name="bell-outline"
-              size={24}
-              color={primary}
-            />
-          </TouchableOpacity>
+          {!isNotificationScreen && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => router.push("/(parent)/notifications")}
+            >
+              <MaterialCommunityIcons
+                name="bell-outline"
+                size={24}
+                color={primary}
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
             <MaterialCommunityIcons name="logout" size={24} color="#e74c3c" />
           </TouchableOpacity>
@@ -122,38 +146,40 @@ export default function ParentLayout() {
 
       {/* Main Content Area with ScrollView to enable scrolling */}
       <View style={styles.contentContainer}>
-        {/* Role Switcher */}
-        <View style={styles.roleSwitcherContainer}>
-          <TouchableOpacity
-            style={styles.roleSwitcher}
-            onPress={handleSwitchRole}
-            activeOpacity={0.7}
-          >
-            <View style={styles.roleGradient}>
-              <View style={styles.roleInfo}>
-                <View style={styles.currentRoleIcon}>
+        {/* Role Switcher - only show when not on notification screen */}
+        {!hideRoleSwitcher && (
+          <View style={styles.roleSwitcherContainer}>
+            <TouchableOpacity
+              style={styles.roleSwitcher}
+              onPress={handleSwitchRole}
+              activeOpacity={0.7}
+            >
+              <View style={styles.roleGradient}>
+                <View style={styles.roleInfo}>
+                  <View style={styles.currentRoleIcon}>
+                    <MaterialCommunityIcons
+                      name="account-child"
+                      size={14}
+                      color="#fff"
+                    />
+                  </View>
+                  <View style={styles.roleSwitcherTextContainer}>
+                    <Text style={styles.currentRoleText}>Parent Mode</Text>
+                  </View>
+                </View>
+                <View style={styles.switchAction}>
+                  <Text style={styles.switchToText}>SWITCH TO TEACHER</Text>
                   <MaterialCommunityIcons
-                    name="account-child"
-                    size={14}
+                    name="arrow-right-circle"
+                    size={16}
                     color="#fff"
+                    style={styles.arrowIcon}
                   />
                 </View>
-                <View style={styles.roleSwitcherTextContainer}>
-                  <Text style={styles.currentRoleText}>Parent Mode</Text>
-                </View>
               </View>
-              <View style={styles.switchAction}>
-                <Text style={styles.switchToText}>SWITCH TO TEACHER</Text>
-                <MaterialCommunityIcons
-                  name="arrow-right-circle"
-                  size={16}
-                  color="#fff"
-                  style={styles.arrowIcon}
-                />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Content */}
         <View style={styles.slotContainer}>
@@ -197,11 +223,22 @@ const styles = StyleSheet.create({
   },
   headerTitleContainer: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
   },
   headerTitle: {
     fontFamily: Typography.fontWeight.bold.primary,
     color: "#333",
     fontSize: 20,
+  },
+  backButton: {
+    marginRight: 12,
+    padding: 4,
+  },
+  headerIcon: {
+    padding: 8,
+    marginLeft: "auto",
+    marginRight: 8,
   },
   headerRightContainer: {
     flexDirection: "row",
