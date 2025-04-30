@@ -1,18 +1,17 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Platform,
-} from "react-native";
+import CustomAlert from "@/components/ui/CustomAlert";
+import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
-import CustomAlert from "@/components/ui/CustomAlert";
+import React, { useState } from "react";
+import {
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function SectionDetailsScreen() {
   const { branchId, gradeId, sectionId } = useLocalSearchParams();

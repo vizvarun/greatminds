@@ -1,20 +1,19 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  RefreshControl,
-} from "react-native";
+import CustomAlert from "@/components/ui/CustomAlert";
+import InitialsAvatar from "@/components/ui/InitialsAvatar";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
-import CustomAlert from "@/components/ui/CustomAlert";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import React, { useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function ParentDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -61,6 +60,14 @@ export default function ParentDashboard() {
     router.push(`/(parent)/children/timetable/${childId}`);
   };
 
+  // Sample images for demo purposes
+  // In a real app, these would likely come from an API
+  const studentImages = {
+    "Sarah Brandon": "https://randomuser.me/api/portraits/women/17.jpg",
+    "Michael Johnson": null, // No image available, will fall back to initials
+    "Elizabeth Williamson": "https://randomuser.me/api/portraits/women/54.jpg",
+  };
+
   return (
     <View style={styles.safeArea}>
       <StatusBar style="dark" />
@@ -85,9 +92,10 @@ export default function ParentDashboard() {
               style={styles.childCard}
               onPress={() => router.push("/(parent)/children/details/1")}
             >
-              <Image
-                source={require("@/assets/images/onboarding.png")}
-                style={styles.childAvatar}
+              <InitialsAvatar
+                name="Sarah Brandon"
+                size={50}
+                imageUri={studentImages["Sarah Brandon"]}
               />
               <View style={styles.childInfo}>
                 <View style={styles.childHeaderRow}>
@@ -181,9 +189,10 @@ export default function ParentDashboard() {
               style={styles.childCard}
               onPress={() => router.push("/(parent)/children/details/2")}
             >
-              <Image
-                source={require("@/assets/images/onboarding.png")}
-                style={styles.childAvatar}
+              <InitialsAvatar
+                name="Michael Johnson"
+                size={50}
+                imageUri={studentImages["Michael Johnson"]}
               />
               <View style={styles.childInfo}>
                 <View style={styles.childHeaderRow}>
@@ -275,14 +284,14 @@ export default function ParentDashboard() {
               </View>
             </TouchableOpacity>
 
-            {/* New child with long school name */}
             <TouchableOpacity
               style={styles.childCard}
               onPress={() => router.push("/(parent)/children/details/3")}
             >
-              <Image
-                source={require("@/assets/images/onboarding.png")}
-                style={styles.childAvatar}
+              <InitialsAvatar
+                name="Elizabeth Williamson"
+                size={50}
+                imageUri={studentImages["Elizabeth Williamson"]}
               />
               <View style={styles.childInfo}>
                 <View style={styles.childHeaderRow}>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -29,8 +29,8 @@ type Period = {
   subject: string;
   teacher: string;
   time: string;
-  room: string;
   color: string;
+  topic?: string;
 };
 
 type DaySchedule = {
@@ -39,7 +39,6 @@ type DaySchedule = {
 };
 
 export default function ChildTimetable({ childId }: Props) {
-  // Get today's day name (Monday, Tuesday, etc.)
   const getTodayDayName = (): Day => {
     const days: Day[] = [
       "Monday",
@@ -50,15 +49,48 @@ export default function ChildTimetable({ childId }: Props) {
       "Saturday",
     ];
     const today = new Date().getDay();
-    // Convert from JS day (0=Sunday) to our app's days (0=Monday), handle Sunday by defaulting to Monday
     const dayIndex = today === 0 ? 0 : today - 1;
-    // If today is Sunday or the index is somehow invalid, default to Monday
     return dayIndex >= 0 && dayIndex < days.length ? days[dayIndex] : "Monday";
   };
 
+  // Change from hardcoded "Friday" to using today's day
   const [selectedDay, setSelectedDay] = useState<Day>(getTodayDayName());
+  const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(
+    new Set()
+  );
+  const daysScrollViewRef = useRef<ScrollView>(null);
 
-  // Sample timetable data
+  // Fix the auto-scroll to selected day
+  useEffect(() => {
+    // Find the index of today's day in the timetable data
+    const todayIndex = timetableData.findIndex(
+      (day) => day.day === selectedDay
+    );
+
+    // Calculate approximate scroll position (each button is about 100-120px wide)
+    if (todayIndex >= 0 && daysScrollViewRef.current) {
+      // Increase timeout to ensure the ScrollView is fully rendered
+      setTimeout(() => {
+        daysScrollViewRef.current?.scrollTo({
+          x: todayIndex * 80, // Adjusted width for more accurate positioning
+          animated: true, // Set to false initially to avoid animation conflicts
+        });
+      }, 100); // Increased timeout for better reliability
+    }
+  }, [selectedDay]);
+
+  const togglePeriodExpansion = (periodId: string) => {
+    setExpandedPeriods((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(periodId)) {
+        newSet.delete(periodId);
+      } else {
+        newSet.add(periodId);
+      }
+      return newSet;
+    });
+  };
+
   const timetableData: DaySchedule[] = [
     {
       day: "Monday",
@@ -68,23 +100,22 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Mathematics",
           teacher: "Mrs. Smith",
           time: "08:00 - 09:30",
-          room: "Room 101",
           color: "#4CAF50",
+          topic: "Algebra",
         },
         {
           id: "m2",
           subject: "English",
           teacher: "Mr. Johnson",
           time: "09:45 - 11:15",
-          room: "Room 103",
           color: "#2196F3",
+          topic: "Grammar",
         },
         {
           id: "m3",
           subject: "Lunch Break",
           teacher: "",
           time: "11:15 - 12:00",
-          room: "Cafeteria",
           color: "#9E9E9E",
         },
         {
@@ -92,16 +123,16 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Science",
           teacher: "Mrs. Davis",
           time: "12:00 - 13:30",
-          room: "Lab 2",
           color: "#9C27B0",
+          topic: "Physics",
         },
         {
           id: "m5",
           subject: "Physical Education",
           teacher: "Mr. Thompson",
           time: "13:45 - 15:15",
-          room: "Gymnasium",
           color: "#FF9800",
+          topic: "Basketball",
         },
       ],
     },
@@ -113,23 +144,22 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "History",
           teacher: "Mr. Wilson",
           time: "08:00 - 09:30",
-          room: "Room 105",
           color: "#795548",
+          topic: "World War II",
         },
         {
           id: "t2",
           subject: "Mathematics",
           teacher: "Mrs. Smith",
           time: "09:45 - 11:15",
-          room: "Room 101",
           color: "#4CAF50",
+          topic: "Geometry",
         },
         {
           id: "t3",
           subject: "Lunch Break",
           teacher: "",
           time: "11:15 - 12:00",
-          room: "Cafeteria",
           color: "#9E9E9E",
         },
         {
@@ -137,16 +167,16 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Art",
           teacher: "Ms. Garcia",
           time: "12:00 - 13:30",
-          room: "Art Studio",
           color: "#FF5722",
+          topic: "Painting",
         },
         {
           id: "t5",
           subject: "English",
           teacher: "Mr. Johnson",
           time: "13:45 - 15:15",
-          room: "Room 103",
           color: "#2196F3",
+          topic: "Literature",
         },
       ],
     },
@@ -158,23 +188,22 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Science",
           teacher: "Mrs. Davis",
           time: "08:00 - 09:30",
-          room: "Lab 2",
           color: "#9C27B0",
+          topic: "Chemistry",
         },
         {
           id: "w2",
           subject: "Music",
           teacher: "Mr. Martinez",
           time: "09:45 - 11:15",
-          room: "Music Room",
           color: "#E91E63",
+          topic: "Classical Music",
         },
         {
           id: "w3",
           subject: "Lunch Break",
           teacher: "",
           time: "11:15 - 12:00",
-          room: "Cafeteria",
           color: "#9E9E9E",
         },
         {
@@ -182,16 +211,16 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Mathematics",
           teacher: "Mrs. Smith",
           time: "12:00 - 13:30",
-          room: "Room 101",
           color: "#4CAF50",
+          topic: "Trigonometry",
         },
         {
           id: "w5",
           subject: "Computer Science",
           teacher: "Mr. Lee",
           time: "13:45 - 15:15",
-          room: "Computer Lab",
           color: "#00BCD4",
+          topic: "Programming",
         },
       ],
     },
@@ -203,23 +232,22 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "English",
           teacher: "Mr. Johnson",
           time: "08:00 - 09:30",
-          room: "Room 103",
           color: "#2196F3",
+          topic: "Essay Writing",
         },
         {
           id: "th2",
           subject: "Social Studies",
           teacher: "Mrs. Anderson",
           time: "09:45 - 11:15",
-          room: "Room 106",
           color: "#607D8B",
+          topic: "Civics",
         },
         {
           id: "th3",
           subject: "Lunch Break",
           teacher: "",
           time: "11:15 - 12:00",
-          room: "Cafeteria",
           color: "#9E9E9E",
         },
         {
@@ -227,15 +255,14 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Science",
           teacher: "Mrs. Davis",
           time: "12:00 - 13:30",
-          room: "Lab 2",
           color: "#9C27B0",
+          topic: "Biology",
         },
         {
           id: "th5",
           subject: "Study Hall",
           teacher: "Ms. Taylor",
           time: "13:45 - 15:15",
-          room: "Library",
           color: "#3F51B5",
         },
       ],
@@ -248,23 +275,22 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Mathematics",
           teacher: "Mrs. Smith",
           time: "08:00 - 09:30",
-          room: "Room 101",
           color: "#4CAF50",
+          topic: "Statistics",
         },
         {
           id: "f2",
           subject: "Language",
           teacher: "Ms. Rodriguez",
           time: "09:45 - 11:15",
-          room: "Room 104",
           color: "#009688",
+          topic: "Spanish",
         },
         {
           id: "f3",
           subject: "Lunch Break",
           teacher: "",
           time: "11:15 - 12:00",
-          room: "Cafeteria",
           color: "#9E9E9E",
         },
         {
@@ -272,15 +298,14 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Health",
           teacher: "Mrs. White",
           time: "12:00 - 13:30",
-          room: "Room 107",
           color: "#F44336",
+          topic: "Nutrition",
         },
         {
           id: "f5",
           subject: "Club Activities",
           teacher: "Various",
           time: "13:45 - 15:15",
-          room: "Various",
           color: "#CDDC39",
         },
       ],
@@ -293,16 +318,16 @@ export default function ChildTimetable({ childId }: Props) {
           subject: "Extra Mathematics",
           teacher: "Mrs. Smith",
           time: "09:00 - 10:30",
-          room: "Room 101",
           color: "#4CAF50",
+          topic: "Advanced Algebra",
         },
         {
           id: "s2",
           subject: "Art Club",
           teacher: "Ms. Garcia",
           time: "10:45 - 12:15",
-          room: "Art Studio",
           color: "#FF5722",
+          topic: "Sketching",
         },
       ],
     },
@@ -328,6 +353,7 @@ export default function ChildTimetable({ childId }: Props) {
 
       <View style={styles.daysOuterContainer}>
         <ScrollView
+          ref={daysScrollViewRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.daysScrollContent}
@@ -358,37 +384,54 @@ export default function ChildTimetable({ childId }: Props) {
         style={styles.scheduleContainer}
         contentContainerStyle={styles.scheduleContentContainer}
       >
-        {currentSchedule?.periods.map((period) => (
-          <View key={period.id} style={styles.periodCard}>
-            <View
-              style={[styles.periodColor, { backgroundColor: period.color }]}
-            />
-            <View style={styles.periodTimeContainer}>
-              <Text style={styles.periodTime}>{period.time}</Text>
-            </View>
-            <View style={styles.periodDetails}>
-              <Text style={styles.periodSubject}>{period.subject}</Text>
-              {period.teacher && (
-                <Text style={styles.periodTeacher}>
+        {currentSchedule?.periods.map((period) => {
+          const isExpanded = expandedPeriods.has(period.id);
+
+          return (
+            <View key={period.id} style={styles.periodCard}>
+              <View
+                style={[styles.periodColor, { backgroundColor: period.color }]}
+              />
+              <View style={styles.periodTimeContainer}>
+                <Text style={styles.periodTime}>{period.time}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.periodDetails}
+                activeOpacity={0.7}
+                onPress={() => togglePeriodExpansion(period.id)}
+              >
+                <View style={styles.subjectContainer}>
+                  <Text style={styles.periodSubject}>{period.subject}</Text>
                   <MaterialCommunityIcons
-                    name="account-outline"
-                    size={14}
+                    name={isExpanded ? "chevron-up" : "chevron-down"}
+                    size={18}
                     color="#666"
-                  />{" "}
-                  {period.teacher}
-                </Text>
-              )}
-              <Text style={styles.periodRoom}>
-                <MaterialCommunityIcons
-                  name="map-marker-outline"
-                  size={14}
-                  color="#666"
-                />{" "}
-                {period.room}
-              </Text>
+                  />
+                </View>
+
+                {period.teacher && (
+                  <Text style={styles.periodTeacher}>
+                    <MaterialCommunityIcons
+                      name="account-outline"
+                      size={14}
+                      color="#666"
+                    />{" "}
+                    {period.teacher}
+                  </Text>
+                )}
+
+                {isExpanded && (
+                  <View style={styles.topicContainer}>
+                    <Text style={styles.topicLabel}>Topic:</Text>
+                    <Text style={styles.topicText}>
+                      {period.topic || "No topic specified for this period"}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -489,6 +532,11 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  subjectContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   periodSubject: {
     fontSize: 16,
     fontFamily: Typography.fontWeight.semiBold.primary,
@@ -501,9 +549,22 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 2,
   },
-  periodRoom: {
+  topicContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  topicLabel: {
+    fontSize: 13,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+    marginBottom: 2,
+  },
+  topicText: {
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
-    color: "#666",
+    color: "#333",
+    lineHeight: 20,
   },
 });

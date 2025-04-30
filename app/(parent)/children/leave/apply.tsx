@@ -1,23 +1,23 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
   Dimensions,
   InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, router } from "expo-router";
 
 export default function ApplyLeaveScreen() {
   const { childId } = useLocalSearchParams<{ childId: string }>();

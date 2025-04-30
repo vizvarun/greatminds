@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
   ScrollView,
+  Modal,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
@@ -25,10 +26,24 @@ type FeeTerm = {
   totalAmount: number;
   paidAmount: number;
   status: FeeStatus;
+  transactions?: Transaction[];
+};
+
+type Transaction = {
+  id: string;
+  date: string;
+  amount: number;
+  mode: "online" | "cash" | "cheque";
+  reference: string;
+  status: "success" | "pending" | "failed";
 };
 
 export default function ChildFees({ childId, showAlert }: Props) {
-  // Child information
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedTransactions, setSelectedTransactions] = useState<
+    Transaction[]
+  >([]);
+
   const childInfo = {
     name: "Alex Johnson",
     class: "Grade 5",
@@ -36,7 +51,6 @@ export default function ChildFees({ childId, showAlert }: Props) {
     enrollmentNumber: "EN2023051",
   };
 
-  // Sample fee data
   const feeTerms: FeeTerm[] = [
     {
       id: "term1",
@@ -45,6 +59,24 @@ export default function ChildFees({ childId, showAlert }: Props) {
       totalAmount: 25000,
       paidAmount: 25000,
       status: "paid",
+      transactions: [
+        {
+          id: "tr1001",
+          date: "July 10, 2023",
+          amount: 15000,
+          mode: "online",
+          reference: "HDFC23071085462",
+          status: "success",
+        },
+        {
+          id: "tr1002",
+          date: "July 14, 2023",
+          amount: 10000,
+          mode: "cheque",
+          reference: "CHQ-675432",
+          status: "success",
+        },
+      ],
     },
     {
       id: "term2",
@@ -53,6 +85,16 @@ export default function ChildFees({ childId, showAlert }: Props) {
       totalAmount: 25000,
       paidAmount: 25000,
       status: "paid",
+      transactions: [
+        {
+          id: "tr2001",
+          date: "October 5, 2023",
+          amount: 25000,
+          mode: "online",
+          reference: "SBI23100575319",
+          status: "success",
+        },
+      ],
     },
     {
       id: "term3",
@@ -73,18 +115,27 @@ export default function ChildFees({ childId, showAlert }: Props) {
   ];
 
   const handlePayFees = (termId: string) => {
-    // In a real app, this would navigate to a payment gateway
     showAlert("Payment Gateway", "Redirecting to payment gateway...", "info");
+  };
+
+  const handleViewTransactions = (termId: string) => {
+    const term = feeTerms.find((t) => t.id === termId);
+    if (term && term.transactions && term.transactions.length > 0) {
+      setSelectedTransactions(term.transactions);
+      setModalVisible(true);
+    } else {
+      showAlert("No Transactions", "No transaction details available", "info");
+    }
   };
 
   const getStatusColor = (status: FeeStatus) => {
     switch (status) {
       case "paid":
-        return "#4CAF50"; // Green
+        return "#4CAF50";
       case "pending":
-        return "#FF9800"; // Orange
+        return "#FF9800";
       case "overdue":
-        return "#F44336"; // Red
+        return "#F44336";
       default:
         return "#666";
     }
@@ -92,6 +143,32 @@ export default function ChildFees({ childId, showAlert }: Props) {
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toLocaleString()}`;
+  };
+
+  const getTransactionStatusColor = (status: string) => {
+    switch (status) {
+      case "success":
+        return "#4CAF50";
+      case "pending":
+        return "#FF9800";
+      case "failed":
+        return "#F44336";
+      default:
+        return "#666";
+    }
+  };
+
+  const getPaymentModeIcon = (mode: string) => {
+    switch (mode) {
+      case "online":
+        return "bank-transfer";
+      case "cash":
+        return "cash";
+      case "cheque":
+        return "file-document-outline";
+      default:
+        return "help-circle-outline";
+    }
   };
 
   return (
@@ -109,7 +186,6 @@ export default function ChildFees({ childId, showAlert }: Props) {
       </View>
 
       <ScrollView style={styles.scrollContainer}>
-        {/* Child Info Section */}
         <View style={styles.childInfoCard}>
           <View style={styles.childInfoRow}>
             <View style={styles.infoItem}>
@@ -129,7 +205,6 @@ export default function ChildFees({ childId, showAlert }: Props) {
           </View>
         </View>
 
-        {/* Summary Section - Simplified */}
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryValue}>
@@ -162,7 +237,6 @@ export default function ChildFees({ childId, showAlert }: Props) {
           </View>
         </View>
 
-        {/* Fee Structure */}
         <Text style={styles.sectionTitle}>Fee Structure</Text>
 
         <View style={styles.feeListContainer}>
@@ -176,7 +250,7 @@ export default function ChildFees({ childId, showAlert }: Props) {
                 <View
                   style={[
                     styles.statusBadge,
-                    { backgroundColor: getStatusColor(term.status) + "15" }, // More transparent
+                    { backgroundColor: getStatusColor(term.status) + "15" },
                   ]}
                 >
                   <Text
@@ -221,18 +295,127 @@ export default function ChildFees({ childId, showAlert }: Props) {
                 </View>
               </View>
 
-              {term.status !== "paid" && (
-                <TouchableOpacity
-                  style={styles.payButton}
-                  onPress={() => handlePayFees(term.id)}
-                >
-                  <Text style={styles.payButtonText}>Pay Now</Text>
-                </TouchableOpacity>
-              )}
+              <View style={styles.feeActions}>
+                {term.status !== "paid" && (
+                  <TouchableOpacity
+                    style={styles.payButton}
+                    onPress={() => handlePayFees(term.id)}
+                  >
+                    <Text style={styles.payButtonText}>Pay Now</Text>
+                  </TouchableOpacity>
+                )}
+
+                {term.status === "paid" &&
+                  term.transactions &&
+                  term.transactions.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.viewButton}
+                      onPress={() => handleViewTransactions(term.id)}
+                    >
+                      <MaterialCommunityIcons
+                        name="eye-outline"
+                        size={16}
+                        color={primary}
+                      />
+                      <Text style={styles.viewButtonText}>
+                        View Transactions
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+              </View>
             </View>
           ))}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Transaction Details</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <MaterialCommunityIcons name="close" size={22} color="#555" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.transactionList}>
+              {selectedTransactions.map((transaction) => (
+                <View key={transaction.id} style={styles.transactionItem}>
+                  <View style={styles.transactionIconContainer}>
+                    <MaterialCommunityIcons
+                      name={getPaymentModeIcon(transaction.mode)}
+                      size={24}
+                      color={primary}
+                    />
+                  </View>
+
+                  <View style={styles.transactionDetails}>
+                    <View style={styles.transactionHeader}>
+                      <Text style={styles.transactionAmount}>
+                        {formatCurrency(transaction.amount)}
+                      </Text>
+                      <View
+                        style={[
+                          styles.transactionStatusBadge,
+                          {
+                            backgroundColor:
+                              getTransactionStatusColor(transaction.status) +
+                              "15",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.transactionStatusText,
+                            {
+                              color: getTransactionStatusColor(
+                                transaction.status
+                              ),
+                            },
+                          ]}
+                        >
+                          {transaction.status.charAt(0).toUpperCase() +
+                            transaction.status.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.transactionDate}>
+                      Date: {transaction.date}
+                    </Text>
+                    <Text style={styles.transactionReference}>
+                      <Text style={styles.referenceLabel}>Mode: </Text>
+                      {transaction.mode.charAt(0).toUpperCase() +
+                        transaction.mode.slice(1)}
+                    </Text>
+                    <Text style={styles.transactionReference}>
+                      <Text style={styles.referenceLabel}>Reference: </Text>
+                      {transaction.reference}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -398,10 +581,134 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     alignItems: "center",
+    width: "100%",
   },
   payButtonText: {
     color: "#fff",
     fontSize: 13,
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontWeight: "600",
+  },
+  feeActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  viewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 6,
+    borderRadius: 4,
+  },
+  viewButtonText: {
+    marginLeft: 4,
+    fontSize: 13,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "90%",
+    maxHeight: "80%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  transactionList: {
+    padding: 16,
+    maxHeight: 400,
+  },
+  transactionItem: {
+    flexDirection: "row",
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+    paddingBottom: 16,
+  },
+  transactionIconContainer: {
+    width: 40,
+    height: 40,
+    backgroundColor: `${primary}15`,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#333",
+  },
+  transactionDate: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#555",
+    marginBottom: 2,
+  },
+  transactionReference: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#555",
+  },
+  referenceLabel: {
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#777",
+  },
+  transactionStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  transactionStatusText: {
+    fontSize: 11,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  modalFooter: {
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    padding: 12,
+    alignItems: "center",
+  },
+  modalCloseButton: {
+    backgroundColor: primary,
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 6,
+  },
+  modalCloseButtonText: {
+    color: "#fff",
+    fontSize: 14,
     fontFamily: Typography.fontWeight.medium.primary,
   },
 });

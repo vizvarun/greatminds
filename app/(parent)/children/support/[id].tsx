@@ -1,17 +1,11 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
 import ChildSupport from "@/components/parent/ChildSupport";
 import CustomAlert from "@/components/ui/CustomAlert";
+import { Typography } from "@/constants/Typography";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
 export default function ChildSupportScreen() {
   const { id } = useLocalSearchParams();
@@ -50,10 +44,6 @@ export default function ChildSupportScreen() {
       }
       return { ...prev, visible: false };
     });
-  };
-
-  const handleBack = () => {
-    router.back();
   };
 
   return (

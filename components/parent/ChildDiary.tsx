@@ -239,6 +239,13 @@ export default function ChildDiary({ childId, showAlert }: Props) {
 
     // Simulate fetching data from server
     setTimeout(() => {
+      // Reset date to today on sync
+      const today = new Date();
+      setCurrentMonth(today.getMonth());
+      setCurrentYear(today.getFullYear());
+      setSelectedDate(normalizeDate(today));
+      setShowDatePicker(false);
+
       showAlert(
         "Diary Updated",
         "Your child's diary has been refreshed",

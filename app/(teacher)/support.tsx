@@ -256,7 +256,7 @@ export default function SupportScreen() {
       id: "2",
       question: "How can I add a diary entry?",
       answer:
-        "From the dashboard, tap 'Quick Actions' and select 'Add Diary Entry', or navigate to your class section and select 'Class Diary'.",
+        "From the dashboard, tap 'Quick Actions' and select 'Diary Entry', or navigate to your class section and select 'Class Diary'.",
       category: "diary",
       isEditable: true,
     },

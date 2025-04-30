@@ -1,17 +1,11 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
 import ChildTimetable from "@/components/parent/ChildTimetable";
 import CustomAlert from "@/components/ui/CustomAlert";
+import { Typography } from "@/constants/Typography";
+import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChildTimetableScreen() {
   const { id } = useLocalSearchParams();
@@ -24,23 +18,6 @@ export default function ChildTimetableScreen() {
     onCancel: () => {},
   });
 
-  const showAlert = (
-    title: string,
-    message: string,
-    type: "success" | "error" | "info" | "warning" = "info",
-    onConfirm = () => {},
-    onCancel = () => {}
-  ) => {
-    setAlert({
-      visible: true,
-      title,
-      message,
-      type,
-      onConfirm,
-      onCancel,
-    });
-  };
-
   const hideAlert = (confirmed: boolean = false) => {
     setAlert((prev) => {
       if (confirmed) {
@@ -50,10 +27,6 @@ export default function ChildTimetableScreen() {
       }
       return { ...prev, visible: false };
     });
-  };
-
-  const handleBack = () => {
-    router.back();
   };
 
   return (

@@ -1,22 +1,51 @@
-import React from "react";
-import { useAuth } from "@/context/AuthContext";
-import { Redirect, router, Slot, usePathname } from "expo-router";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import CustomAlert from "@/components/ui/CustomAlert";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Text,
-  ScrollView,
-} from "react-native";
+import { useAuth } from "@/context/AuthContext";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Redirect, router, Slot, usePathname } from "expo-router";
+import React, { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ParentLayout() {
   const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
     useAuth();
   const pathname = usePathname();
+
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info" as "success" | "error" | "info" | "warning",
+  });
+
+  const showConfirmLogout = () => {
+    setAlert({
+      visible: true,
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out?",
+      type: "warning",
+    });
+  };
+
+  const hideAlert = () => {
+    setAlert((prev) => ({ ...prev, visible: false }));
+  };
+
+  const confirmLogout = async () => {
+    hideAlert();
+    try {
+      await logout();
+      router.replace("/(auth)/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  const handleLogout = () => {
+    showConfirmLogout();
+  };
 
   // Check if current path is a child details screen or leave application screen
   const isChildDetailsScreen = pathname.includes("/children/details/");
@@ -64,15 +93,6 @@ export default function ParentLayout() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.replace("/(auth)/login");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
   // For child details view or leave screen, directly render the content
   if (shouldBypassLayout) {
     return <Slot />;
@@ -103,26 +123,54 @@ export default function ParentLayout() {
       {/* Main Content Area with ScrollView to enable scrolling */}
       <View style={styles.contentContainer}>
         {/* Role Switcher */}
-        <TouchableOpacity
-          style={styles.roleSwitcher}
-          onPress={handleSwitchRole}
-        >
-          <View style={styles.roleSwitcherContent}>
-            <MaterialCommunityIcons
-              name="account-switch"
-              size={22}
-              color={primary}
-            />
-            <Text style={styles.switchRoleText}>Switch to Teacher Mode</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color="#999" />
-        </TouchableOpacity>
+        <View style={styles.roleSwitcherContainer}>
+          <TouchableOpacity
+            style={styles.roleSwitcher}
+            onPress={handleSwitchRole}
+            activeOpacity={0.7}
+          >
+            <View style={styles.roleGradient}>
+              <View style={styles.roleInfo}>
+                <View style={styles.currentRoleIcon}>
+                  <MaterialCommunityIcons
+                    name="account-child"
+                    size={14}
+                    color="#fff"
+                  />
+                </View>
+                <View style={styles.roleSwitcherTextContainer}>
+                  <Text style={styles.currentRoleText}>Parent Mode</Text>
+                </View>
+              </View>
+              <View style={styles.switchAction}>
+                <Text style={styles.switchToText}>SWITCH TO TEACHER</Text>
+                <MaterialCommunityIcons
+                  name="arrow-right-circle"
+                  size={16}
+                  color="#fff"
+                  style={styles.arrowIcon}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
 
         {/* Content */}
         <View style={styles.slotContainer}>
           <Slot />
         </View>
       </View>
+
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onConfirm={alert.title === "Confirm Logout" ? confirmLogout : hideAlert}
+        cancelText={alert.title === "Confirm Logout" ? "Cancel" : undefined}
+        onCancel={alert.title === "Confirm Logout" ? hideAlert : undefined}
+        showCancelButton={alert.title === "Confirm Logout"}
+      />
     </SafeAreaView>
   );
 }
@@ -165,26 +213,62 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: "#f8f8f8",
   },
+  roleSwitcherContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
   roleSwitcher: {
+    width: "100%",
+    borderRadius: 8,
+    overflow: "hidden",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  roleGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f9f9f9",
-    paddingVertical: 12,
+    backgroundColor: "#FF9800",
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eaeaea",
-    marginBottom: 8,
   },
-  roleSwitcherContent: {
+  roleInfo: {
     flexDirection: "row",
     alignItems: "center",
   },
-  switchRoleText: {
-    fontSize: 15,
-    marginLeft: 10,
-    color: "#444",
-    fontFamily: Typography.fontWeight.medium.primary,
+  currentRoleIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  roleSwitcherTextContainer: {
+    flexDirection: "column",
+  },
+  currentRoleText: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#fff",
+  },
+  switchAction: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  switchToText: {
+    fontSize: 10,
+    fontFamily: Typography.fontWeight.bold.primary,
+    color: "rgba(255, 255, 255, 0.9)",
+    letterSpacing: 0.5,
+    marginRight: 6,
+  },
+  arrowIcon: {
+    opacity: 0.9,
   },
   contentContainer: {
     flex: 1,

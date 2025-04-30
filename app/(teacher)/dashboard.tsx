@@ -1,18 +1,16 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-} from "react-native";
+import CustomAlert from "@/components/ui/CustomAlert";
+import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
-import CustomAlert from "@/components/ui/CustomAlert";
-import { SafeAreaView } from "react-native-safe-area-context";
+import React, { useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function TeacherDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -53,18 +51,48 @@ export default function TeacherDashboard() {
       name: "Main Campus",
       address: "123 Education St, New York",
       classes: 12,
+      color: "#4CAF50",
+      icon: "school-outline",
     },
     {
       id: "2",
       name: "East Wing",
       address: "456 Learning Ave, New York",
       classes: 8,
+      color: "#2196F3",
+      icon: "domain",
     },
     {
       id: "3",
       name: "West Campus",
       address: "789 School Road, New York",
       classes: 10,
+      color: "#FF9800",
+      icon: "office-building",
+    },
+  ];
+
+  const stats = [
+    {
+      id: "classes",
+      label: "Classes Today",
+      value: 3,
+      icon: "google-classroom",
+      color: "#4CAF50",
+    },
+    {
+      id: "students",
+      label: "Students",
+      value: 78,
+      icon: "account-group",
+      color: "#2196F3",
+    },
+    {
+      id: "tasks",
+      label: "Pending Tasks",
+      value: 5,
+      icon: "clipboard-list",
+      color: "#FF9800",
     },
   ];
 
@@ -81,20 +109,23 @@ export default function TeacherDashboard() {
       </View>
 
       <View style={styles.statsSection}>
-        <Text style={styles.sectionSubTitle}>Today's Summary</Text>
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Classes Today</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>78</Text>
-            <Text style={styles.statLabel}>Students</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>Pending Tasks</Text>
-          </View>
+        <Text style={styles.sectionTitle}>Today's Overview</Text>
+        <View style={styles.statsGrid}>
+          {stats.map((stat) => (
+            <View key={stat.id} style={styles.statCardWrapper}>
+              <View
+                style={[
+                  styles.statCard,
+                  { backgroundColor: `${stat.color}10` },
+                ]}
+              >
+                <Text style={[styles.statNumber, { color: stat.color }]}>
+                  {stat.value}
+                </Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+            </View>
+          ))}
         </View>
       </View>
 
@@ -111,11 +142,16 @@ export default function TeacherDashboard() {
               router.push(`/(teacher)/branches/${branch.id}/grades`)
             }
           >
-            <View style={styles.branchIconContainer}>
+            <View
+              style={[
+                styles.branchIconContainer,
+                { backgroundColor: `${branch.color}20` },
+              ]}
+            >
               <MaterialCommunityIcons
-                name="school-outline"
+                name={branch.icon}
                 size={24}
-                color={primary}
+                color={branch.color}
               />
             </View>
             <View style={styles.branchDetails}>
@@ -129,24 +165,35 @@ export default function TeacherDashboard() {
                 {branch.address}
               </Text>
               <View style={styles.branchStatsContainer}>
-                <Text style={styles.branchStats}>
+                <View style={styles.classBadge}>
                   <MaterialCommunityIcons
                     name="google-classroom"
                     size={14}
-                    color="#666"
-                  />{" "}
-                  {branch.classes} Classes
-                </Text>
+                    color={branch.color}
+                  />
+                  <Text style={[styles.branchStats, { color: branch.color }]}>
+                    {" "}
+                    {branch.classes} Classes
+                  </Text>
+                </View>
               </View>
             </View>
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={22}
-              color={primary}
-            />
+            <View
+              style={[
+                styles.chevronContainer,
+                { backgroundColor: `${branch.color}10` },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={22}
+                color={branch.color}
+              />
+            </View>
           </TouchableOpacity>
         ))}
       </View>
+
       <CustomAlert
         visible={alert.visible}
         title={alert.title}
@@ -195,30 +242,22 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
+    marginBottom: 10,
   },
-  sectionSubTitle: {
-    fontSize: 18,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-    marginBottom: 15,
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: primary,
-  },
-  statsContainer: {
+  statsGrid: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  statCardWrapper: {
+    width: "31%",
   },
   statCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    width: "31%",
+    borderRadius: 10,
+    padding: 10,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -227,20 +266,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: Typography.fontWeight.bold.primary,
-    color: primary,
-    marginBottom: 5,
+    marginVertical: 4,
   },
   statLabel: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.primary,
+    fontSize: 11,
+    fontFamily: Typography.fontWeight.medium.primary,
     color: "#666",
     textAlign: "center",
   },
   branchesSection: {
     marginTop: 25,
     paddingHorizontal: 20,
+    paddingBottom: 30,
   },
   branchCard: {
     backgroundColor: "#fff",
@@ -259,7 +298,6 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -281,35 +319,26 @@ const styles = StyleSheet.create({
   },
   branchStatsContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+  },
+  classBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(33, 150, 243, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
   branchStats: {
     fontSize: 13,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-  },
-  actionsSection: {
-    marginTop: 25,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-  },
-  actionButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  actionButton: {
-    backgroundColor: primary,
-    borderRadius: 10,
-    padding: 15,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "48%",
-  },
-  actionButtonText: {
-    color: "#fff",
-    marginLeft: 8,
     fontFamily: Typography.fontWeight.medium.primary,
-    fontSize: 14,
+    color: "#2196F3",
+  },
+  chevronContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

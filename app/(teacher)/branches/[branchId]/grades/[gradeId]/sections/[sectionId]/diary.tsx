@@ -1,20 +1,19 @@
-import React, { useCallback, useState, useRef } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  Animated,
-  Easing,
-} from "react-native";
+import CustomAlert from "@/components/ui/CustomAlert";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
-import CustomAlert from "@/components/ui/CustomAlert";
+import React, { useCallback, useRef, useState } from "react";
+import {
+  Animated,
+  Easing,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type DiaryEntry = {
   id: string;

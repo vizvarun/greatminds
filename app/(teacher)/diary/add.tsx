@@ -4,8 +4,9 @@ import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from "@react-native-community/datetimepicker";
 
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -19,6 +20,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Switch,
 } from "react-native";
 
 export default function AddDiaryEntryScreen() {
@@ -29,10 +31,11 @@ export default function AddDiaryEntryScreen() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    type: "homework", // homework, classwork, preparation, research
+    type: "homework", // homework, classwork, preparation, research, other
     effectiveDate: date ? new Date(date as string) : new Date(),
     dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 1 week later
     subject: "math",
+    isUrgent: false, // New field for urgent toggle
   });
 
   const [tempEffectiveDate, setTempEffectiveDate] = useState<Date | null>(null);
@@ -49,18 +52,6 @@ export default function AddDiaryEntryScreen() {
     { id: "pe", label: "Physical Education" },
     { id: "art", label: "Arts & Crafts" },
   ];
-
-  // Date pickers state
-  const [showEffectiveDatePicker, setShowEffectiveDatePicker] = useState(false);
-  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
-
-  // Alert state
-  const [alert, setAlert] = useState({
-    visible: false,
-    title: "",
-    message: "",
-    type: "info" as "success" | "error" | "info" | "warning",
-  });
 
   // Entry types with colors
   const entryTypes = [
@@ -83,7 +74,31 @@ export default function AddDiaryEntryScreen() {
       color: "#F44336",
     },
     { id: "research", name: "Research", icon: "magnify", color: "#3F51B5" },
+    {
+      id: "other",
+      name: "Other",
+      icon: "dots-horizontal-circle",
+      color: "#607D8B",
+    },
   ];
+
+  // Format entry types for dropdown
+  const entryTypeOptions = entryTypes.map((type) => ({
+    id: type.id,
+    label: type.name,
+  }));
+
+  // Date pickers state
+  const [showEffectiveDatePicker, setShowEffectiveDatePicker] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+
+  // Alert state
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info" as "success" | "error" | "info" | "warning",
+  });
 
   const showAlert = (
     title: string,
@@ -364,109 +379,180 @@ export default function AddDiaryEntryScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.formContainer}>
+        {/* Entry Type as the first field using dropdown */}
         <CustomDropdown
-          options={subjects}
-          selectedValue={formData.subject}
-          onValueChange={(value) =>
-            setFormData({ ...formData, subject: value })
-          }
-          placeholder="Select a subject"
-          label="Subject"
+          options={entryTypeOptions}
+          selectedValue={formData.type}
+          onValueChange={(value) => handleTypeSelect(value)}
+          placeholder="Select entry type"
+          label="Entry Type"
         />
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Entry Type *</Text>
-          <View style={styles.typeButtonsContainer}>
-            {entryTypes.map((type) => (
+        {/* Show different form fields based on selection */}
+        {formData.type === "other" ? (
+          <>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Title *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.title}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, title: text })
+                }
+                placeholder="e.g. Special Announcement"
+                placeholderTextColor="#999"
+                inputAccessoryViewID={
+                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                }
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Description *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.description}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, description: text })
+                }
+                placeholder="e.g. Important information about upcoming events"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                inputAccessoryViewID={
+                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                }
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Date *</Text>
               <TouchableOpacity
-                key={type.id}
-                style={[
-                  styles.typeButton,
-                  formData.type === type.id && {
-                    ...styles.selectedTypeButton,
-                    backgroundColor: type.color,
-                  },
-                ]}
-                onPress={() => handleTypeSelect(type.id)}
+                style={styles.datePickerButton}
+                onPress={handleEffectiveDatePress}
               >
-                <MaterialCommunityIcons
-                  name={type.icon as any}
-                  size={22}
-                  color={formData.type === type.id ? "#fff" : "#666"}
-                />
-                <Text
-                  style={[
-                    styles.typeButtonText,
-                    formData.type === type.id && styles.selectedTypeButtonText,
-                  ]}
-                >
-                  {type.name}
+                <Text style={styles.dateText}>
+                  {formatDate(formData.effectiveDate)}
                 </Text>
+                <MaterialCommunityIcons
+                  name="calendar"
+                  size={22}
+                  color="#666"
+                />
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <CustomDropdown
+              options={subjects}
+              selectedValue={formData.subject}
+              onValueChange={(value) =>
+                setFormData({ ...formData, subject: value })
+              }
+              placeholder="Select a subject"
+              label="Subject"
+            />
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Title *</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.title}
-            onChangeText={(text) => setFormData({ ...formData, title: text })}
-            placeholder="e.g. Complete Math Exercises"
-            placeholderTextColor="#999"
-            inputAccessoryViewID={
-              Platform.OS === "ios" ? inputAccessoryViewID : undefined
-            }
-          />
-        </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Title *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.title}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, title: text })
+                }
+                placeholder="e.g. Complete Math Exercises"
+                placeholderTextColor="#999"
+                inputAccessoryViewID={
+                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                }
+              />
+            </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Description *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={formData.description}
-            onChangeText={(text) =>
-              setFormData({ ...formData, description: text })
-            }
-            placeholder="e.g. Complete exercises 1-10 on page 25"
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            inputAccessoryViewID={
-              Platform.OS === "ios" ? inputAccessoryViewID : undefined
-            }
-          />
-        </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Description *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.description}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, description: text })
+                }
+                placeholder="e.g. Complete exercises 1-10 on page 25"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                inputAccessoryViewID={
+                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                }
+              />
+            </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Effective Date *</Text>
-          <TouchableOpacity
-            style={styles.datePickerButton}
-            onPress={handleEffectiveDatePress}
-          >
-            <Text style={styles.dateText}>
-              {formatDate(formData.effectiveDate)}
-            </Text>
-            <MaterialCommunityIcons name="calendar" size={22} color="#666" />
-          </TouchableOpacity>
-        </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Effective Date *</Text>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={handleEffectiveDatePress}
+              >
+                <Text style={styles.dateText}>
+                  {formatDate(formData.effectiveDate)}
+                </Text>
+                <MaterialCommunityIcons
+                  name="calendar"
+                  size={22}
+                  color="#666"
+                />
+              </TouchableOpacity>
+            </View>
 
-        {["homework", "research", "preparation"].includes(formData.type) && (
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Due Date *</Text>
-            <TouchableOpacity
-              style={styles.datePickerButton}
-              onPress={handleDueDatePress}
-            >
-              <Text style={styles.dateText}>
-                {formatDate(formData.dueDate)}
-              </Text>
-              <MaterialCommunityIcons name="calendar" size={22} color="#666" />
-            </TouchableOpacity>
-          </View>
+            {["homework", "research", "preparation"].includes(
+              formData.type
+            ) && (
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Due Date *</Text>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={handleDueDatePress}
+                >
+                  <Text style={styles.dateText}>
+                    {formatDate(formData.dueDate)}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name="calendar"
+                    size={22}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         )}
+
+        {/* Urgent Information toggle - available for all entry types */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Urgent Information</Text>
+          <View style={styles.toggleWrapper}>
+            <View style={styles.toggleContainer}>
+              <Text style={styles.toggleLabel}>Mark as urgent information</Text>
+              <Switch
+                trackColor={{ false: "#dddddd", true: primary }}
+                thumbColor={formData.isUrgent ? "#ffffff" : "#f4f3f4"}
+                ios_backgroundColor="#dddddd"
+                onValueChange={(value) =>
+                  setFormData({ ...formData, isUrgent: value })
+                }
+                value={formData.isUrgent}
+              />
+            </View>
+            {formData.isUrgent && (
+              <Text style={styles.urgentHint}>
+                This will be highlighted as important information
+              </Text>
+            )}
+          </View>
+        </View>
 
         <TouchableOpacity
           style={[
@@ -638,33 +724,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#333",
   },
-  typeButtonsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  typeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f1f1f1",
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    marginBottom: 8,
-    width: "48%",
-  },
-  selectedTypeButton: {
-    backgroundColor: primary, // This will be overridden by the specific color
-  },
-  typeButtonText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#666",
-    marginLeft: 8,
-  },
-  selectedTypeButtonText: {
-    color: "#fff",
-  },
   submitButton: {
     backgroundColor: primary,
     borderRadius: 8,
@@ -758,5 +817,29 @@ const styles = StyleSheet.create({
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
     fontSize: 16,
+  },
+  toggleWrapper: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    padding: 12,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#333",
+  },
+  urgentHint: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#F44336",
+    marginTop: 8,
+    fontStyle: "italic",
   },
 });

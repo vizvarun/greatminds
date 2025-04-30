@@ -1,20 +1,23 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  RefreshControl,
-  StatusBar,
-  Platform,
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useLocalSearchParams, router } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
 import CustomAlert from "@/components/ui/CustomAlert";
+import InitialsAvatar from "@/components/ui/InitialsAvatar";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  FlatList,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
 
 // Student type
 type Student = {
@@ -22,6 +25,17 @@ type Student = {
   name: string;
   rollNumber: string;
   status: "present" | "absent" | "leave" | "untracked";
+  imageUri?: string; // Optional photo URL
+  details?: {
+    gender?: string;
+    dob?: string;
+    parentName?: string;
+    contactNumber?: string;
+    address?: string;
+    bloodGroup?: string;
+    allergies?: string;
+    medicalNotes?: string;
+  };
 };
 
 // Status colors and icons for consistency
@@ -54,6 +68,8 @@ export default function AttendanceTrackerScreen() {
     onCancel: () => {},
     showCancelButton: false,
   });
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showStudentDetails, setShowStudentDetails] = useState(false);
 
   // Initialize with dummy data
   useEffect(() => {
@@ -63,6 +79,18 @@ export default function AttendanceTrackerScreen() {
       rollNumber: `${i + 1}`.padStart(2, "0"),
       status:
         i < 22 ? "present" : i < 25 ? "absent" : i < 27 ? "leave" : "untracked",
+      imageUri:
+        i % 5 === 0 ? `https://i.pravatar.cc/150?img=${i + 10}` : undefined,
+      details: {
+        gender: i % 2 === 0 ? "Male" : "Female",
+        dob: "2010-05-15",
+        parentName: `Parent of Student ${i + 1}`,
+        contactNumber: "123-456-7890",
+        address: "123 School Lane, Education City",
+        bloodGroup: ["A+", "B+", "O+", "AB+"][i % 4],
+        allergies: i % 3 === 0 ? "None" : "Peanuts, Dust",
+        medicalNotes: i % 4 === 0 ? "Asthma" : "None",
+      },
     }));
     setStudents(dummyStudents);
   }, []);
@@ -126,7 +154,6 @@ export default function AttendanceTrackerScreen() {
 
   // Mark all untracked students as present
   const handleMarkAllPresent = () => {
-    // Only show the modal if there are untracked students
     if (statusCounts.untracked === 0) {
       showAlert(
         "No Action Needed",
@@ -152,8 +179,8 @@ export default function AttendanceTrackerScreen() {
           "success"
         );
       },
-      true, // Show cancel button
-      () => {} // On cancel function (empty since we just close the modal)
+      true,
+      () => {}
     );
   };
 
@@ -230,6 +257,12 @@ export default function AttendanceTrackerScreen() {
     return filteredList;
   };
 
+  // Handle showing student details
+  const handleShowStudentDetails = (student: Student) => {
+    setSelectedStudent(student);
+    setShowStudentDetails(true);
+  };
+
   // Status counts for the badge numbers
   const statusCounts = {
     all: students.length,
@@ -255,26 +288,41 @@ export default function AttendanceTrackerScreen() {
 
     return (
       <TouchableOpacity
-        style={[styles.studentCard, isSelected && styles.selectedStudentCard]}
+        style={[
+          styles.studentCard,
+          { backgroundColor: `${statusConfig.color}08` }, // Very light status color background
+          isSelected && styles.selectedStudentCard,
+        ]}
         onPress={() => toggleStudentSelection(item.id)}
         activeOpacity={isBulkMode ? 0.7 : 1}
       >
-        <View style={styles.studentInfo}>
-          <Text style={styles.studentName}>{item.name}</Text>
-          <Text style={styles.studentRoll}>Roll No: {item.rollNumber}</Text>
+        <View style={styles.studentWithAvatar}>
+          <InitialsAvatar
+            name={item.name}
+            size={40}
+            imageUri={item.imageUri}
+            style={styles.studentAvatar}
+          />
 
-          {!isBulkMode && (
-            <View style={styles.statusIndicator}>
-              <MaterialCommunityIcons
-                name={statusConfig.icon}
-                size={14}
-                color={statusConfig.color}
-              />
-              <Text style={[styles.statusText, { color: statusConfig.color }]}>
-                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-              </Text>
-            </View>
-          )}
+          <View style={styles.studentInfo}>
+            <Text style={styles.studentName}>{item.name}</Text>
+            <Text style={styles.studentRoll}>Roll No: {item.rollNumber}</Text>
+
+            {!isBulkMode && (
+              <View style={styles.statusIndicator}>
+                <MaterialCommunityIcons
+                  name={statusConfig.icon}
+                  size={14}
+                  color={statusConfig.color}
+                />
+                <Text
+                  style={[styles.statusText, { color: statusConfig.color }]}
+                >
+                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={styles.actionButtons}>
@@ -311,6 +359,20 @@ export default function AttendanceTrackerScreen() {
                   name="close"
                   size={18}
                   color="#F44336"
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  { backgroundColor: "rgba(11, 181, 191, 0.1)" },
+                ]}
+                onPress={() => handleShowStudentDetails(item)}
+              >
+                <MaterialCommunityIcons
+                  name="eye-outline"
+                  size={18}
+                  color={primary}
                 />
               </TouchableOpacity>
             </>
@@ -462,7 +524,7 @@ export default function AttendanceTrackerScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar style="dark" />
 
       {/* Header with search and mode toggle */}
       <View style={styles.header}>
@@ -555,6 +617,161 @@ export default function AttendanceTrackerScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Student Details Modal */}
+      <Modal
+        visible={showStudentDetails}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowStudentDetails(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Student Details</Text>
+              <TouchableOpacity
+                onPress={() => setShowStudentDetails(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialCommunityIcons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedStudent && (
+              <ScrollView
+                style={styles.detailsContainer}
+                contentContainerStyle={styles.detailsContentContainer}
+              >
+                <View style={styles.studentDetailHeader}>
+                  <InitialsAvatar
+                    name={selectedStudent.name}
+                    size={70}
+                    imageUri={selectedStudent.imageUri}
+                  />
+                  <View style={styles.studentDetailHeaderInfo}>
+                    <Text style={styles.studentDetailName}>
+                      {selectedStudent.name}
+                    </Text>
+                    <View style={styles.studentDetailBadgeRow}>
+                      <View style={styles.studentDetailBadge}>
+                        <Text style={styles.studentDetailBadgeText}>
+                          Roll No: {selectedStudent.rollNumber}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.studentDetailBadge,
+                          {
+                            backgroundColor:
+                              STATUS_CONFIG[selectedStudent.status].color +
+                              "20",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.studentDetailBadgeText,
+                            {
+                              color:
+                                STATUS_CONFIG[selectedStudent.status].color,
+                            },
+                          ]}
+                        >
+                          {selectedStudent.status.charAt(0).toUpperCase() +
+                            selectedStudent.status.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.detailItemsContainer}>
+                  {selectedStudent.details?.gender && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Gender</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.gender}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.dob && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Date of Birth</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.dob}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.parentName && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Parent/Guardian</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.parentName}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.contactNumber && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Contact Number</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.contactNumber}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.address && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Address</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.address}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.bloodGroup && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Blood Group</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.bloodGroup}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.allergies && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Allergies</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.allergies}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedStudent.details?.medicalNotes && (
+                    <View style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>Medical Notes</Text>
+                      <Text style={styles.detailValue}>
+                        {selectedStudent.details.medicalNotes}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            )}
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setShowStudentDetails(false)}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CustomAlert
         visible={alert.visible}
         title={alert.title}
@@ -563,7 +780,7 @@ export default function AttendanceTrackerScreen() {
         onConfirm={() => hideAlert(true)}
         onCancel={() => hideAlert(false)}
         showCancelButton={alert.showCancelButton}
-        cancelable={false} // Prevent closing when clicking outside
+        cancelable={false}
       />
     </View>
   );
@@ -612,7 +829,7 @@ const styles = StyleSheet.create({
     backgroundColor: primary,
   },
   listContent: {
-    paddingBottom: 70, // Space for footer
+    paddingBottom: 70,
   },
   listHeader: {
     paddingHorizontal: 12,
@@ -656,11 +873,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginBottom: 8,
   },
-  activeFilterText: {
-    fontSize: 13,
-    color: "#333",
-    fontFamily: Typography.fontWeight.medium.primary,
-  },
   studentCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -682,8 +894,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: primary,
   },
+  studentWithAvatar: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  studentAvatar: {
+    marginRight: 12,
+  },
   studentInfo: {
     flex: 1,
+  },
+  nameWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  eyeIcon: {
+    padding: 4,
+    marginLeft: 8,
   },
   studentName: {
     fontSize: 14,
@@ -833,5 +1061,117 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Typography.fontWeight.bold.primary,
     paddingHorizontal: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "90%",
+    maxHeight: "65%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
+  detailsContainer: {
+    padding: 16,
+  },
+  detailsContentContainer: {
+    paddingBottom: 16,
+  },
+  studentDetailHeader: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+  studentDetailHeaderInfo: {
+    marginLeft: 16,
+    flex: 1,
+    justifyContent: "center",
+  },
+  studentDetailName: {
+    fontSize: 20,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginBottom: 8,
+  },
+  studentDetailBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  studentDetailBadge: {
+    backgroundColor: "#f0f0f0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  studentDetailBadgeText: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+  },
+  detailItemsContainer: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    padding: 12,
+  },
+  detailItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 15,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#333",
+  },
+  modalFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  closeButton: {
+    backgroundColor: primary,
+    padding: 12,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  closeButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 16,
   },
 });

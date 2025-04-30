@@ -1,26 +1,25 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Platform,
-  Modal,
-  Keyboard,
-  InputAccessoryView,
-} from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
 import CustomAlert from "@/components/ui/CustomAlert";
+import CustomDropdown from "@/components/ui/CustomDropdown";
+import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
-import CustomDropdown from "@/components/ui/CustomDropdown";
-import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  Keyboard,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function AddTimetableEntryScreen() {
   const params = useLocalSearchParams();
@@ -33,6 +32,7 @@ export default function AddTimetableEntryScreen() {
     day: "monday",
     startTime: new Date(new Date().setHours(9, 0, 0, 0)),
     endTime: new Date(new Date().setHours(10, 0, 0, 0)),
+    teacher: "", // Add teacher field to form data
   });
 
   const [tempStartTime, setTempStartTime] = useState<Date | null>(null);
@@ -60,6 +60,23 @@ export default function AddTimetableEntryScreen() {
     { id: "computer", label: "Computer Science" },
     { id: "pe", label: "Physical Education" },
     { id: "art", label: "Arts & Crafts" },
+  ];
+
+  // Teacher options
+  const teachers = [
+    { id: "smith", label: "Mrs. Smith" },
+    { id: "johnson", label: "Mr. Johnson" },
+    { id: "davis", label: "Mrs. Davis" },
+    { id: "wilson", label: "Mr. Wilson" },
+    { id: "martinez", label: "Mr. Martinez" },
+    { id: "garcia", label: "Ms. Garcia" },
+    { id: "rodriguez", label: "Ms. Rodriguez" },
+    { id: "thompson", label: "Mr. Thompson" },
+    { id: "taylor", label: "Ms. Taylor" },
+    { id: "lee", label: "Mr. Lee" },
+    { id: "white", label: "Mrs. White" },
+    { id: "anderson", label: "Mrs. Anderson" },
+    { id: "", label: "No Teacher (e.g., for breaks)" },
   ];
 
   // Day options
@@ -227,18 +244,15 @@ export default function AddTimetableEntryScreen() {
   useEffect(() => {
     if (isEditMode && entryId) {
       // In a real app, you would fetch the entry from an API
-      // For demo purposes, we'll simulate fetching timetable entry data
       fetchEntryData(entryId as string);
     }
   }, [isEditMode, entryId]);
 
   const fetchEntryData = (id: string) => {
     // This is a mock implementation - in a real app, you would fetch from an API
-    // Mock data based on the entry ID
     let mockEntry;
 
     // Simulate different types of entries based on the entryId
-    // In a real app, you would fetch the actual entry from your database
     switch (id) {
       case "1":
         mockEntry = {
@@ -248,6 +262,7 @@ export default function AddTimetableEntryScreen() {
           day: "monday",
           startTime: new Date(new Date().setHours(9, 0, 0, 0)),
           endTime: new Date(new Date().setHours(9, 45, 0, 0)),
+          teacher: "smith", // Add teacher field
         };
         break;
       case "2":
@@ -258,6 +273,7 @@ export default function AddTimetableEntryScreen() {
           day: "monday",
           startTime: new Date(new Date().setHours(10, 0, 0, 0)),
           endTime: new Date(new Date().setHours(10, 45, 0, 0)),
+          teacher: "davis", // Add teacher field
         };
         break;
       default:
@@ -268,6 +284,7 @@ export default function AddTimetableEntryScreen() {
           day: "monday",
           startTime: new Date(new Date().setHours(11, 0, 0, 0)),
           endTime: new Date(new Date().setHours(11, 45, 0, 0)),
+          teacher: "johnson", // Add teacher field
         };
     }
 
@@ -278,6 +295,7 @@ export default function AddTimetableEntryScreen() {
       day: mockEntry.day,
       startTime: mockEntry.startTime,
       endTime: mockEntry.endTime,
+      teacher: mockEntry.teacher, // Add teacher field
     });
   };
 
@@ -358,6 +376,16 @@ export default function AddTimetableEntryScreen() {
             }
           />
         </View>
+
+        <CustomDropdown
+          options={teachers}
+          selectedValue={formData.teacher}
+          onValueChange={(value) =>
+            setFormData({ ...formData, teacher: value })
+          }
+          placeholder="Select a teacher"
+          label="Teacher"
+        />
 
         <CustomDropdown
           options={days}

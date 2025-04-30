@@ -1,17 +1,10 @@
-import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  StatusBar,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { Typography } from "@/constants/Typography";
 import ChildDiary from "@/components/parent/ChildDiary";
 import CustomAlert from "@/components/ui/CustomAlert";
+import { Typography } from "@/constants/Typography";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useState } from "react";
+import { StatusBar, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChildDiaryScreen() {
   const { id } = useLocalSearchParams();

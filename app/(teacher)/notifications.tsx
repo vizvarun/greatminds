@@ -1,18 +1,18 @@
+import CustomAlert from "@/components/ui/CustomAlert";
+import { primary } from "@/constants/Colors";
+import { Typography } from "@/constants/Typography";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
   Modal,
+  RefreshControl,
   SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Typography } from "@/constants/Typography";
-import { primary } from "@/constants/Colors";
-import CustomAlert from "@/components/ui/CustomAlert";
 
 export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
