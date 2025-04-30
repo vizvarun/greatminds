@@ -352,7 +352,7 @@ export default function SupportScreen() {
     };
   }, [expandedTicket]);
 
-  // Add keyboard listeners for modal
+  // Add keyboard listeners for modal - improve this for better handling
   useEffect(() => {
     if (modalVisible) {
       const keyboardDidShowListener = Keyboard.addListener(
@@ -372,9 +372,9 @@ export default function SupportScreen() {
         keyboardDidShowListener.remove();
         keyboardDidHideListener.remove();
       };
-    } else {
-      setModalKeyboardVisible(false);
     }
+    // Don't reset modalKeyboardVisible when closing modal during keyboard visibility
+    // as it causes layout jumps. Let the keyboard hide event handle this.
   }, [modalVisible]);
 
   const showAlert = (
@@ -1006,171 +1006,158 @@ export default function SupportScreen() {
             setTimeout(() => setModalVisible(false), 100);
           }}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1 }}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {editingFAQ ? "Edit FAQ" : "Add New FAQ"}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setTimeout(() => setModalVisible(false), 100);
-                    }}
-                    style={styles.modalCloseButton}
-                  >
-                    <MaterialCommunityIcons
-                      name="close"
-                      size={22}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                  style={styles.modalFormContainer}
-                  keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={
-                    modalKeyboardVisible && { paddingBottom: 60 }
-                  }
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {editingFAQ ? "Edit FAQ" : "Add New FAQ"}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    // Use longer timeout to ensure keyboard is fully dismissed first
+                    setTimeout(() => setModalVisible(false), 200);
+                  }}
+                  style={styles.modalCloseButton}
                 >
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Question</Text>
-                    <TextInput
-                      style={[styles.formInput, { color: inputTextColor }]}
-                      value={editingFAQ ? editingFAQ.question : newFAQ.question}
-                      onChangeText={(text) =>
-                        editingFAQ
-                          ? setEditingFAQ({ ...editingFAQ, question: text })
-                          : setNewFAQ((prev) => ({ ...prev, question: text }))
-                      }
-                      placeholder="Enter FAQ question"
-                      placeholderTextColor={inputPlaceholderText}
-                      multiline
-                    />
-                  </View>
+                  <MaterialCommunityIcons name="close" size={22} color="#666" />
+                </TouchableOpacity>
+              </View>
 
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Answer</Text>
-                    <TextInput
-                      style={[
-                        styles.formInput,
-                        styles.formTextArea,
-                        { color: inputTextColor },
-                      ]}
-                      value={editingFAQ ? editingFAQ.answer : newFAQ.answer}
-                      onChangeText={(text) =>
-                        editingFAQ
-                          ? setEditingFAQ({ ...editingFAQ, answer: text })
-                          : setNewFAQ((prev) => ({ ...prev, answer: text }))
-                      }
-                      placeholder="Enter FAQ answer"
-                      placeholderTextColor={inputPlaceholderText}
-                      multiline
-                      textAlignVertical="top"
-                    />
-                  </View>
-
-                  <View style={styles.formField}>
-                    <Text style={styles.formLabel}>Category</Text>
-                    <View style={styles.categoryButtons}>
-                      {[
-                        "general",
-                        "academic",
-                        "attendance",
-                        "diary",
-                        "timetable",
-                      ].map((category) => (
-                        <TouchableOpacity
-                          key={category}
-                          style={[
-                            styles.categoryButton,
-                            (editingFAQ?.category || newFAQ.category) ===
-                              category && styles.selectedCategoryButton,
-                          ]}
-                          onPress={() =>
-                            editingFAQ
-                              ? setEditingFAQ({ ...editingFAQ, category })
-                              : setNewFAQ({ ...newFAQ, category })
-                          }
-                        >
-                          <Text
-                            style={[
-                              styles.categoryButtonText,
-                              (editingFAQ?.category || newFAQ.category) ===
-                                category && styles.selectedCategoryButtonText,
-                            ]}
-                          >
-                            {category.charAt(0).toUpperCase() +
-                              category.slice(1)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                </ScrollView>
-
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setTimeout(() => setModalVisible(false), 100);
-                    }}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  {editingFAQ && editingFAQ.id && (
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.deleteButton]}
-                      onPress={() => {
-                        if (editingFAQ.id) {
-                          handleDeleteFAQ(editingFAQ.id);
-                        }
-                      }}
-                    >
-                      <Text style={styles.deleteButtonText}>Delete</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      styles.saveButton,
-                      isLoading && styles.disabledButton,
-                    ]}
-                    onPress={() => {
-                      handleSaveFAQ();
-                    }}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text style={styles.saveButtonText}>Save</Text>
-                    )}
-                  </TouchableOpacity>
+              <ScrollView
+                style={styles.modalFormContainer}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  paddingBottom: modalKeyboardVisible ? 120 : 20,
+                }}
+              >
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Question</Text>
+                  <TextInput
+                    style={[styles.formInput, { color: inputTextColor }]}
+                    value={editingFAQ ? editingFAQ.question : newFAQ.question}
+                    onChangeText={(text) =>
+                      editingFAQ
+                        ? setEditingFAQ({ ...editingFAQ, question: text })
+                        : setNewFAQ((prev) => ({ ...prev, question: text }))
+                    }
+                    placeholder="Enter FAQ question"
+                    placeholderTextColor={inputPlaceholderText}
+                    multiline
+                  />
                 </View>
 
-                {Platform.OS === "android" && modalKeyboardVisible && (
-                  <View style={styles.modalKeyboardAccessory}>
-                    <TouchableOpacity
-                      style={styles.keyboardDoneButton}
-                      onPress={() => Keyboard.dismiss()}
-                    >
-                      <Text style={styles.doneButtonText}>Done</Text>
-                    </TouchableOpacity>
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Answer</Text>
+                  <TextInput
+                    style={[
+                      styles.formInput,
+                      styles.formTextArea,
+                      { color: inputTextColor },
+                    ]}
+                    value={editingFAQ ? editingFAQ.answer : newFAQ.answer}
+                    onChangeText={(text) =>
+                      editingFAQ
+                        ? setEditingFAQ({ ...editingFAQ, answer: text })
+                        : setNewFAQ((prev) => ({ ...prev, answer: text }))
+                    }
+                    placeholder="Enter FAQ answer"
+                    placeholderTextColor={inputPlaceholderText}
+                    multiline
+                    textAlignVertical="top"
+                  />
+                </View>
+
+                <View style={styles.formField}>
+                  <Text style={styles.formLabel}>Category</Text>
+                  <View style={styles.categoryButtons}>
+                    {[
+                      "general",
+                      "academic",
+                      "attendance",
+                      "diary",
+                      "timetable",
+                    ].map((category) => (
+                      <TouchableOpacity
+                        key={category}
+                        style={[
+                          styles.categoryButton,
+                          (editingFAQ?.category || newFAQ.category) ===
+                            category && styles.selectedCategoryButton,
+                        ]}
+                        onPress={() =>
+                          editingFAQ
+                            ? setEditingFAQ({ ...editingFAQ, category })
+                            : setNewFAQ({ ...newFAQ, category })
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.categoryButtonText,
+                            (editingFAQ?.category || newFAQ.category) ===
+                              category && styles.selectedCategoryButtonText,
+                          ]}
+                        >
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
+                </View>
+              </ScrollView>
+
+              <View
+                style={[
+                  styles.modalActions,
+                  modalKeyboardVisible &&
+                    Platform.OS === "android" && { marginBottom: 48 },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setTimeout(() => setModalVisible(false), 150);
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                {editingFAQ && editingFAQ.id && (
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.deleteButton]}
+                    onPress={() => {
+                      if (editingFAQ.id) {
+                        handleDeleteFAQ(editingFAQ.id);
+                      }
+                    }}
+                  >
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
                 )}
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    styles.saveButton,
+                    isLoading && styles.disabledButton,
+                  ]}
+                  onPress={() => {
+                    // Dismiss keyboard first before saving
+                    Keyboard.dismiss();
+                    setTimeout(() => handleSaveFAQ(), 50);
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
+          </View>
         </Modal>
 
         {Platform.OS === "ios" && (
@@ -1627,7 +1614,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "90%",
-    maxHeight: "80%",
+    maxHeight: "85%", // Increased from 80% to give more room for keyboard
     backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
@@ -1650,7 +1637,7 @@ const styles = StyleSheet.create({
   },
   modalFormContainer: {
     padding: 16,
-    maxHeight: 400,
+    maxHeight: Platform.OS === "ios" ? 420 : 380, // Set explicit max height
   },
   formField: {
     marginBottom: 16,
