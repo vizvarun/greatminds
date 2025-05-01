@@ -11,6 +11,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -21,9 +22,8 @@ import CustomAlert from "@/components/ui/CustomAlert";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, isLoading, authError, clearError } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [modalContent, setModalContent] = useState<{
@@ -72,6 +72,13 @@ export default function Login() {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (authError) {
+      showAlert("Error", authError, "error");
+      clearError();
+    }
+  }, [authError, clearError]);
 
   const validatePhoneNumber = (number: string) => {
     const phoneRegex = /^\d{10}$/;
@@ -205,14 +212,14 @@ Last Updated: June 1, 2023
       return;
     }
 
-    setIsLoading(true);
     try {
-      await login(phoneNumber);
-      router.push("/(auth)/verify");
+      const result = await login(phoneNumber);
+
+      if (result.success) {
+        router.push("/(auth)/verify");
+      }
     } catch (error) {
-      showAlert("Error", "Failed to send OTP. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
+      // Error is already handled in auth context
     }
   };
 
@@ -248,6 +255,7 @@ Last Updated: June 1, 2023
                 Platform.OS === "ios" ? inputAccessoryViewID : undefined
               }
               autoFocus={false}
+              editable={!isLoading}
             />
           </View>
 
@@ -258,8 +266,9 @@ Last Updated: June 1, 2023
           <View style={styles.termsContainer}>
             <TouchableOpacity
               style={styles.checkboxContainer}
-              onPress={() => setAgreeToTerms(!agreeToTerms)}
+              onPress={() => !isLoading && setAgreeToTerms(!agreeToTerms)}
               activeOpacity={0.7}
+              disabled={isLoading}
             >
               <View
                 style={[
@@ -288,7 +297,9 @@ Last Updated: June 1, 2023
           <TouchableOpacity
             style={[
               styles.button,
-              (!validatePhoneNumber(phoneNumber) || !agreeToTerms) &&
+              (!validatePhoneNumber(phoneNumber) ||
+                !agreeToTerms ||
+                isLoading) &&
                 styles.buttonDisabled,
             ]}
             onPress={handleSendOTP}
@@ -296,9 +307,14 @@ Last Updated: June 1, 2023
               !validatePhoneNumber(phoneNumber) || !agreeToTerms || isLoading
             }
           >
-            <Text style={styles.buttonText}>
-              {isLoading ? "Sending OTP..." : "Continue"}
-            </Text>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.buttonText}>Sending OTP...</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>Continue</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -497,5 +513,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontFamily: Typography.fontWeight.bold.primary,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
 });

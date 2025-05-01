@@ -9,6 +9,7 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -19,10 +20,11 @@ import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function Verify() {
-  const { verifyOtp, phoneNumber } = useAuth();
+  const { verifyOtp, phoneNumber, login, isLoading, authError, clearError } =
+    useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(30);
-  const [isLoading, setIsLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [alert, setAlert] = useState({
     visible: false,
@@ -73,6 +75,14 @@ export default function Verify() {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  // Effect to show error messages from auth context
+  useEffect(() => {
+    if (authError) {
+      showAlert("Error", authError, "error");
+      clearError();
+    }
+  }, [authError, clearError]);
 
   const showAlert = (
     title: string,
@@ -140,34 +150,58 @@ export default function Verify() {
       return;
     }
 
-    setIsLoading(true);
     try {
       const isVerified = await verifyOtp(otpString);
+
       if (isVerified) {
         // Navigate to role selection instead of home screen
         router.replace("/(auth)/role-select");
       } else {
-        showAlert(
-          "Verification Failed",
-          "The OTP you entered is incorrect. Please try again.",
-          "error"
-        );
+        // Only show an error if not already displayed from the auth context
+        if (!authError) {
+          showAlert(
+            "Verification Failed",
+            "Could not verify your OTP. Please try again.",
+            "error"
+          );
+        }
       }
     } catch (error) {
-      showAlert("Error", "Failed to verify OTP. Please try again.", "error");
-    } finally {
-      setIsLoading(false);
+      console.error("OTP verification error:", error);
+      showAlert(
+        "Verification Error",
+        "An unexpected error occurred. Please try again.",
+        "error"
+      );
     }
   };
 
-  const handleResendOtp = () => {
-    // Reset timer and resend OTP logic would go here
-    setTimer(30);
-    showAlert(
-      "OTP Resent",
-      "A new OTP has been sent to your phone number.",
-      "success"
-    );
+  const handleResendOtp = async () => {
+    setResendLoading(true);
+    try {
+      const result = await login(phoneNumber);
+
+      if (result.success) {
+        // Reset timer and OTP fields
+        setTimer(30);
+        setOtp(["", "", "", "", "", ""]);
+
+        // Focus on first input
+        if (inputRefs.current[0]) {
+          inputRefs.current[0].focus();
+        }
+
+        showAlert(
+          "OTP Resent",
+          "A new OTP has been sent to your phone number.",
+          "success"
+        );
+      }
+    } catch (error) {
+      // Error is already handled in auth context
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const formatPhoneNumber = (number: string) => {
@@ -200,6 +234,7 @@ export default function Verify() {
               onPress={handleBackPress}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              disabled={isLoading}
             >
               <MaterialCommunityIcons
                 name="chevron-left"
@@ -239,6 +274,7 @@ export default function Verify() {
                 caretHidden={Platform.OS === "android"}
                 contextMenuHidden={true}
                 selectTextOnFocus={true}
+                editable={!isLoading}
               />
             ))}
           </View>
@@ -246,22 +282,33 @@ export default function Verify() {
           <TouchableOpacity
             style={[
               styles.button,
-              otp.some((digit) => digit === "") && styles.buttonDisabled,
+              (otp.some((digit) => digit === "") || isLoading) &&
+                styles.buttonDisabled,
             ]}
             onPress={handleVerify}
             disabled={otp.some((digit) => digit === "") || isLoading}
           >
-            <Text style={styles.buttonText}>
-              {isLoading ? "Verifying..." : "Verify"}
-            </Text>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#ffffff" />
+                <Text style={styles.buttonText}>Verifying...</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonText}>Verify</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.resendContainer}>
             <Text style={styles.resendText}>Didn't receive the code? </Text>
             {timer > 0 ? (
               <Text style={styles.timerText}>Resend in {timer}s</Text>
+            ) : resendLoading ? (
+              <ActivityIndicator size="small" color={primary} />
             ) : (
-              <TouchableOpacity onPress={handleResendOtp}>
+              <TouchableOpacity
+                onPress={handleResendOtp}
+                disabled={resendLoading}
+              >
                 <Text style={styles.resendButton}>Resend OTP</Text>
               </TouchableOpacity>
             )}
@@ -377,5 +424,11 @@ const styles = StyleSheet.create({
   resendButton: {
     color: primary,
     fontFamily: Typography.fontWeight.bold.primary,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
 });

@@ -1,8 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Add UserRole type
-type UserRole = "parent" | "teacher" | null;
+import * as authService from "@/services/authService";
+import { UserRole } from "@/types/api.types";
+import { logAuthState } from "@/utils/debugUtils";
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -10,12 +10,16 @@ type AuthContextType = {
   phoneNumber: string;
   userRole: UserRole;
   isLoading: boolean;
+  authError: string | null;
   completeOnboarding: () => Promise<void>;
-  login: (phoneNumber: string) => Promise<void>;
+  login: (
+    phoneNumber: string
+  ) => Promise<{ success: boolean; requestId?: string }>;
   verifyOtp: (otp: string) => Promise<boolean>;
   logout: () => Promise<void>;
   setPhoneNumber: (number: string) => void;
   setUserRole: (role: UserRole) => Promise<void>;
+  clearError: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -25,23 +29,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [deviceId, setDeviceId] = useState<string>("");
   const [userRole, setUserRoleState] = useState<UserRole>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [requestId, setRequestId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     // Load auth state from storage
     const loadAuthState = async () => {
       try {
+        // Check for auth token first (most important)
+        const authToken = await AsyncStorage.getItem("authToken");
         const onboardingStatus = await AsyncStorage.getItem(
           "hasCompletedOnboarding"
         );
-        const authStatus = await AsyncStorage.getItem("isAuthenticated");
+        const savedPhoneNumber = await AsyncStorage.getItem("phoneNumber");
         const role = await AsyncStorage.getItem("userRole");
+        const storedDeviceId = await AsyncStorage.getItem("deviceId");
 
         setHasCompletedOnboarding(onboardingStatus === "true");
-        setIsAuthenticated(authStatus === "true");
-        setUserRoleState(role as UserRole);
+        setIsAuthenticated(!!authToken);
+
+        if (savedPhoneNumber) {
+          setPhoneNumber(savedPhoneNumber);
+        }
+
+        if (role) {
+          setUserRoleState(role as UserRole);
+        }
+
+        if (storedDeviceId) {
+          setDeviceId(storedDeviceId);
+        } else {
+          const newDeviceId = generateDeviceId();
+          await AsyncStorage.setItem("deviceId", newDeviceId);
+          setDeviceId(newDeviceId);
+        }
       } catch (error) {
         console.error("Failed to load auth state:", error);
       } finally {
@@ -52,6 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loadAuthState();
   }, []);
 
+  const clearError = () => setAuthError(null);
+
   const completeOnboarding = async () => {
     try {
       await AsyncStorage.setItem("hasCompletedOnboarding", "true");
@@ -61,64 +88,159 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const login = async (number: string) => {
-    setPhoneNumber(number);
-    // In a real app, you would initiate the OTP sending process here
-    console.log(`OTP sent to ${number}`);
-    // For demo purposes, we're not actually sending an OTP
+  const login = async (
+    phoneNum: string
+  ): Promise<{ success: boolean; requestId?: string }> => {
+    setIsLoading(true);
+    clearError();
+    setPhoneNumber(phoneNum);
+
+    try {
+      // Get or generate device ID
+      const storedDeviceId = await AsyncStorage.getItem("deviceId");
+      const currentDeviceId = storedDeviceId || generateDeviceId();
+
+      if (!storedDeviceId) {
+        await AsyncStorage.setItem("deviceId", currentDeviceId);
+      }
+
+      setDeviceId(currentDeviceId);
+
+      const response = await authService.sendOtp(phoneNum, currentDeviceId);
+      if (response.requestId) {
+        setRequestId(response.requestId);
+      }
+      return { success: true, requestId: response.requestId };
+    } catch (error: any) {
+      // Extract error message if available
+      const errorMessage =
+        error.response?.data?.detail || "Failed to send OTP. Please try again.";
+      setAuthError(errorMessage);
+
+      return { success: false };
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Add function to set user role
+  const verifyOtp = async (otp: string): Promise<boolean> => {
+    setIsLoading(true);
+    clearError();
+
+    try {
+      console.log("Verifying OTP:", otp, "for phone:", phoneNumber);
+
+      // Call API to verify OTP with the deviceId parameter
+      const response = await authService.verifyOtp(
+        phoneNumber,
+        otp,
+        deviceId,
+        requestId
+      );
+
+      console.log("Verification response received:", JSON.stringify(response));
+
+      // Explicit check for token existence
+      if (!response || typeof response.token !== "string") {
+        console.error("Invalid response structure:", response);
+        setAuthError("Invalid response received from server");
+        return false;
+      }
+
+      // Store tokens in AsyncStorage
+      console.log("Storing tokens in AsyncStorage");
+      await AsyncStorage.setItem("authToken", response.token);
+      await AsyncStorage.setItem("phoneNumber", phoneNumber);
+
+      // Log auth state to verify storage
+      await logAuthState();
+
+      // Update authentication state
+      console.log("Setting authenticated state to true");
+      setIsAuthenticated(true);
+
+      // If user profile includes role, set it
+      if (response.user && response.user.role) {
+        console.log("Setting user role:", response.user.role);
+        try {
+          await AsyncStorage.setItem("userRole", response.user.role);
+          setUserRoleState(response.user.role);
+        } catch (roleError) {
+          console.error("Error setting role:", roleError);
+        }
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      // Extract error message if available
+      const errorMessage =
+        error.response?.data?.message ||
+        "Failed to verify OTP. Please try again.";
+      setAuthError(errorMessage);
+
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const setUserRole = async (role: UserRole) => {
     try {
+      setIsLoading(true);
+      clearError();
+
+      // Call API to update user role
+      await authService.setUserRole(role);
+
+      // Update local storage and state
       if (role) {
         await AsyncStorage.setItem("userRole", role);
       } else {
         await AsyncStorage.removeItem("userRole");
       }
-      setUserRoleState(role);
-    } catch (error) {
-      console.error("Error setting user role:", error);
-    }
-  };
 
-  const verifyOtp = async (otp: string) => {
-    // Hardcoded OTP verification - only "111111" is considered valid
-    if (otp === "111111") {
-      try {
-        await AsyncStorage.setItem("isAuthenticated", "true");
-        setIsAuthenticated(true);
-        return true;
-      } catch (error) {
-        console.error("Error during authentication:", error);
-        return false;
-      }
+      setUserRoleState(role);
+    } catch (error: any) {
+      console.error("Error setting user role:", error);
+
+      const errorMessage =
+        error.response?.data?.message || "Failed to update user role.";
+      setAuthError(errorMessage);
+
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-    return false;
   };
 
   const logout = async () => {
+    setIsLoading(true);
+    clearError();
+
     try {
-      // Clear all authentication-related storage
-      await AsyncStorage.multiSet([
-        ["isAuthenticated", "false"],
-        ["phoneNumber", ""],
-      ]);
+      // Call API logout endpoint
+      await authService.logout();
 
-      // Don't clear role on logout to remember preference
-      // await AsyncStorage.removeItem("userRole");
-
+      // Clear authentication state but keep onboarding status
       setIsAuthenticated(false);
       setPhoneNumber("");
-      // Don't reset role on logout
+
+      // Don't reset role on logout to remember preference
       // setUserRoleState(null);
 
-      console.log("Logout successful");
-      return true;
+      return;
     } catch (error) {
       console.error("Error during logout:", error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Helper function to generate a deviceId if none exists
+  const generateDeviceId = (): string => {
+    return "dev_" + Math.random().toString(36).substring(2, 15);
   };
 
   return (
@@ -129,12 +251,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         phoneNumber,
         userRole,
         isLoading,
+        authError,
         completeOnboarding,
         login,
         verifyOtp,
         logout,
         setPhoneNumber,
         setUserRole,
+        clearError,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   View,
@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
@@ -15,15 +16,52 @@ import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import CustomAlert from "@/components/ui/CustomAlert";
 
 export default function RoleSelect() {
-  const { setUserRole } = useAuth();
+  const { setUserRole, isLoading, authError, clearError } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<"parent" | "teacher" | null>(
+    null
+  );
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info" as "success" | "error" | "info" | "warning",
+  });
+
+  // Effect to show error messages from auth context
+  useEffect(() => {
+    if (authError) {
+      showAlert("Error", authError, "error");
+      clearError();
+    }
+  }, [authError, clearError]);
+
+  const showAlert = (
+    title: string,
+    message: string,
+    type: "success" | "error" | "info" | "warning" = "info"
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
+    });
+  };
+
+  const hideAlert = () => {
+    setAlert((prev) => ({ ...prev, visible: false }));
+  };
 
   const handleRoleSelection = async (role: "parent" | "teacher") => {
+    // Set the selected role for UI feedback
+    setSelectedRole(role);
+
     try {
-      // Save the user role to context and AsyncStorage
+      // Save the user role to context and backend
       await setUserRole(role);
-      console.log(`Selected role: ${role}`);
 
       // Navigate to the appropriate role-specific dashboard
       if (role === "parent") {
@@ -32,7 +70,8 @@ export default function RoleSelect() {
         router.replace("/(teacher)/dashboard");
       }
     } catch (error) {
-      console.error("Error setting user role:", error);
+      // Error is already handled in auth context
+      setSelectedRole(null); // Reset selection if error occurs
     }
   };
 
@@ -55,54 +94,79 @@ export default function RoleSelect() {
         <View style={styles.rolesContainer}>
           <TouchableOpacity
             style={styles.roleOption}
-            onPress={() => handleRoleSelection("parent")}
+            onPress={() => !isLoading && handleRoleSelection("parent")}
             activeOpacity={0.8}
+            disabled={isLoading}
           >
             <LinearGradient
               colors={["#4A90E2", "#6A5ACD"]}
-              style={styles.roleCard}
+              style={[
+                styles.roleCard,
+                selectedRole === "parent" &&
+                  isLoading &&
+                  styles.roleCardSelected,
+              ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.roleContent}>
-                <View style={styles.iconContainer}>
-                  <MaterialCommunityIcons
-                    name="account-child-circle"
-                    size={40}
-                    color="#FFF"
-                  />
-                </View>
-                <Text style={styles.roleName}>Parent</Text>
-                <Text style={styles.roleDescription}>
-                  Track progress & stay connected with your child's education
-                </Text>
+                {selectedRole === "parent" && isLoading ? (
+                  <ActivityIndicator size="large" color="#ffffff" />
+                ) : (
+                  <>
+                    <View style={styles.iconContainer}>
+                      <MaterialCommunityIcons
+                        name="account-child-circle"
+                        size={40}
+                        color="#FFF"
+                      />
+                    </View>
+                    <Text style={styles.roleName}>Parent</Text>
+                    <Text style={styles.roleDescription}>
+                      Track progress & stay connected with your child's
+                      education
+                    </Text>
+                  </>
+                )}
               </View>
             </LinearGradient>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.roleOption}
-            onPress={() => handleRoleSelection("teacher")}
+            onPress={() => !isLoading && handleRoleSelection("teacher")}
             activeOpacity={0.8}
+            disabled={isLoading}
           >
             <LinearGradient
               colors={["#FF8C00", "#FF5733"]}
-              style={styles.roleCard}
+              style={[
+                styles.roleCard,
+                selectedRole === "teacher" &&
+                  isLoading &&
+                  styles.roleCardSelected,
+              ]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.roleContent}>
-                <View style={styles.iconContainer}>
-                  <MaterialCommunityIcons
-                    name="school"
-                    size={40}
-                    color="#FFF"
-                  />
-                </View>
-                <Text style={styles.roleName}>Teacher</Text>
-                <Text style={styles.roleDescription}>
-                  Manage classes & enhance student learning experience
-                </Text>
+                {selectedRole === "teacher" && isLoading ? (
+                  <ActivityIndicator size="large" color="#ffffff" />
+                ) : (
+                  <>
+                    <View style={styles.iconContainer}>
+                      <MaterialCommunityIcons
+                        name="school"
+                        size={40}
+                        color="#FFF"
+                      />
+                    </View>
+                    <Text style={styles.roleName}>Teacher</Text>
+                    <Text style={styles.roleDescription}>
+                      Manage classes & enhance student learning experience
+                    </Text>
+                  </>
+                )}
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -112,6 +176,14 @@ export default function RoleSelect() {
           You can change your role later from the role switcher in the app.
         </Text>
       </View>
+
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onConfirm={hideAlert}
+      />
     </SafeAreaView>
   );
 }
@@ -200,5 +272,10 @@ const styles = StyleSheet.create({
     color: "#888",
     textAlign: "center",
     marginTop: 16,
+  },
+  roleCardSelected: {
+    opacity: 0.8,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
