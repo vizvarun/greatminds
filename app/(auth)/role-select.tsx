@@ -60,7 +60,7 @@ export default function RoleSelect() {
     setSelectedRole(role);
 
     try {
-      // Save the user role to context and backend
+      // Save the user role locally without API call
       await setUserRole(role);
 
       // Navigate to the appropriate role-specific dashboard
@@ -70,7 +70,13 @@ export default function RoleSelect() {
         router.replace("/(teacher)/dashboard");
       }
     } catch (error) {
-      // Error is already handled in auth context
+      // Show friendly error message
+      console.error("Role selection error:", error);
+      showAlert(
+        "Role Selection Error",
+        "Could not set selected role. Please try again.",
+        "error"
+      );
       setSelectedRole(null); // Reset selection if error occurs
     }
   };

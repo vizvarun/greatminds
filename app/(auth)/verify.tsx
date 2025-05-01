@@ -18,10 +18,18 @@ import { Typography } from "@/constants/Typography";
 import CustomAlert from "@/components/ui/CustomAlert";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Verify() {
-  const { verifyOtp, phoneNumber, login, isLoading, authError, clearError } =
-    useAuth();
+  const {
+    verifyOtp,
+    phoneNumber,
+    login,
+    isLoading,
+    authError,
+    clearError,
+    getUserProfileAndNavigationTarget,
+  } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(30);
   const [resendLoading, setResendLoading] = useState(false);
@@ -154,8 +162,32 @@ export default function Verify() {
       const isVerified = await verifyOtp(otpString);
 
       if (isVerified) {
-        // Navigate to role selection instead of home screen
-        router.replace("/(auth)/role-select");
+        // Get the stored user data
+        const userDataString = await AsyncStorage.getItem("userData");
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+
+          if (userData && userData.id) {
+            // Determine where to navigate based on user profile
+            const navigationTarget = await getUserProfileAndNavigationTarget(
+              userData.id
+            );
+
+            if (navigationTarget === "role-select") {
+              router.replace("/(auth)/role-select");
+            } else if (navigationTarget === "parent") {
+              router.replace("/(parent)/dashboard");
+            } else if (navigationTarget === "teacher") {
+              router.replace("/(teacher)/dashboard");
+            }
+          } else {
+            // Fallback if no user id
+            router.replace("/(auth)/role-select");
+          }
+        } else {
+          // Fallback if no user data
+          router.replace("/(auth)/role-select");
+        }
       } else {
         // Only show an error if not already displayed from the auth context
         if (!authError) {

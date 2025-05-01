@@ -54,14 +54,8 @@ export const setUserRole = async (role: UserRole): Promise<AuthResponse> => {
 
 // Logout user
 export const logout = async (): Promise<void> => {
-  try {
-    // Call logout endpoint if needed
-    await api.post("/auth/logout");
-  } catch (error) {
-    console.error("Logout API error:", error);
-  } finally {
-    // Clear stored tokens regardless of API success
-    await AsyncStorage.removeItem("authToken");
-    await AsyncStorage.removeItem("refreshToken");
-  }
+  // Remove API call and just clear storage
+  await AsyncStorage.removeItem("authToken");
+  await AsyncStorage.removeItem("refreshToken");
+  // We're not removing userRole to remember preference when logging back in
 };

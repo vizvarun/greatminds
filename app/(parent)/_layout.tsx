@@ -10,8 +10,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
 export default function ParentLayout() {
-  const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
-    useAuth();
+  const {
+    isAuthenticated,
+    userRole,
+    isLoading,
+    setUserRole,
+    logout,
+    hasBothRoles,
+  } = useAuth();
   const pathname = usePathname();
 
   const [alert, setAlert] = useState({
@@ -93,6 +99,7 @@ export default function ParentLayout() {
 
   const handleSwitchRole = async () => {
     try {
+      // Just set the role locally without making an API call
       await setUserRole("teacher");
       router.replace("/(teacher)/dashboard");
     } catch (error) {
@@ -133,8 +140,8 @@ export default function ParentLayout() {
 
       {/* Main Content Area with ScrollView to enable scrolling */}
       <View style={styles.contentContainer}>
-        {/* Role Switcher - only show when not on notification screen */}
-        {!hideRoleSwitcher && (
+        {/* Role Switcher - only show when not on notification screen AND user has both roles */}
+        {!hideRoleSwitcher && hasBothRoles && (
           <View style={styles.roleSwitcherContainer}>
             <TouchableOpacity
               style={styles.roleSwitcher}

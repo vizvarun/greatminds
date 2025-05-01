@@ -7,11 +7,16 @@ import { Redirect, router, Slot, usePathname } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 
 export default function TeacherLayout() {
-  const { isAuthenticated, userRole, isLoading, setUserRole, logout } =
-    useAuth();
+  const {
+    isAuthenticated,
+    userRole,
+    isLoading,
+    setUserRole,
+    logout,
+    hasBothRoles,
+  } = useAuth();
   const pathname = usePathname();
   const [alert, setAlert] = useState({
     visible: false,
@@ -115,7 +120,6 @@ export default function TeacherLayout() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <StatusBar style="dark" />
       {isMainScreen && (
         <View style={styles.header}>
           <View style={styles.headerTitleContainer}>
@@ -153,7 +157,7 @@ export default function TeacherLayout() {
       )}
 
       <View style={styles.contentContainer}>
-        {isDashboard ? (
+        {isDashboard && hasBothRoles ? (
           <View style={styles.roleSwitcherContainer}>
             <TouchableOpacity
               style={styles.roleSwitcher}
@@ -342,9 +346,6 @@ const styles = StyleSheet.create({
   },
   slotContainer: {
     flex: 1,
-  },
-  internalSlotContainer: {
-    paddingTop: 2, // Add a bit of spacing after the back button
   },
   headerButton: {
     padding: 8,

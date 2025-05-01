@@ -1,8 +1,16 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as authService from "@/services/authService";
+import * as userService from "@/services/userService";
 import { UserRole } from "@/types/api.types";
 import { logAuthState } from "@/utils/debugUtils";
+
+// Add this type definition for user profile
+interface UserProfile {
+  students?: any[];
+  sections?: any[];
+  // other properties as needed
+}
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -11,6 +19,7 @@ type AuthContextType = {
   userRole: UserRole;
   isLoading: boolean;
   authError: string | null;
+  hasBothRoles: boolean; // Add this new property
   completeOnboarding: () => Promise<void>;
   login: (
     phoneNumber: string
@@ -20,9 +29,26 @@ type AuthContextType = {
   setPhoneNumber: (number: string) => void;
   setUserRole: (role: UserRole) => Promise<void>;
   clearError: () => void;
+  getUserProfileAndNavigationTarget: (userId: number) => Promise<string>;
 };
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+const AuthContext = createContext<AuthContextType>({
+  isAuthenticated: false,
+  isLoading: false,
+  hasCompletedOnboarding: false,
+  phoneNumber: "",
+  userRole: null,
+  authError: null,
+  hasBothRoles: false, // Add default value
+  completeOnboarding: async () => {},
+  login: async () => ({ success: false }),
+  verifyOtp: async () => false,
+  logout: async () => {},
+  setPhoneNumber: () => {},
+  setUserRole: async () => {},
+  clearError: () => {},
+  getUserProfileAndNavigationTarget: async () => "role-select",
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -35,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
+  const [hasBothRoles, setHasBothRoles] = useState<boolean>(false);
 
   useEffect(() => {
     // Load auth state from storage
@@ -159,6 +186,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log("Setting authenticated state to true");
       setIsAuthenticated(true);
 
+      // Store user data if available
+      if (response.user) {
+        await AsyncStorage.setItem("userData", JSON.stringify(response.user));
+      }
+
       // If user profile includes role, set it
       if (response.user && response.user.role) {
         console.log("Setting user role:", response.user.role);
@@ -190,8 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(true);
       clearError();
 
-      // Call API to update user role
-      await authService.setUserRole(role);
+      // Skip API call as we already have the data from user profile
+      // await authService.setUserRole(role);
 
       // Update local storage and state
       if (role) {
@@ -219,15 +251,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearError();
 
     try {
-      // Call API logout endpoint
+      // Call service function that only clears storage
       await authService.logout();
 
-      // Clear authentication state but keep onboarding status
+      // Also clear additional data
+      await AsyncStorage.removeItem("userData");
+      await AsyncStorage.removeItem("phoneNumber");
+      // Note: We're not clearing userRole as per existing comment
+      // "Don't reset role on logout to remember preference"
+
+      // Update state
       setIsAuthenticated(false);
       setPhoneNumber("");
-
-      // Don't reset role on logout to remember preference
-      // setUserRoleState(null);
 
       return;
     } catch (error) {
@@ -243,6 +278,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return "dev_" + Math.random().toString(36).substring(2, 15);
   };
 
+  // Enhance the getUserProfileAndNavigationTarget method to also set the hasBothRoles state
+  const getUserProfileAndNavigationTarget = async (
+    userId: number
+  ): Promise<string> => {
+    try {
+      setIsLoading(true);
+      const userProfile = await userService.getUserProfile(userId);
+
+      const hasStudents =
+        userProfile.students && userProfile.students.length > 0;
+      const hasSections =
+        userProfile.sections && userProfile.sections.length > 0;
+
+      // Set whether the user has both roles
+      setHasBothRoles(hasStudents && hasSections);
+
+      if (hasStudents && hasSections) {
+        return "role-select"; // Show role switcher
+      } else if (hasStudents) {
+        return "parent"; // Show parent dashboard
+      } else if (hasSections) {
+        return "teacher"; // Show teacher dashboard
+      } else {
+        return "role-select"; // Default to role selection if neither is present
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return "role-select"; // Default to role selection on error
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -252,6 +320,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         userRole,
         isLoading,
         authError,
+        hasBothRoles, // Expose the new property
         completeOnboarding,
         login,
         verifyOtp,
@@ -259,6 +328,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setPhoneNumber,
         setUserRole,
         clearError,
+        getUserProfileAndNavigationTarget,
       }}
     >
       {children}
