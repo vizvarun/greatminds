@@ -9,7 +9,8 @@ import {
 
 // API base URL - default value as fallback
 export const API_BASE_URL =
-  ENV_API_BASE_URL || "https://api.greatminds-edu.com/v1";
+  (ENV_API_BASE_URL && ENV_API_BASE_URL.trim()) ||
+  "https://api.greatminds-edu.com/v1";
 
 // API timeouts (in milliseconds)
 export const API_TIMEOUT = Number(ENV_API_TIMEOUT) || 30000; // 30 seconds
