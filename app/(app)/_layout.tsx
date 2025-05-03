@@ -1,6 +1,5 @@
-import { Stack } from "expo-router";
+import { Stack, Redirect } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
-import { Redirect } from "expo-router";
 import { Typography } from "@/constants/Typography";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
