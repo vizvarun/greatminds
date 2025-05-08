@@ -2,7 +2,7 @@ import CustomAlert from "@/components/ui/CustomAlert";
 import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -10,7 +10,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
+import { useAuth } from "@/context/AuthContext";
+import { primary } from "@/constants/Colors";
 
 export default function GradesScreen() {
   const { branchId } = useLocalSearchParams();
@@ -22,12 +25,14 @@ export default function GradesScreen() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
 
+  const { userProfile, isLoading, refreshUserProfile } = useAuth();
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
+    refreshUserProfile().finally(() => {
       setRefreshing(false);
-    }, 1000);
-  }, []);
+    });
+  }, [refreshUserProfile]);
 
   const showAlert = (
     title: string,
@@ -58,55 +63,84 @@ export default function GradesScreen() {
     "#B5179E", // Magenta
   ];
 
-  // Generate grades with fixed colors
-  const generateGradesWithColors = () => {
-    // Example grade data structure
-    const gradeData = [
-      {
-        id: "1",
-        name: "Grade 5",
-        sections: [
-          { id: "5a", name: "Section A", students: 28 },
-          { id: "5b", name: "Section B", students: 30 },
-        ],
-      },
-      {
-        id: "2",
-        name: "Grade 6",
-        sections: [
-          { id: "6a", name: "Section A", students: 32 },
-          { id: "6b", name: "Section B", students: 31 },
-        ],
-      },
-      {
-        id: "3",
-        name: "Grade 7",
-        sections: [
-          { id: "7a", name: "Section A", students: 29 },
-          { id: "7b", name: "Section B", students: 30 },
-        ],
-      },
-    ];
+  // Extract grades and sections from the profile data for this branch
+  const grades = useMemo(() => {
+    if (!userProfile || !userProfile.school_ids || !branchId) {
+      return [];
+    }
 
-    // Add colors from hardcoded palette
-    return gradeData.map((grade, index) => {
-      // Cycle through colors if we have more grades than colors
+    // Find the school that matches the branchId
+    const schoolData = userProfile.school_ids.find(
+      (school) => school[0].schoolId.toString() === branchId
+    );
+
+    if (!schoolData || !schoolData[1]?.classes_list) {
+      return [];
+    }
+
+    // Transform the classes data into our grades format
+    return schoolData[1].classes_list.map((classData, index) => {
+      const classInfo = classData[0];
+      const sections = classData[1]?.sections || [];
+
+      // Calculate total students based on sections (estimated 25 per section)
+      const totalStudents = sections.length * 25;
+
+      // Use color from palette based on index
       const colorIndex = index % gradeColors.length;
-      const baseColor = gradeColors[colorIndex];
+      const gradeColor = gradeColors[colorIndex];
 
       return {
-        ...grade,
-        color: baseColor,
-        sections: grade.sections.map((section) => ({
-          ...section,
-          color: baseColor,
+        id: classInfo.empId.toString(),
+        name: classInfo.className,
+        color: gradeColor,
+        sections: sections.map((section) => ({
+          id: section.sectionId.toString(),
+          name: section.sectionName,
+          students: 25, // Assuming average of 25 students per section
         })),
       };
     });
-  };
+  }, [userProfile, branchId, gradeColors]);
 
-  // Generate grades with colors
-  const grades = generateGradesWithColors();
+  // Find the current school details
+  const currentSchool = useMemo(() => {
+    if (!userProfile || !userProfile.school_ids || !branchId) {
+      return null;
+    }
+
+    const schoolData = userProfile.school_ids.find(
+      (school) => school[0].schoolId.toString() === branchId
+    );
+
+    return schoolData ? schoolData[0] : null;
+  }, [userProfile, branchId]);
+
+  if (isLoading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#333"
+              />
+            </TouchableOpacity>
+            <Text style={styles.title}>Grades</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={primary} />
+          <Text style={styles.loadingText}>Loading grades...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -122,6 +156,16 @@ export default function GradesScreen() {
         </View>
       </View>
 
+      {/* {currentSchool && (
+        <View style={styles.schoolInfoContainer}>
+          <Text style={styles.schoolName}>{currentSchool.schoolName}</Text>
+          <Text style={styles.schoolAddress}>
+            {currentSchool.schoolAddress}, {currentSchool.city},{" "}
+            {currentSchool.state}
+          </Text>
+        </View>
+      )} */}
+
       {/* Added stats summary card */}
       <View style={styles.statsCard}>
         <View style={styles.statItem}>
@@ -136,7 +180,7 @@ export default function GradesScreen() {
           <Text style={styles.statLabel}>Sections</Text>
         </View>
         <View style={styles.statDivider} />
-        <View style={styles.statItem}>
+        {/* <View style={styles.statItem}>
           <Text style={styles.statValue}>
             {grades.reduce(
               (sum, grade) =>
@@ -149,7 +193,7 @@ export default function GradesScreen() {
             )}
           </Text>
           <Text style={styles.statLabel}>Students</Text>
-        </View>
+        </View> */}
       </View>
 
       <ScrollView
@@ -159,78 +203,88 @@ export default function GradesScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Updated grade cards UI */}
-        <View style={styles.gradesGrid}>
-          {grades.map((grade) => (
-            <View key={grade.id} style={styles.gradeCard}>
-              <View
-                style={[
-                  styles.gradeHeaderBanner,
-                  { backgroundColor: `${grade.color}15` },
-                ]}
-              >
-                <View style={styles.gradeHeaderContent}>
-                  <View style={styles.gradeTitleSection}>
-                    <View
-                      style={[
-                        styles.gradeIndicator,
-                        { backgroundColor: grade.color },
-                      ]}
-                    />
-                    <Text style={styles.gradeTitle}>{grade.name}</Text>
-                  </View>
-                  <View style={styles.gradeBadge}>
-                    <Text style={styles.gradeBadgeText}>
-                      {grade.sections.length}{" "}
-                      {grade.sections.length === 1 ? "Section" : "Sections"}
-                    </Text>
+        {grades.length === 0 && !isLoading ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="book-education-outline"
+              size={48}
+              color="#ccc"
+            />
+            <Text style={styles.emptyStateText}>No grades assigned yet</Text>
+          </View>
+        ) : (
+          <View style={styles.gradesGrid}>
+            {grades.map((grade) => (
+              <View key={grade.id} style={styles.gradeCard}>
+                <View
+                  style={[
+                    styles.gradeHeaderBanner,
+                    { backgroundColor: `${grade.color}15` },
+                  ]}
+                >
+                  <View style={styles.gradeHeaderContent}>
+                    <View style={styles.gradeTitleSection}>
+                      <View
+                        style={[
+                          styles.gradeIndicator,
+                          { backgroundColor: grade.color },
+                        ]}
+                      />
+                      <Text style={styles.gradeTitle}>{grade.name}</Text>
+                    </View>
+                    <View style={styles.gradeBadge}>
+                      <Text style={styles.gradeBadgeText}>
+                        {grade.sections.length}{" "}
+                        {grade.sections.length === 1 ? "Section" : "Sections"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <View style={styles.sectionsContainer}>
-                {grade.sections.map((section) => (
-                  <TouchableOpacity
-                    key={section.id}
-                    style={styles.sectionItem}
-                    onPress={() =>
-                      router.push(
-                        `/(teacher)/branches/${branchId}/grades/${grade.id}/sections/${section.id}`
-                      )
-                    }
-                  >
-                    <View style={styles.sectionContent}>
-                      <View style={styles.sectionNameContainer}>
-                        <MaterialCommunityIcons
-                          name="google-classroom"
-                          size={18}
-                          color={grade.color}
-                          style={styles.sectionIcon}
-                        />
-                        <Text style={styles.sectionName}>{section.name}</Text>
+                <View style={styles.sectionsContainer}>
+                  {grade.sections.map((section) => (
+                    <TouchableOpacity
+                      key={section.id}
+                      style={styles.sectionItem}
+                      onPress={() =>
+                        router.push(
+                          `/(teacher)/branches/${branchId}/grades/${grade.id}/sections/${section.id}`
+                        )
+                      }
+                    >
+                      <View style={styles.sectionContent}>
+                        <View style={styles.sectionNameContainer}>
+                          <MaterialCommunityIcons
+                            name="google-classroom"
+                            size={18}
+                            color={grade.color}
+                            style={styles.sectionIcon}
+                          />
+                          <Text style={styles.sectionName}>{section.name}</Text>
+                        </View>
+                        {/* <View style={styles.studentContainer}>
+                          <MaterialCommunityIcons
+                            name="account-group"
+                            size={14}
+                            color="#666"
+                          />
+                          <Text style={styles.studentCount}>
+                            {section.students}
+                          </Text>
+                        </View> */}
                       </View>
-                      <View style={styles.studentContainer}>
-                        <MaterialCommunityIcons
-                          name="account-group"
-                          size={14}
-                          color="#666"
-                        />
-                        <Text style={styles.studentCount}>
-                          {section.students}
-                        </Text>
-                      </View>
-                    </View>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={20}
-                      color="#999"
-                    />
-                  </TouchableOpacity>
-                ))}
+                      <MaterialCommunityIcons
+                        name="chevron-right"
+                        size={20}
+                        color="#999"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       <CustomAlert
@@ -421,5 +475,47 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  schoolInfoContainer: {
+    backgroundColor: "white",
+    padding: 16,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  schoolName: {
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginBottom: 4,
+  },
+  schoolAddress: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+  },
+  emptyStateText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#999",
+    fontFamily: Typography.fontWeight.medium.primary,
+    textAlign: "center",
   },
 });

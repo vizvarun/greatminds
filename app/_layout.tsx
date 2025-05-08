@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Toast from "react-native-toast-message";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -37,26 +38,28 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <AuthProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            headerStyle: {
-              backgroundColor: "#ffffff",
-            },
-            headerTitleStyle: {
-              fontFamily: Typography.fontWeight.medium.primary,
-            },
-            headerBackTitleStyle: {
-              fontFamily: Typography.fontFamily.primary,
-            },
-          }}
-        >
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(parent)" options={{ headerShown: false }} />
-          <Stack.Screen name="(teacher)" options={{ headerShown: false }} />
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-        </Stack>
-        <Toast />
+          <SafeAreaProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                headerStyle: {
+                  backgroundColor: "#ffffff",
+                },
+                headerTitleStyle: {
+                  fontFamily: Typography.fontWeight.medium.primary,
+                },
+                headerBackTitleStyle: {
+                  fontFamily: Typography.fontFamily.primary,
+                },
+              }}
+            >
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="(parent)" options={{ headerShown: false }} />
+              <Stack.Screen name="(teacher)" options={{ headerShown: false }} />
+              <Stack.Screen name="(app)" options={{ headerShown: false }} />
+            </Stack>
+            <Toast />
+          </SafeAreaProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

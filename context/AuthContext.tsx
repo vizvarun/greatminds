@@ -23,7 +23,8 @@ type AuthContextType = {
   userRole: UserRole;
   isLoading: boolean;
   authError: string | null;
-  hasBothRoles: boolean; // Add this new property
+  hasBothRoles: boolean;
+  userProfile: UserProfile | null; // Add userProfile to context type
   completeOnboarding: () => Promise<void>;
   login: (
     phoneNumber: string
@@ -34,6 +35,7 @@ type AuthContextType = {
   setUserRole: (role: UserRole) => Promise<void>;
   clearError: () => void;
   getUserProfileAndNavigationTarget: (userId: number) => Promise<string>;
+  refreshUserProfile: () => Promise<void>; // Add a method to refresh profile data
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -43,7 +45,8 @@ const AuthContext = createContext<AuthContextType>({
   phoneNumber: "",
   userRole: null,
   authError: null,
-  hasBothRoles: false, // Add default value
+  hasBothRoles: false,
+  userProfile: null, // Add default value
   completeOnboarding: async () => {},
   login: async () => ({ success: false }),
   verifyOtp: async () => false,
@@ -52,6 +55,7 @@ const AuthContext = createContext<AuthContextType>({
   setUserRole: async () => {},
   clearError: () => {},
   getUserProfileAndNavigationTarget: async () => "role-select",
+  refreshUserProfile: async () => {}, // Add default implementation
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -66,6 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [authError, setAuthError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
   const [hasBothRoles, setHasBothRoles] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   // New state for our custom alert
   const [customAlert, setCustomAlert] = useState<{
@@ -292,7 +297,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return "dev_" + Math.random().toString(36).substring(2, 15);
   };
 
-  // Enhance the getUserProfileAndNavigationTarget method to also handle missing data and redirect back to login.
+  // Add a method to refresh the user profile
+  const refreshUserProfile = async () => {
+    try {
+      const userData = await AsyncStorage.getItem("userData");
+      if (userData) {
+        const parsedUserData = JSON.parse(userData);
+        if (parsedUserData.id) {
+          setIsLoading(true);
+          const profile = await userService.getUserProfile(parsedUserData.id);
+          setUserProfile(profile);
+          return profile;
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing user profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Enhance the getUserProfileAndNavigationTarget method to store profile data
   const getUserProfileAndNavigationTarget = async (
     userId: number
   ): Promise<string> => {
@@ -300,6 +325,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(true);
       const userProfile = await userService.getUserProfile(userId);
       console.log("User profile fetched:", userProfile);
+
+      // Store the profile data in state
+      setUserProfile(userProfile);
+
       const hasStudents =
         Array.isArray(userProfile.student_ids) &&
         userProfile.student_ids.length > 0;
@@ -361,7 +390,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         userRole,
         isLoading,
         authError,
-        hasBothRoles, // Expose the new property
+        hasBothRoles,
+        userProfile, // Provide the profile data
         completeOnboarding,
         login,
         verifyOtp,
@@ -370,6 +400,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUserRole,
         clearError,
         getUserProfileAndNavigationTarget,
+        refreshUserProfile, // Provide the refresh method
       }}
     >
       {/* Render CustomAlert if triggered */}
