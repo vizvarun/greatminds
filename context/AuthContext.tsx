@@ -4,12 +4,16 @@ import * as authService from "@/services/authService";
 import * as userService from "@/services/userService";
 import { UserRole } from "@/types/api.types";
 import { logAuthState } from "@/utils/debugUtils";
+import { router } from "expo-router";
+import CustomAlert from "@/components/ui/CustomAlert";
 
-// Add this type definition for user profile
+// Update the UserProfile type to reflect the new API response structure
 interface UserProfile {
-  students?: any[];
+  student_ids?: number[];
+  school_ids?: number[];
+  class_ids?: number[];
   sections?: any[];
-  // other properties as needed
+  // ...other properties as needed
 }
 
 type AuthContextType = {
@@ -62,6 +66,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [authError, setAuthError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
   const [hasBothRoles, setHasBothRoles] = useState<boolean>(false);
+
+  // New state for our custom alert
+  const [customAlert, setCustomAlert] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "info" | "warning";
+    onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     // Load auth state from storage
@@ -189,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Store user data if available
       if (response.user) {
         await AsyncStorage.setItem("userData", JSON.stringify(response.user));
+        console.log("User data stored:", response.user);
       }
 
       // If user profile includes role, set it
@@ -278,34 +292,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return "dev_" + Math.random().toString(36).substring(2, 15);
   };
 
-  // Enhance the getUserProfileAndNavigationTarget method to also set the hasBothRoles state
+  // Enhance the getUserProfileAndNavigationTarget method to also handle missing data and redirect back to login.
   const getUserProfileAndNavigationTarget = async (
     userId: number
   ): Promise<string> => {
     try {
       setIsLoading(true);
       const userProfile = await userService.getUserProfile(userId);
-
+      console.log("User profile fetched:", userProfile);
       const hasStudents =
-        userProfile.students && userProfile.students.length > 0;
-      const hasSections =
-        userProfile.sections && userProfile.sections.length > 0;
+        Array.isArray(userProfile.student_ids) &&
+        userProfile.student_ids.length > 0;
+      const hasSchools =
+        Array.isArray(userProfile.school_ids) &&
+        userProfile.school_ids.length > 0;
 
-      // Set whether the user has both roles
-      setHasBothRoles(hasStudents && hasSections);
+      setHasBothRoles(hasStudents && hasSchools);
 
-      if (hasStudents && hasSections) {
+      if (!hasStudents && !hasSchools) {
+        setCustomAlert({
+          visible: true,
+          title: "No Data Found",
+          message:
+            "No student or school data found. Please contact your school.",
+          type: "warning",
+          onConfirm: () => {
+            router.replace("/(auth)/login");
+            setCustomAlert(null);
+          },
+        });
+        return "";
+      }
+
+      if (hasStudents && hasSchools) {
         return "role-select"; // Show role switcher
       } else if (hasStudents) {
         return "parent"; // Show parent dashboard
-      } else if (hasSections) {
+      } else if (hasSchools) {
         return "teacher"; // Show teacher dashboard
       } else {
-        return "role-select"; // Default to role selection if neither is present
+        return "role-select"; // Default fallback
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      return "role-select"; // Default to role selection on error
+      setCustomAlert({
+        visible: true,
+        title: "Error",
+        message:
+          "There was an error fetching the user profile. Please try again.",
+        type: "error",
+        onConfirm: () => {
+          router.replace("/(auth)/login");
+          setCustomAlert(null);
+        },
+      });
+      return "";
     } finally {
       setIsLoading(false);
     }
@@ -331,6 +372,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         getUserProfileAndNavigationTarget,
       }}
     >
+      {/* Render CustomAlert if triggered */}
+      {customAlert && (
+        <CustomAlert
+          visible={customAlert.visible}
+          title={customAlert.title}
+          message={customAlert.message}
+          type={customAlert.type}
+          onConfirm={customAlert.onConfirm}
+        />
+      )}
       {children}
     </AuthContext.Provider>
   );

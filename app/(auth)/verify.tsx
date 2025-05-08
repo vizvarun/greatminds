@@ -160,10 +160,11 @@ export default function Verify() {
 
     try {
       const isVerified = await verifyOtp(otpString);
-
+      console.log("OTP verification result:", isVerified);
       if (isVerified) {
         // Get the stored user data
         const userDataString = await AsyncStorage.getItem("userData");
+        console.log("User data string:", userDataString);
         if (userDataString) {
           const userData = JSON.parse(userDataString);
 
@@ -172,7 +173,7 @@ export default function Verify() {
             const navigationTarget = await getUserProfileAndNavigationTarget(
               userData.id
             );
-
+            console.log("Navigation target:", navigationTarget);
             if (navigationTarget === "role-select") {
               router.replace("/(auth)/role-select");
             } else if (navigationTarget === "parent") {
