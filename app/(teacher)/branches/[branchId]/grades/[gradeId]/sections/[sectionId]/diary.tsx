@@ -1,9 +1,13 @@
 import CustomAlert from "@/components/ui/CustomAlert";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import {
+  fetchSectionDiaryEntries,
+  deleteDiaryEntry,
+} from "@/services/diaryApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -13,6 +17,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 
 type DiaryEntry = {
@@ -46,6 +51,9 @@ export default function SectionDiaryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -55,84 +63,89 @@ export default function SectionDiaryScreen() {
     onCancel: () => {},
   });
 
-  // Sample diary entries - would come from API in real app
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([
-    {
-      id: "1",
-      date: normalizeDate(new Date()),
-      formattedDate: new Date().toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Math Quiz on Algebra",
-      description: "Chapters 5-7 covering polynomial equations",
-      type: "test",
-    },
-    {
-      id: "2",
-      date: normalizeDate(new Date()),
-      formattedDate: new Date().toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Science Homework Due",
-      description: "Complete exercise 3 in the workbook",
-      type: "homework",
-    },
-    {
-      id: "3",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 1))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 1)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "English Essay Due",
-      description: "2-page essay on Shakespeare's Hamlet",
-      type: "homework",
-    },
-    {
-      id: "4",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 2))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 2)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Group Project Work",
-      description: "In-class group project on renewable energy",
-      type: "classwork",
-    },
-    {
-      id: "5",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 3))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 3)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Research Assignment",
-      description: "Research historical figures for upcoming project",
-      type: "research",
-    },
-  ]);
-
   // Add rotation animation value
   const syncIconRotation = useRef(new Animated.Value(0)).current;
+
+  // Fetch diary entries when component mounts or dependencies change
+  useEffect(() => {
+    fetchDiaryEntries();
+  }, [sectionId, selectedDate]);
+
+  // Function to fetch diary entries from API
+  const fetchDiaryEntries = async () => {
+    if (!sectionId) return;
+
+    setError(null);
+    if (!refreshing) setIsLoading(true);
+
+    try {
+      const response = await fetchSectionDiaryEntries(
+        sectionId as string,
+        selectedDate
+      );
+
+      // Check if response has items array
+      if (Array.isArray(response.items)) {
+        // Transform API response to match component's expected format
+        const transformedEntries: DiaryEntry[] = response.items.map((entry) => {
+          // Determine entry type based on the notetype field
+          let type: DiaryEntry["type"] = "note";
+          const noteType = entry.notetype?.toLowerCase() || "";
+
+          if (noteType.includes("home") || noteType.includes("homework")) {
+            type = "homework";
+          } else if (noteType.includes("test") || noteType.includes("quiz")) {
+            type = "test";
+          } else if (noteType.includes("research")) {
+            type = "research";
+          } else if (noteType.includes("prep")) {
+            type = "preparation";
+          } else if (noteType.includes("class")) {
+            type = "classwork";
+          } else if (noteType.includes("remind")) {
+            type = "reminder";
+          }
+
+          // Use subject as part of the title if available
+          const title = entry.subject
+            ? `${entry.notetype}: ${entry.subject}`
+            : entry.notetype;
+
+          // Parse the date correctly
+          const entryDate = new Date(entry.effectivedate);
+
+          return {
+            id: entry.id.toString(),
+            date: normalizeDate(entryDate),
+            formattedDate: entryDate.toLocaleDateString("en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
+            title: title,
+            description: entry.description,
+            type,
+          };
+        });
+
+        setDiaryEntries(transformedEntries);
+      } else {
+        // Handle unexpected response format
+        console.warn("Unexpected API response format:", response);
+        setDiaryEntries([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch diary entries:", err);
+      setError("Failed to load diary entries. Please try again.");
+      showAlert("Error", "Failed to load diary entries", "error");
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+      // Stop rotation animation if it was started
+      syncIconRotation.setValue(0);
+      Animated.timing(syncIconRotation).stop();
+    }
+  };
 
   const showAlert = (
     title: string,
@@ -175,26 +188,9 @@ export default function SectionDiaryScreen() {
       })
     ).start();
 
-    // Simulate fetching data from server
-    setTimeout(() => {
-      // Reset date to today on sync
-      const today = new Date();
-      setCurrentMonth(today.getMonth());
-      setCurrentYear(today.getFullYear());
-      setSelectedDate(normalizeDate(today));
-      setShowDatePicker(false);
-
-      showAlert(
-        "Diary Updated",
-        "The class diary has been refreshed",
-        "success"
-      );
-      setRefreshing(false);
-      // Stop rotation animation
-      syncIconRotation.setValue(0);
-      Animated.timing(syncIconRotation).stop();
-    }, 1000);
-  }, [showAlert, syncIconRotation]);
+    // Refresh data
+    fetchDiaryEntries();
+  }, [sectionId, selectedDate, syncIconRotation]);
 
   // Create an interpolation for rotation
   const spin = syncIconRotation.interpolate({
@@ -393,14 +389,31 @@ export default function SectionDiaryScreen() {
     );
   };
 
-  const handleDeleteEntry = (entryId: string) => {
+  const handleDeleteEntry = async (entryId: string) => {
     showAlert(
       "Delete Entry",
       "Are you sure you want to delete this entry?",
       "warning",
-      () => {
-        // Delete the entry only after confirmation
-        setDiaryEntries(diaryEntries.filter((entry) => entry.id !== entryId));
+      async () => {
+        try {
+          setIsLoading(true);
+          // Call the API to delete the entry
+          await deleteDiaryEntry(entryId);
+
+          // Remove the entry from the local state
+          setDiaryEntries(diaryEntries.filter((entry) => entry.id !== entryId));
+
+          showAlert("Success", "Entry deleted successfully", "success");
+        } catch (error) {
+          console.error("Error deleting entry:", error);
+          showAlert(
+            "Error",
+            "Failed to delete entry. Please try again.",
+            "error"
+          );
+        } finally {
+          setIsLoading(false);
+        }
       }
     );
   };
@@ -487,7 +500,27 @@ export default function SectionDiaryScreen() {
       <View style={styles.entriesContainer}>
         <Text style={styles.dateHeader}>{formatDate(selectedDate)}</Text>
 
-        {entriesForSelectedDate.length > 0 ? (
+        {isLoading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={styles.loadingText}>Loading diary entries...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.noEntriesContainer}>
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={50}
+              color="#F44336"
+            />
+            <Text style={styles.noEntriesText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.emptyAddButton}
+              onPress={fetchDiaryEntries}
+            >
+              <Text style={styles.emptyAddButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : entriesForSelectedDate.length > 0 ? (
           <FlatList
             data={entriesForSelectedDate}
             keyExtractor={(item) => item.id}
@@ -869,5 +902,17 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderRightColor: "transparent",
     borderTopColor: primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
   },
 });

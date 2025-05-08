@@ -2,7 +2,7 @@ import CustomAlert from "@/components/ui/CustomAlert";
 import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Platform,
   RefreshControl,
@@ -11,11 +11,21 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
+import {
+  fetchSectionAttendanceSummary,
+  AttendanceSummary,
+} from "@/services/attendanceApi";
 
 export default function SectionDetailsScreen() {
-  const { branchId, gradeId, sectionId } = useLocalSearchParams();
+  const { branchId, gradeId, sectionId, sectionName, gradeName } =
+    useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [attendanceData, setAttendanceData] =
+    useState<AttendanceSummary | null>(null);
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -23,12 +33,34 @@ export default function SectionDetailsScreen() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
 
+  // Fetch attendance data
+  const fetchAttendanceData = async () => {
+    if (!sectionId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await fetchSectionAttendanceSummary(sectionId as string);
+      setAttendanceData(data);
+    } catch (err) {
+      console.error("Error fetching attendance data:", err);
+      setError("Failed to load attendance data. Please try again.");
+      showAlert("Error", "Failed to load attendance data", "error");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load data when component mounts
+  useEffect(() => {
+    fetchAttendanceData();
+  }, [sectionId]);
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+    fetchAttendanceData();
+  }, [sectionId]);
 
   const showAlert = (
     title: string,
@@ -47,16 +79,19 @@ export default function SectionDetailsScreen() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
-  // Fake data for section details
   const sectionDetails = {
-    name: "Section A",
-    grade: "Grade 5",
-    students: 28,
+    name: sectionName
+      ? decodeURIComponent(sectionName as string)
+      : `Section ${sectionId}`,
+    grade: gradeName
+      ? decodeURIComponent(gradeName as string)
+      : `Grade ${gradeId}`,
+    students: attendanceData?.summary.total_students || 0,
     attendanceStats: {
-      present: 22,
-      absent: 3,
-      leave: 2,
-      untracked: 1,
+      present: attendanceData?.summary.present_count || 0,
+      absent: attendanceData?.summary.absent_count || 0,
+      leave: attendanceData?.summary.leave_count || 0,
+      untracked: attendanceData?.summary.untracked_count || 0,
     },
   };
 
@@ -102,63 +137,83 @@ export default function SectionDetailsScreen() {
       >
         <View style={styles.attendanceStatsCard}>
           <Text style={styles.cardTitle}>Today's Attendance</Text>
-          <View style={styles.statsGrid}>
+          {loading && !refreshing ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#0B5CB5" />
+              <Text style={styles.loadingText}>Loading attendance data...</Text>
+            </View>
+          ) : error ? (
             <TouchableOpacity
-              style={[styles.statBox, styles.presentBox]}
-              onPress={() =>
-                router.push(
-                  `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=present`
-                )
-              }
+              style={styles.errorContainer}
+              onPress={fetchAttendanceData}
             >
-              <Text style={styles.statCount}>
-                {sectionDetails.attendanceStats.present}
-              </Text>
-              <Text style={styles.statLabel}>Present</Text>
+              <MaterialCommunityIcons
+                name="refresh"
+                size={24}
+                color="#F44336"
+              />
+              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.retryText}>Tap to retry</Text>
             </TouchableOpacity>
+          ) : (
+            <View style={styles.statsGrid}>
+              <TouchableOpacity
+                style={[styles.statBox, styles.presentBox]}
+                onPress={() =>
+                  router.push(
+                    `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=present`
+                  )
+                }
+              >
+                <Text style={styles.statCount}>
+                  {sectionDetails.attendanceStats.present}
+                </Text>
+                <Text style={styles.statLabel}>Present</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.statBox, styles.absentBox]}
-              onPress={() =>
-                router.push(
-                  `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=absent`
-                )
-              }
-            >
-              <Text style={styles.statCount}>
-                {sectionDetails.attendanceStats.absent}
-              </Text>
-              <Text style={styles.statLabel}>Absent</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statBox, styles.absentBox]}
+                onPress={() =>
+                  router.push(
+                    `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=absent`
+                  )
+                }
+              >
+                <Text style={styles.statCount}>
+                  {sectionDetails.attendanceStats.absent}
+                </Text>
+                <Text style={styles.statLabel}>Absent</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.statBox, styles.leaveBox]}
-              onPress={() =>
-                router.push(
-                  `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=leave`
-                )
-              }
-            >
-              <Text style={styles.statCount}>
-                {sectionDetails.attendanceStats.leave}
-              </Text>
-              <Text style={styles.statLabel}>On Leave</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.statBox, styles.leaveBox]}
+                onPress={() =>
+                  router.push(
+                    `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=leave`
+                  )
+                }
+              >
+                <Text style={styles.statCount}>
+                  {sectionDetails.attendanceStats.leave}
+                </Text>
+                <Text style={styles.statLabel}>On Leave</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.statBox, styles.untrackedBox]}
-              onPress={() =>
-                router.push(
-                  `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=untracked`
-                )
-              }
-            >
-              <Text style={styles.statCount}>
-                {sectionDetails.attendanceStats.untracked}
-              </Text>
-              <Text style={styles.statLabel}>Untracked</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.statBox, styles.untrackedBox]}
+                onPress={() =>
+                  router.push(
+                    `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/tracker?filter=untracked`
+                  )
+                }
+              >
+                <Text style={styles.statCount}>
+                  {sectionDetails.attendanceStats.untracked}
+                </Text>
+                <Text style={styles.statLabel}>Untracked</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.actionCardsContainer}>
@@ -427,6 +482,34 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   actionDescription: {
+    fontSize: 12,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#F44336",
+    textAlign: "center",
+  },
+  retryText: {
+    marginTop: 5,
     fontSize: 12,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",

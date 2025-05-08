@@ -3,6 +3,9 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import { useAuth } from "@/context/AuthContext";
+import { createDiaryEntry, updateDiaryEntry } from "@/services/diaryApi";
+import { fetchSubjects, Subject } from "@/services/subjectApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -21,12 +24,18 @@ import {
   TouchableOpacity,
   View,
   Switch,
+  ActivityIndicator,
 } from "react-native";
 
 export default function AddDiaryEntryScreen() {
   const params = useLocalSearchParams();
   const { branchId, gradeId, sectionId, date, edit, entryId } = params;
   const isEditMode = edit === "true";
+  const { userProfile } = useAuth();
+
+  const [subjects, setSubjects] = useState<{ id: string; label: string }[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
+  const [subjectError, setSubjectError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -34,24 +43,119 @@ export default function AddDiaryEntryScreen() {
     type: "homework", // homework, classwork, preparation, research, other
     effectiveDate: date ? new Date(date as string) : new Date(),
     dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 1 week later
-    subject: "math",
+    subject: "",
     isUrgent: false, // New field for urgent toggle
   });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [tempEffectiveDate, setTempEffectiveDate] = useState<Date | null>(null);
   const [tempDueDate, setTempDueDate] = useState<Date | null>(null);
 
-  // Subject options
-  const subjects = [
-    { id: "math", label: "Mathematics" },
-    { id: "science", label: "Science" },
-    { id: "english", label: "English" },
-    { id: "social", label: "Social Studies" },
-    { id: "language", label: "Second Language" },
-    { id: "computer", label: "Computer Science" },
-    { id: "pe", label: "Physical Education" },
-    { id: "art", label: "Arts & Crafts" },
-  ];
+  // Fetch subjects from API when component mounts
+  useEffect(() => {
+    const getSubjects = async () => {
+      if (!userProfile || !branchId) return;
+
+      try {
+        setIsLoadingSubjects(true);
+        setSubjectError(null);
+
+        // Get user ID from profile
+        const userId = userProfile.user?.id.toString() || "";
+
+        // Fetch subjects from API
+        const subjectsData = await fetchSubjects(branchId as string, userId);
+
+        console.log("Subjects data received:", subjectsData);
+
+        // Transform to format expected by CustomDropdown
+        // Handle both array format and object format responses
+        const formattedSubjects = Array.isArray(subjectsData)
+          ? subjectsData.map((subject) => ({
+              id: subject.id.toString(), // Ensure ID is a string
+              label: subject.name || subject.subject_name || "Unknown Subject",
+            }))
+          : Object.entries(subjectsData).map(
+              ([key, subject]: [string, any]) => ({
+                id: (subject.id || key).toString(),
+                label:
+                  subject.name || subject.subject_name || "Unknown Subject",
+              })
+            );
+
+        console.log("Formatted subjects:", formattedSubjects);
+
+        if (formattedSubjects.length > 0) {
+          setSubjects(formattedSubjects);
+
+          // Only set default subject if not already set
+          if (!formData.subject) {
+            setFormData((prev) => ({
+              ...prev,
+              subject: formattedSubjects[0].id,
+            }));
+          }
+        } else {
+          console.warn("No subjects found in the response");
+          setSubjectError("No subjects available for this class");
+        }
+      } catch (error) {
+        console.error("Failed to fetch subjects:", error);
+        setSubjectError("Failed to load subjects. Please try again.");
+      } finally {
+        setIsLoadingSubjects(false);
+      }
+    };
+
+    getSubjects();
+  }, [userProfile, branchId]);
+
+  const retryFetchSubjects = async () => {
+    if (!userProfile || !branchId) return;
+
+    try {
+      setIsLoadingSubjects(true);
+      setSubjectError(null);
+
+      const userId = userProfile.user?.id.toString() || "";
+      const subjectsData = await fetchSubjects(branchId as string, userId);
+
+      console.log("Retry - Subjects data received:", subjectsData);
+
+      // Transform to format expected by CustomDropdown with more robust handling
+      const formattedSubjects = Array.isArray(subjectsData)
+        ? subjectsData.map((subject) => ({
+            id: subject.id.toString(),
+            label: subject.name || subject.subject_name || "Unknown Subject",
+          }))
+        : Object.entries(subjectsData).map(([key, subject]: [string, any]) => ({
+            id: (subject.id || key).toString(),
+            label: subject.name || subject.subject_name || "Unknown Subject",
+          }));
+
+      console.log("Retry - Formatted subjects:", formattedSubjects);
+
+      if (formattedSubjects.length > 0) {
+        setSubjects(formattedSubjects);
+
+        // Only set default subject if not already set
+        if (!formData.subject) {
+          setFormData((prev) => ({
+            ...prev,
+            subject: formattedSubjects[0].id,
+          }));
+        }
+      } else {
+        setSubjectError("No subjects available for this class");
+      }
+    } catch (error) {
+      console.error("Retry failed to fetch subjects:", error);
+      setSubjectError("Failed to load subjects. Please try again.");
+    } finally {
+      setIsLoadingSubjects(false);
+    }
+  };
 
   // Entry types with colors
   const entryTypes = [
@@ -327,35 +431,99 @@ export default function AddDiaryEntryScreen() {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate required fields
     if (!formData.title || !formData.description) {
       showAlert("Error", "Please fill all required fields", "error");
       return;
     }
 
-    // In a real app, you would save the diary entry here
-    if (isEditMode) {
-      showAlert("Success", "Diary entry updated successfully", "success");
-    } else {
-      showAlert("Success", "Diary entry added successfully", "success");
+    // Validate subject selection
+    if (!formData.subject && subjects.length > 0) {
+      showAlert("Error", "Please select a subject", "error");
+      return;
     }
 
-    // Reset form or navigate back after successful submission
-    setTimeout(() => {
-      router.back();
-    }, 1500);
+    setIsSubmitting(true);
+
+    try {
+      // Format dates for API (YYYY-MM-DD format)
+      const formatDateForApi = (date: Date): string => {
+        return date.toISOString().split("T")[0];
+      };
+
+      // Prepare data for API
+      const apiData = {
+        sectionid: Number(sectionId),
+        noteType:
+          formData.type === "other"
+            ? formData.title
+            : getNoteTypeFromType(formData.type),
+        effectiveDate: formatDateForApi(formData.effectiveDate),
+        dueDate: ["homework", "research", "preparation"].includes(formData.type)
+          ? formatDateForApi(formData.dueDate)
+          : formatDateForApi(formData.effectiveDate),
+        subject: getSubjectLabelFromId(formData.subject),
+        description: formData.description,
+        isUrgent: formData.isUrgent,
+      };
+
+      // Call the appropriate API based on mode
+      if (isEditMode && entryId) {
+        await updateDiaryEntry(entryId as string, apiData);
+        showAlert("Success", "Diary entry updated successfully", "success");
+      } else {
+        await createDiaryEntry(apiData);
+        showAlert("Success", "Diary entry added successfully", "success");
+      }
+
+      // Navigate back after successful submission
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving diary entry:", error);
+      showAlert(
+        "Error",
+        "Failed to save diary entry. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  // Function to get the current color of the selected entry type
+  const getNoteTypeFromType = (type: string): string => {
+    switch (type) {
+      case "homework":
+        return "Homework";
+      case "classwork":
+        return "Classwork";
+      case "preparation":
+        return "Preparation";
+      case "research":
+        return "Research";
+      case "test":
+        return "Test";
+      case "reminder":
+        return "Reminder";
+      default:
+        return "Note";
+    }
+  };
+
   const getTypeColor = (typeId: string) => {
     return entryTypes.find((type) => type.id === typeId)?.color || primary;
+  };
+
+  const getSubjectLabelFromId = (subjectId: string): string => {
+    const subject = subjects.find((subject) => subject.id === subjectId);
+    return subject ? subject.label : "Other";
   };
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const inputAccessoryViewID = "diaryFormInput";
 
-  // Add keyboard listeners
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
       "keyboardDidShow",
@@ -400,7 +568,6 @@ export default function AddDiaryEntryScreen() {
           label="Entry Type"
         />
 
-        {/* Show different form fields based on selection */}
         {formData.type === "other" ? (
           <>
             <View style={styles.formGroup}>
@@ -457,15 +624,38 @@ export default function AddDiaryEntryScreen() {
           </>
         ) : (
           <>
-            <CustomDropdown
-              options={subjects}
-              selectedValue={formData.subject}
-              onValueChange={(value) =>
-                setFormData({ ...formData, subject: value })
-              }
-              placeholder="Select a subject"
-              label="Subject"
-            />
+            {isLoadingSubjects ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={primary} />
+                <Text style={styles.loadingText}>Loading subjects...</Text>
+              </View>
+            ) : subjectError ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{subjectError}</Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={retryFetchSubjects}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : subjects.length === 0 ? (
+              <View style={styles.formGroup}>
+                <Text style={styles.warningText}>
+                  No subjects available. Default subject will be used.
+                </Text>
+              </View>
+            ) : (
+              <CustomDropdown
+                options={subjects}
+                selectedValue={formData.subject}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, subject: value })
+                }
+                placeholder="Select a subject"
+                label="Subject"
+              />
+            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.label}>Title *</Text>
@@ -542,7 +732,6 @@ export default function AddDiaryEntryScreen() {
           </>
         )}
 
-        {/* Urgent Information toggle - available for all entry types */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Urgent Information</Text>
           <View style={styles.toggleWrapper}>
@@ -570,16 +759,21 @@ export default function AddDiaryEntryScreen() {
           style={[
             styles.submitButton,
             { backgroundColor: getTypeColor(formData.type) },
+            isSubmitting && styles.disabledButton,
           ]}
           onPress={handleSubmit}
+          disabled={isSubmitting}
         >
-          <Text style={styles.submitButtonText}>
-            {isEditMode ? "Update Entry" : "Add Entry"}
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              {isEditMode ? "Update Entry" : "Add Entry"}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Effective Date Picker - iOS modal only, Android uses imperative API */}
       {showEffectiveDatePicker && Platform.OS === "ios" && (
         <Modal
           transparent={true}
@@ -619,7 +813,6 @@ export default function AddDiaryEntryScreen() {
         </Modal>
       )}
 
-      {/* Due Date Picker - iOS modal only, Android uses imperative API */}
       {showDueDatePicker && Platform.OS === "ios" && (
         <Modal
           transparent={true}
@@ -660,12 +853,10 @@ export default function AddDiaryEntryScreen() {
         </Modal>
       )}
 
-      {/* Add keyboard dismiss bar for iOS */}
       {Platform.OS === "ios" && (
         <KeyboardDismissBar nativeID={inputAccessoryViewID} />
       )}
 
-      {/* Add keyboard dismiss bar for Android */}
       {Platform.OS === "android" && keyboardVisible && (
         <View style={styles.androidKeyboardAccessory}>
           <TouchableOpacity
@@ -875,5 +1066,52 @@ const styles = StyleSheet.create({
     color: "#F44336",
     marginTop: 8,
     fontStyle: "italic",
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  loadingContainer: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  errorContainer: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "rgba(244, 67, 54, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(244, 67, 54, 0.2)",
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  errorText: {
+    color: "#F44336",
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#F44336",
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  warningText: {
+    color: "#FF9800",
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    marginBottom: 16,
   },
 });

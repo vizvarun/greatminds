@@ -248,7 +248,13 @@ export default function GradesScreen() {
                       style={styles.sectionItem}
                       onPress={() =>
                         router.push(
-                          `/(teacher)/branches/${branchId}/grades/${grade.id}/sections/${section.id}`
+                          `/(teacher)/branches/${branchId}/grades/${
+                            grade.id
+                          }/sections/${
+                            section.id
+                          }?sectionName=${encodeURIComponent(
+                            section.name
+                          )}&gradeName=${encodeURIComponent(grade.name)}`
                         )
                       }
                     >
