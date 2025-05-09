@@ -31,35 +31,102 @@ import {
 
 export default function AddTimetableEntryScreen() {
   const params = useLocalSearchParams();
-  const { branchId, gradeId, sectionId, day, edit, entryId } = params;
+  const {
+    branchId,
+    gradeId,
+    sectionId,
+    day,
+    edit,
+    periodId,
+    subject: subjectFromUrl,
+    topic,
+    startTime,
+    endTime,
+    teacher,
+  } = params;
   const isEditMode = edit === "true";
   const { userProfile } = useAuth();
 
-  const [formData, setFormData] = useState({
-    subject: "",
-    topic: "",
-    day: day ? (day as string).toLowerCase() : "monday",
-    startTime: new Date(new Date().setHours(9, 0, 0, 0)),
-    endTime: new Date(new Date().setHours(10, 0, 0, 0)),
-    teacher: "",
-  });
+  // Store the original subject name from URL for matching later
+  const [subjectNameFromUrl, setSubjectNameFromUrl] = useState<string | null>(
+    isEditMode && subjectFromUrl ? subjectFromUrl.toString() : null
+  );
 
+  // Initialize form with URL parameters if in edit mode
+  const initialFormData = React.useMemo(() => {
+    if (isEditMode && periodId) {
+      // Parse time strings into Date objects
+      const parseTimeString = (timeStr: string | string[] | undefined) => {
+        if (!timeStr) return new Date();
+
+        const timeString = Array.isArray(timeStr) ? timeStr[0] : timeStr;
+        try {
+          // Handle formats like "09:00 AM" or "09:00"
+          const [timePart, meridian] = timeString.split(" ");
+          const [hours, minutes] = timePart.split(":").map(Number);
+
+          const date = new Date();
+
+          if (meridian && meridian.toUpperCase() === "PM" && hours < 12) {
+            date.setHours(hours + 12, minutes);
+          } else if (
+            meridian &&
+            meridian.toUpperCase() === "AM" &&
+            hours === 12
+          ) {
+            date.setHours(0, minutes);
+          } else {
+            date.setHours(hours, minutes);
+          }
+
+          return date;
+        } catch (error) {
+          console.error("Error parsing time string:", error);
+          return new Date();
+        }
+      };
+
+      return {
+        subject: subjectFromUrl?.toString() || "",
+        topic: topic?.toString() || "",
+        day: day ? (day as string).toLowerCase() : "monday",
+        startTime: parseTimeString(startTime),
+        endTime: parseTimeString(endTime),
+        teacher: teacher?.toString() || "",
+      };
+    }
+
+    return {
+      subject: "",
+      topic: "",
+      day: day ? (day as string).toLowerCase() : "monday",
+      startTime: new Date(new Date().setHours(9, 0, 0, 0)),
+      endTime: new Date(new Date().setHours(10, 0, 0, 0)),
+      teacher: "",
+    };
+  }, [
+    isEditMode,
+    periodId,
+    subjectFromUrl,
+    topic,
+    day,
+    startTime,
+    endTime,
+    teacher,
+  ]);
+
+  const [formData, setFormData] = useState(initialFormData);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tempStartTime, setTempStartTime] = useState<Date | null>(null);
   const [tempEndTime, setTempEndTime] = useState<Date | null>(null);
-
-  // New state variables for subjects
   const [subjects, setSubjects] = useState<{ id: string; label: string }[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
   const [subjectError, setSubjectError] = useState<string | null>(null);
-
-  // Time pickers state
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
-  // Alert state
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -67,7 +134,6 @@ export default function AddTimetableEntryScreen() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
 
-  // Day options
   const days = [
     { id: "monday", label: "Monday" },
     { id: "tuesday", label: "Tuesday" },
@@ -76,6 +142,17 @@ export default function AddTimetableEntryScreen() {
     { id: "friday", label: "Friday" },
     { id: "saturday", label: "Saturday" },
   ];
+
+  // Add this utility function for debugging time issues
+  const logTimeInfo = (label: string, timeValue: any) => {
+    console.log(
+      `${label}:`,
+      timeValue,
+      typeof timeValue === "object" && timeValue instanceof Date
+        ? `(valid: ${!isNaN(timeValue.getTime())})`
+        : "(not a Date object)"
+    );
+  };
 
   // Fetch subjects from API when component mounts
   useEffect(() => {
@@ -113,8 +190,30 @@ export default function AddTimetableEntryScreen() {
         if (formattedSubjects.length > 0) {
           setSubjects(formattedSubjects);
 
-          // Only set default subject if not already set
-          if (!formData.subject) {
+          // Match subject from URL with available subjects
+          if (isEditMode && subjectNameFromUrl) {
+            console.log("Looking for subject match for:", subjectNameFromUrl);
+            const matchingSubject = formattedSubjects.find(
+              (s) => s.label.toLowerCase() === subjectNameFromUrl.toLowerCase()
+            );
+
+            if (matchingSubject) {
+              console.log("Found matching subject:", matchingSubject);
+              setFormData((prev) => ({
+                ...prev,
+                subject: matchingSubject.id,
+              }));
+            } else {
+              console.log("No matching subject found, using default");
+              // Fall back to first subject if no match found
+              setFormData((prev) => ({
+                ...prev,
+                subject: formattedSubjects[0].id,
+              }));
+            }
+          }
+          // Set default subject for new entries
+          else if (!formData.subject) {
             setFormData((prev) => ({
               ...prev,
               subject: formattedSubjects[0].id,
@@ -133,7 +232,7 @@ export default function AddTimetableEntryScreen() {
     };
 
     getSubjects();
-  }, [userProfile, branchId]);
+  }, [userProfile, branchId, subjectNameFromUrl, isEditMode]);
 
   const retryFetchSubjects = async () => {
     if (!userProfile || !branchId) return;
@@ -334,62 +433,11 @@ export default function AddTimetableEntryScreen() {
 
   // Fetch entry data when in edit mode
   useEffect(() => {
-    if (isEditMode && entryId) {
-      // In a real app, you would fetch the entry from an API
-      fetchEntryData(entryId as string);
+    if (isEditMode && periodId) {
+      // We don't need to fetch data as it's already loaded from URL params
+      console.log("Edit mode detected, using data from URL parameters");
     }
-  }, [isEditMode, entryId]);
-
-  const fetchEntryData = (id: string) => {
-    // This is a mock implementation - in a real app, you would fetch from an API
-    let mockEntry;
-
-    // Simulate different types of entries based on the entryId
-    switch (id) {
-      case "1":
-        mockEntry = {
-          id: id,
-          subject: "math",
-          topic: "Algebra: Quadratic Equations",
-          day: "monday",
-          startTime: new Date(new Date().setHours(9, 0, 0, 0)),
-          endTime: new Date(new Date().setHours(9, 45, 0, 0)),
-          teacher: "smith",
-        };
-        break;
-      case "2":
-        mockEntry = {
-          id: id,
-          subject: "science",
-          topic: "Physics: Forces and Motion",
-          day: "monday",
-          startTime: new Date(new Date().setHours(10, 0, 0, 0)),
-          endTime: new Date(new Date().setHours(10, 45, 0, 0)),
-          teacher: "davis",
-        };
-        break;
-      default:
-        mockEntry = {
-          id: id,
-          subject: "english",
-          topic: "Poetry Analysis",
-          day: "monday",
-          startTime: new Date(new Date().setHours(11, 0, 0, 0)),
-          endTime: new Date(new Date().setHours(11, 45, 0, 0)),
-          teacher: "johnson",
-        };
-    }
-
-    // Prefill the form with the fetched data
-    setFormData({
-      subject: mockEntry.subject,
-      topic: mockEntry.topic,
-      day: mockEntry.day,
-      startTime: mockEntry.startTime,
-      endTime: mockEntry.endTime,
-      teacher: mockEntry.teacher,
-    });
-  };
+  }, [isEditMode, periodId]);
 
   // Load teachers from API
   const loadTeachers = async () => {
@@ -420,6 +468,24 @@ export default function AddTimetableEntryScreen() {
   useEffect(() => {
     loadTeachers();
   }, [sectionId]);
+
+  // When loading teachers, make sure to set the selected teacher from URL params
+  useEffect(() => {
+    if (teachers.length > 0 && isEditMode && teacher) {
+      // Try to find a matching teacher by name
+      const teacherName = teacher.toString();
+      const matchedTeacher = teachers.find(
+        (t) => `${t.firstname} ${t.lastname}`.trim() === teacherName
+      );
+
+      if (matchedTeacher) {
+        setFormData((prev) => ({
+          ...prev,
+          teacher: matchedTeacher.teacherid.toString(),
+        }));
+      }
+    }
+  }, [teachers, isEditMode, teacher]);
 
   // Transform teachers array to format expected by CustomDropdown
   const teacherOptions = React.useMemo(() => {
@@ -475,8 +541,8 @@ export default function AddTimetableEntryScreen() {
       console.log("Submitting timetable data:", apiData);
 
       // Call the appropriate API based on mode
-      if (isEditMode && entryId) {
-        await updateTimetableEntry(entryId as string, apiData);
+      if (isEditMode && periodId) {
+        await updateTimetableEntry(periodId as string, apiData);
         showAlert("Success", "Timetable entry updated successfully", "success");
       } else {
         await createTimetableEntry(apiData);

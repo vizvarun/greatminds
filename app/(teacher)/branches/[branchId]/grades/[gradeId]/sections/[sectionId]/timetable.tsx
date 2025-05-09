@@ -187,7 +187,17 @@ export default function SectionTimetableScreen() {
 
   const handleEditPeriod = (period: TimetableEntry) => {
     router.push(
-      `/(teacher)/timetable/add?branchId=${branchId}&gradeId=${gradeId}&sectionId=${sectionId}&day=${selectedDay}&edit=true&periodId=${period.id}`
+      `/(teacher)/timetable/add?branchId=${branchId}&gradeId=${gradeId}&sectionId=${sectionId}&day=${selectedDay}&edit=true&periodId=${
+        period.id
+      }&subject=${encodeURIComponent(
+        period.subject
+      )}&topic=${encodeURIComponent(
+        period.topic || ""
+      )}&startTime=${encodeURIComponent(
+        period.startTime
+      )}&endTime=${encodeURIComponent(period.endTime)}${
+        period.teacher ? `&teacher=${encodeURIComponent(period.teacher)}` : ""
+      }`
     );
   };
 
