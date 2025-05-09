@@ -173,26 +173,31 @@ export default function AddDiaryEntryScreen() {
       id: "homework",
       name: "Homework",
       icon: "book-open-variant",
-      color: "#4CAF50",
+      color: "#4CAF50", // Green - unchanged
     },
     {
       id: "classwork",
       name: "Classwork",
       icon: "pencil-outline",
-      color: "#2196F3",
+      color: "#00BCD4", // Cyan - updated to match list
     },
     {
       id: "preparation",
       name: "Preparation",
       icon: "clipboard-outline",
-      color: "#F44336",
+      color: "#F44336", // Indigo - updated to match list
     },
-    { id: "research", name: "Research", icon: "magnify", color: "#3F51B5" },
+    {
+      id: "research",
+      name: "Research",
+      icon: "magnify",
+      color: "#673AB7", // Deep Purple - updated to match list
+    },
     {
       id: "other",
       name: "Other",
       icon: "dots-horizontal-circle",
-      color: "#607D8B",
+      color: "#607D8B", // Gray - unchanged
     },
   ];
 

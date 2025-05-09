@@ -191,59 +191,6 @@ export default function SectionTimetableScreen() {
     );
   };
 
-  const handleDeletePeriod = (periodId: string) => {
-    showAlert(
-      "Delete Period",
-      "Are you sure you want to delete this period? This action cannot be undone.",
-      "warning",
-      async () => {
-        // First close the confirmation alert
-        setAlert((prev) => ({ ...prev, visible: false }));
-
-        try {
-          setIsLoading(true);
-
-          // Call API to delete the period
-          await deleteTimetableEntry(periodId);
-
-          // Update local state after successful deletion
-          setTimetableData((prevData) =>
-            prevData.map((daySchedule) => {
-              if (daySchedule.day === selectedDay) {
-                return {
-                  ...daySchedule,
-                  periods: daySchedule.periods.filter(
-                    (period) => period.id !== periodId
-                  ),
-                };
-              }
-              return daySchedule;
-            })
-          );
-
-          // After deleting, show the success alert
-          showAlert(
-            "Success",
-            "The period has been deleted successfully",
-            "success"
-          );
-        } catch (error) {
-          console.error("Error deleting period:", error);
-          showAlert(
-            "Error",
-            "Failed to delete period. Please try again.",
-            "error"
-          );
-        } finally {
-          setIsLoading(false);
-        }
-      },
-      () => {
-        console.log("Delete operation canceled");
-      }
-    );
-  };
-
   const handleRefresh = () => {
     fetchTimetable();
   };
@@ -398,7 +345,7 @@ export default function SectionTimetableScreen() {
                       color="#666"
                     />
                   </TouchableOpacity>
-                  <TouchableOpacity
+                  {/* <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => handleDeletePeriod(period.id)}
                   >
@@ -407,7 +354,7 @@ export default function SectionTimetableScreen() {
                       size={20}
                       color="#F44336"
                     />
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                 </View>
               </View>
             );

@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#00BCD4", // Cyan
   },
   preparationIcon: {
-    backgroundColor: "#3F51B5", // Indigo
+    backgroundColor: "#F44336", // Indigo
   },
   researchIcon: {
     backgroundColor: "#673AB7", // Deep Purple
