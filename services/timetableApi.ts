@@ -39,6 +39,7 @@ export interface TimetableEntryCreateRequest {
   subject: string;
   description: string;
   user_id?: number; // Optional as we'll get it from stored user data if not provided
+  teacher_id?: number; // Add teacher ID field
 }
 
 // Subject color mapping
@@ -145,7 +146,7 @@ export const createTimetableEntry = async (
 
     console.log("Creating timetable entry with data:", entry);
 
-    const response = await api.post("/timetable/create", entry);
+    const response = await api.post("/section/timetable/create", entry);
     return response.data;
   } catch (error) {
     console.error("Error creating timetable entry:", error);
@@ -177,7 +178,7 @@ export const updateTimetableEntry = async (
 
     console.log(`Updating timetable entry ${entryId} with data:`, entry);
 
-    const response = await api.put(`/timetable/update`, entry, {
+    const response = await api.put(`/section/timetable/update`, entry, {
       params: {
         timetable_id: entryId,
       },
@@ -198,7 +199,7 @@ export const deleteTimetableEntry = async (entryId: string): Promise<any> => {
   try {
     console.log(`Deleting timetable entry ${entryId}`);
 
-    const response = await api.delete(`/timetable/delete`, {
+    const response = await api.delete(`/section/timetable/delete`, {
       params: {
         timetable_id: entryId,
       },

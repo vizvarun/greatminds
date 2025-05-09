@@ -7,6 +7,7 @@ import {
   createTimetableEntry,
   updateTimetableEntry,
 } from "@/services/timetableApi";
+import { fetchSectionTeachers, Teacher } from "@/services/teacherApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -37,9 +38,11 @@ export default function AddTimetableEntryScreen() {
     day: day ? (day as string).toLowerCase() : "monday",
     startTime: new Date(new Date().setHours(9, 0, 0, 0)),
     endTime: new Date(new Date().setHours(10, 0, 0, 0)),
-    teacher: "", // Add teacher field to form data
+    teacher: "",
   });
 
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [isLoadingTeachers, setIsLoadingTeachers] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tempStartTime, setTempStartTime] = useState<Date | null>(null);
   const [tempEndTime, setTempEndTime] = useState<Date | null>(null);
@@ -66,23 +69,6 @@ export default function AddTimetableEntryScreen() {
     { id: "computer", label: "Computer Science" },
     { id: "pe", label: "Physical Education" },
     { id: "art", label: "Arts & Crafts" },
-  ];
-
-  // Teacher options
-  const teachers = [
-    { id: "smith", label: "Mrs. Smith" },
-    { id: "johnson", label: "Mr. Johnson" },
-    { id: "davis", label: "Mrs. Davis" },
-    { id: "wilson", label: "Mr. Wilson" },
-    { id: "martinez", label: "Mr. Martinez" },
-    { id: "garcia", label: "Ms. Garcia" },
-    { id: "rodriguez", label: "Ms. Rodriguez" },
-    { id: "thompson", label: "Mr. Thompson" },
-    { id: "taylor", label: "Ms. Taylor" },
-    { id: "lee", label: "Mr. Lee" },
-    { id: "white", label: "Mrs. White" },
-    { id: "anderson", label: "Mrs. Anderson" },
-    { id: "", label: "No Teacher (e.g., for breaks)" },
   ];
 
   // Day options
@@ -268,7 +254,7 @@ export default function AddTimetableEntryScreen() {
           day: "monday",
           startTime: new Date(new Date().setHours(9, 0, 0, 0)),
           endTime: new Date(new Date().setHours(9, 45, 0, 0)),
-          teacher: "smith", // Add teacher field
+          teacher: "smith",
         };
         break;
       case "2":
@@ -279,7 +265,7 @@ export default function AddTimetableEntryScreen() {
           day: "monday",
           startTime: new Date(new Date().setHours(10, 0, 0, 0)),
           endTime: new Date(new Date().setHours(10, 45, 0, 0)),
-          teacher: "davis", // Add teacher field
+          teacher: "davis",
         };
         break;
       default:
@@ -290,7 +276,7 @@ export default function AddTimetableEntryScreen() {
           day: "monday",
           startTime: new Date(new Date().setHours(11, 0, 0, 0)),
           endTime: new Date(new Date().setHours(11, 45, 0, 0)),
-          teacher: "johnson", // Add teacher field
+          teacher: "johnson",
         };
     }
 
@@ -301,9 +287,47 @@ export default function AddTimetableEntryScreen() {
       day: mockEntry.day,
       startTime: mockEntry.startTime,
       endTime: mockEntry.endTime,
-      teacher: mockEntry.teacher, // Add teacher field
+      teacher: mockEntry.teacher,
     });
   };
+
+  // Load teachers from API
+  const loadTeachers = async () => {
+    if (!sectionId) return;
+
+    setIsLoadingTeachers(true);
+    try {
+      const teachersList = await fetchSectionTeachers(sectionId as string);
+      setTeachers(teachersList);
+
+      // If editing an entry with a teacher ID, select that teacher
+      if (isEditMode && formData.teacher) {
+        const teacherId = formData.teacher.toString();
+        setFormData((prev) => ({
+          ...prev,
+          teacher: teacherId,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load teachers:", error);
+      showAlert("Error", "Failed to load teachers list", "error");
+    } finally {
+      setIsLoadingTeachers(false);
+    }
+  };
+
+  // Add this useEffect to load teachers when component mounts
+  useEffect(() => {
+    loadTeachers();
+  }, [sectionId]);
+
+  // Transform teachers array to format expected by CustomDropdown
+  const teacherOptions = React.useMemo(() => {
+    return teachers.map((teacher) => ({
+      id: teacher.teacherid.toString(),
+      label: `${teacher.firstname} ${teacher.lastname || ""}`.trim(),
+    }));
+  }, [teachers]);
 
   const handleSubmit = async () => {
     // Validate required fields - topic is not mandatory
@@ -340,11 +364,12 @@ export default function AddTimetableEntryScreen() {
       const apiData = {
         section_id: Number(sectionId),
         day_of_week:
-          formData.day.charAt(0).toUpperCase() + formData.day.slice(1), // Capitalize first letter
+          formData.day.charAt(0).toUpperCase() + formData.day.slice(1),
         start_time: formatTimeForApi(formData.startTime),
         end_time: formatTimeForApi(formData.endTime),
         subject: getSubjectLabel(formData.subject),
-        description: formData.topic || "", // Using topic as description
+        description: formData.topic || "",
+        teacher_id: formData.teacher ? Number(formData.teacher) : undefined,
       };
 
       console.log("Submitting timetable data:", apiData);
@@ -439,16 +464,23 @@ export default function AddTimetableEntryScreen() {
           />
         </View>
 
-        <CustomDropdown
-          options={teachers}
-          selectedValue={formData.teacher}
-          onValueChange={(value) =>
-            setFormData({ ...formData, teacher: value })
-          }
-          placeholder="Select a teacher"
-          label="Teacher"
-        />
-
+          {isLoadingTeachers ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={primary} />
+              <Text style={styles.loadingText}>Loading teachers...</Text>
+            </View>
+          ) : (
+            <CustomDropdown
+              options={teacherOptions}
+              selectedValue={formData.teacher}
+              onValueChange={(value) =>
+                setFormData({ ...formData, teacher: value })
+              }
+              placeholder="Select a teacher"
+              label="Teacher"
+            />
+        )}
+        
         <CustomDropdown
           options={days}
           selectedValue={formData.day}
@@ -778,5 +810,21 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.7,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666",
+    fontFamily: Typography.fontFamily.primary,
   },
 });
