@@ -49,56 +49,8 @@ export const getStudentProfiles = async (
 };
 
 // Fetch detailed student information for parent dashboard
-export const getStudentDetailsForParent = async (
-  userId: number,
-  studentId: number
-): Promise<any> => {
-  try {
-    const studentProfile = await getStudentProfile(userId, studentId);
-    const currentDate = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(currentDate.getMonth() - 1);
-
-    const fromDate = oneMonthAgo.toISOString().split("T")[0];
-    const toDate = currentDate.toISOString().split("T")[0];
-
-    // Get attendance data along with student profile
-    const attendanceData = await getStudentAttendance(
-      userId,
-      studentId,
-      fromDate,
-      toDate
-    );
-
-    // Calculate attendance percentage
-    const totalDays = Object.keys(attendanceData || {}).length;
-    const presentDays = Object.values(attendanceData || {}).filter(
-      (day: any) => day.status === "present" || day.status === "late"
-    ).length;
-
-    const attendancePercentage =
-      totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 95; // Default to 95% if no data
-
-    return {
-      profile: studentProfile,
-      attendance: {
-        data: attendanceData,
-        percentage: attendancePercentage,
-        presentDays,
-        totalDays,
-        isPresent: true, // Will be updated when daily attendance API is implemented
-      },
-    };
-  } catch (error) {
-    console.error("Error fetching complete student details:", error);
-    throw error;
-  }
-};
-
 export default {
   getUserProfile,
   getStudentProfile,
   getStudentProfiles,
-  getStudentAttendance,
-  getStudentDetailsForParent,
 };

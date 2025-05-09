@@ -1,230 +1,240 @@
-import CustomAlert from "@/components/ui/CustomAlert";
-import { Typography } from "@/constants/Typography";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function ChildDetailsScreen() {
-  const { id } = useLocalSearchParams();
-  const [refreshing, setRefreshing] = useState(false);
+import { useAuth } from "@/context/AuthContext";
+import { Typography } from "@/constants/Typography";
+import { primary } from "@/constants/Colors";
+import InitialsAvatar from "@/components/ui/InitialsAvatar";
+import CustomAlert from "@/components/ui/CustomAlert";
+
+export default function StudentDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { studentProfiles } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [student, setStudent] = useState<any>(null);
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
     message: "",
     type: "info" as "success" | "error" | "info" | "warning",
-    onConfirm: () => {},
-    onCancel: () => {},
   });
 
-  // Dummy child data
-  const childData = {
-    id: id as string,
-    name: "Emily Johnson",
-    enrollmentNumber: "EN2023056",
-    class: "Grade 5",
-    section: "Section B",
-    image: null,
+  useEffect(() => {
+    if (studentProfiles && studentProfiles.length > 0) {
+      const foundStudent = studentProfiles.find((s) => s.id.toString() === id);
+      setStudent(foundStudent);
+    }
+    setLoading(false);
+  }, [id, studentProfiles]);
+
+  const formatFullName = (studentData: any) => {
+    if (!studentData?.student) return "";
+    const { firstname, middlename, lastname } = studentData.student;
+    return [firstname, middlename, lastname].filter(Boolean).join(" ");
   };
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+  const getSchoolClassInfo = (studentData: any) => {
+    if (
+      !studentData?.section_details ||
+      studentData.section_details.length === 0
+    ) {
+      return {
+        school: "Not available",
+        class: "Not available",
+        section: "Not available",
+      };
+    }
+
+    const sectionDetails = studentData.section_details[0];
+    return {
+      school: sectionDetails.schoolname || "Not available",
+      class: sectionDetails.classname || "Not available",
+      section: sectionDetails.section || "Not available",
+    };
+  };
 
   const showAlert = (
     title: string,
     message: string,
-    type: "success" | "error" | "info" | "warning" = "info",
-    onConfirm = () => {},
-    onCancel = () => {}
+    type: "success" | "error" | "info" | "warning" = "info"
   ) => {
     setAlert({
       visible: true,
       title,
       message,
       type,
-      onConfirm,
-      onCancel,
     });
   };
 
-  const hideAlert = (confirmed: boolean = false) => {
-    setAlert((prev) => {
-      if (confirmed) {
-        prev.onConfirm();
-      } else {
-        prev.onCancel();
-      }
-      return { ...prev, visible: false };
-    });
+  const hideAlert = () => {
+    setAlert((prev) => ({ ...prev, visible: false }));
   };
 
-  const handleBack = () => {
-    router.back();
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={primary} />
+        <Text style={styles.loadingText}>Loading student profile...</Text>
+      </SafeAreaView>
+    );
+  }
 
-  // Card navigation handlers
-  const navigateToAttendance = () => {
-    router.push(`/(parent)/children/attendance/${id}`);
-  };
+  if (!student) {
+    return (
+      <SafeAreaView style={styles.errorContainer}>
+        <MaterialCommunityIcons
+          name="account-alert"
+          size={48}
+          color="#F44336"
+        />
+        <Text style={styles.errorText}>Student not found</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
-  const navigateToDiary = () => {
-    router.push(`/(parent)/children/diary/${id}`);
-  };
-
-  const navigateToTimetable = () => {
-    router.push(`/(parent)/children/timetable/${id}`);
-  };
-
-  const navigateToFees = () => {
-    router.push(`/(parent)/children/fees/${id}`);
-  };
-
-  const navigateToSupport = () => {
-    router.push(`/(parent)/children/support/${id}`);
-  };
+  const fullName = formatFullName(student);
+  const { school, class: className, section } = getSchoolClassInfo(student);
+  const enrollmentNumber =
+    student.student?.enrollment_number ||
+    student.student?.enrollmentno ||
+    "Not available";
+  const dateOfBirth = student.student?.dob
+    ? new Date(student.student.dob).toLocaleDateString()
+    : "Not available";
+  const fatherName = student.parents[1]?.firstname || "Not available";
+  const motherName = student.parents[0]?.firstname || "Not available";
+  const attendancePercentage = student?.attendance?.percentage || "N/A";
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
+
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
           <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
         </TouchableOpacity>
-        <View style={styles.childInfoContainer}>
-          <Text style={styles.childName}>{childData.name}</Text>
-          <Text style={styles.childDetails}>
-            Enrollment: {childData.enrollmentNumber}
-          </Text>
-          <Text style={styles.childDetails}>
-            Class: {childData.class} | Section: {childData.section}
-          </Text>
-        </View>
+        <Text style={styles.headerTitle}>Student Profile</Text>
       </View>
 
-      <ScrollView
-        style={styles.contentContainer}
-        contentContainerStyle={styles.scrollContentContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.actionCardsContainer}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={navigateToAttendance}
-          >
-            <View
-              style={[
-                styles.actionIconContainer,
-                { backgroundColor: "rgba(76, 175, 80, 0.1)" },
-              ]}
+      <ScrollView style={styles.scrollContainer}>
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <InitialsAvatar
+              name={fullName}
+              size={80}
+              imageUri={student.student?.profilePicUrl}
+              style={styles.avatar}
+            />
+            <View style={styles.nameContainer}>
+              <Text style={styles.studentName}>{fullName}</Text>
+              {/* <View style={styles.infoTag}>
+                <MaterialCommunityIcons
+                  name="calendar-check"
+                  size={14}
+                  color={attendancePercentage >= 90 ? "#4CAF50" : "#FF9800"}
+                />
+                <Text style={styles.infoTagText}>
+                  {attendancePercentage}% Attendance
+                </Text>
+              </View> */}
+            </View>
+          </View>
+
+          {/* School Info */}
+          <View style={styles.infoSection}>
+            <Text style={styles.sectionTitle}>School Information</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>School</Text>
+                <Text style={styles.infoValue}>{school}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Class</Text>
+                <Text style={styles.infoValue}>{className}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Section</Text>
+                <Text style={styles.infoValue}>{section}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Enrollment No</Text>
+                <Text style={styles.infoValue}>{enrollmentNumber}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Personal Info */}
+          <View style={styles.infoSection}>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Date of Birth</Text>
+                <Text style={styles.infoValue}>{dateOfBirth}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Father's Name</Text>
+                <Text style={styles.infoValue}>{fatherName}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Mother's Name</Text>
+                <Text style={styles.infoValue}>{motherName}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push(`/(parent)/children/attendance/${id}`)}
             >
               <MaterialCommunityIcons
-                name="clipboard-check-outline"
-                size={24}
+                name="clipboard-check"
+                size={22}
                 color="#4CAF50"
               />
-            </View>
-            <Text style={styles.actionTitle}>Attendance</Text>
-            <Text style={styles.actionDescription}>
-              View attendance history and reports
-            </Text>
-          </TouchableOpacity>
+              <Text style={styles.actionText}>Attendance</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard} onPress={navigateToDiary}>
-            <View
-              style={[
-                styles.actionIconContainer,
-                { backgroundColor: "rgba(33, 150, 243, 0.1)" },
-              ]}
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push(`/(parent)/children/fees/${id}`)}
+            >
+              <MaterialCommunityIcons name="cash" size={22} color="#FF9800" />
+              <Text style={styles.actionText}>Fee Details</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => router.push(`/(parent)/children/support/${id}`)}
             >
               <MaterialCommunityIcons
-                name="notebook-outline"
-                size={24}
-                color="#2196F3"
+                name="help-circle"
+                size={22}
+                color="#607D8B"
               />
-            </View>
-            <Text style={styles.actionTitle}>Class Diary</Text>
-            <Text style={styles.actionDescription}>
-              View homework and assignments
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={navigateToTimetable}
-          >
-            <View
-              style={[
-                styles.actionIconContainer,
-                { backgroundColor: "rgba(255, 152, 0, 0.1)" },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="clock-outline"
-                size={24}
-                color="#FF9800"
-              />
-            </View>
-            <Text style={styles.actionTitle}>Timetable</Text>
-            <Text style={styles.actionDescription}>
-              View class schedule and subjects
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard} onPress={navigateToFees}>
-            <View
-              style={[
-                styles.actionIconContainer,
-                { backgroundColor: "rgba(244, 67, 54, 0.1)" },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="currency-usd"
-                size={24}
-                color="#F44336"
-              />
-            </View>
-            <Text style={styles.actionTitle}>Fees</Text>
-            <Text style={styles.actionDescription}>
-              View fee details and payment history
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={navigateToSupport}
-          >
-            <View
-              style={[
-                styles.actionIconContainer,
-                { backgroundColor: "rgba(156, 39, 176, 0.1)" },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="help-circle-outline"
-                size={24}
-                color="#9C27B0"
-              />
-            </View>
-            <Text style={styles.actionTitle}>Support</Text>
-            <Text style={styles.actionDescription}>
-              Contact teachers and submit inquiries
-            </Text>
-          </TouchableOpacity>
+              <Text style={styles.actionText}>Support</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -233,8 +243,7 @@ export default function ChildDetailsScreen() {
         title={alert.title}
         message={alert.message}
         type={alert.type}
-        onConfirm={() => hideAlert(true)}
-        onCancel={() => hideAlert(false)}
+        onConfirm={hideAlert}
       />
     </SafeAreaView>
   );
@@ -245,74 +254,174 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f7fa",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 18,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+    marginBottom: 20,
+  },
+  backButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: primary,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 16,
+  },
   header: {
     flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-    alignItems: "flex-start",
   },
-  backButton: {
-    marginRight: 15,
-    marginTop: 5,
+  backIcon: {
+    marginRight: 16,
+    padding: 4,
   },
-  childInfoContainer: {
-    flex: 1,
-  },
-  childName: {
+  headerTitle: {
     fontSize: 18,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
-    marginBottom: 4,
   },
-  childDetails: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-    marginBottom: 2,
-  },
-  contentContainer: {
+  scrollContainer: {
     flex: 1,
-    padding: 16,
   },
-  scrollContentContainer: {
-    paddingBottom: 20,
+  profileCard: {
+    margin: 16,
+    marginBottom: 32,
   },
-  actionCardsContainer: {
+  profileHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  actionCard: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 16,
-    width: "48%",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  actionIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  avatar: {
+    borderWidth: 3,
+    borderColor: "#f0f0f0",
+  },
+  nameContainer: {
+    marginLeft: 16,
     justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
+    flex: 1,
   },
-  actionTitle: {
+  studentName: {
+    fontSize: 22,
+    fontFamily: Typography.fontWeight.bold.primary,
+    color: "#333",
+    marginBottom: 8,
+  },
+  infoTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    alignSelf: "flex-start",
+  },
+  infoTagText: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+    marginLeft: 6,
+    color: "#555",
+  },
+  infoSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
     fontSize: 16,
     fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-    marginBottom: 6,
+    color: "#555",
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  actionDescription: {
-    fontSize: 12,
-    fontFamily: Typography.fontFamily.primary,
+  infoCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
     color: "#666",
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    flex: 2,
+    textAlign: "right",
+  },
+  addressText: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#333",
+    lineHeight: 20,
+  },
+  quickActions: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionButton: {
+    alignItems: "center",
+    padding: 12,
+  },
+  actionText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#555",
   },
 });
