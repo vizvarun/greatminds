@@ -2,6 +2,7 @@ import CustomAlert from "@/components/ui/CustomAlert";
 import InitialsAvatar from "@/components/ui/InitialsAvatar";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import { useAuth } from "@/context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -13,6 +14,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Dimensions,
 } from "react-native";
 
 export default function ParentDashboard() {
@@ -24,12 +27,14 @@ export default function ParentDashboard() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
 
+  const { studentProfiles, refreshUserProfile, isLoading } = useAuth();
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => {
+    refreshUserProfile().finally(() => {
       setRefreshing(false);
-    }, 1000);
-  }, []);
+    });
+  }, [refreshUserProfile]);
 
   const showAlert = (
     title: string,
@@ -60,12 +65,25 @@ export default function ParentDashboard() {
     router.push(`/(parent)/children/timetable/${childId}`);
   };
 
-  // Sample images for demo purposes
-  // In a real app, these would likely come from an API
-  const studentImages = {
-    "Sarah Brandon": "https://randomuser.me/api/portraits/women/17.jpg",
-    "Michael Johnson": null, // No image available, will fall back to initials
-    "Elizabeth Williamson": "https://randomuser.me/api/portraits/women/54.jpg",
+  const getAttendanceStatus = (student: any) => {
+    return {
+      isPresent: true,
+      percentage: student?.attendance?.percentage || 95,
+    };
+  };
+
+  const formatFullName = (student: any) => {
+    const { firstname, middlename, lastname } = student.student;
+    return [firstname, middlename, lastname].filter(Boolean).join(" ");
+  };
+
+  const getSchoolClassInfo = (student: any) => {
+    if (!student?.section_details || student.section_details.length === 0) {
+      return "No school information";
+    }
+
+    const sectionDetails = student.section_details[0];
+    return `Grade ${sectionDetails.classname}-${sectionDetails.section} • ${sectionDetails.schoolname}`;
   };
 
   return (
@@ -77,312 +95,236 @@ export default function ParentDashboard() {
           View and manage your children's profiles
         </Text>
       </View>
+
       <ScrollView
         style={styles.container}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={styles.childrenSection}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            style={styles.childrenList}
-          >
-            <TouchableOpacity
-              style={styles.childCard}
-              onPress={() => router.push("/(parent)/children/details/1")}
-            >
-              <InitialsAvatar
-                name="Sarah Brandon"
-                size={50}
-                imageUri={studentImages["Sarah Brandon"]}
-              />
-              <View style={styles.childInfo}>
-                <View style={styles.childHeaderRow}>
-                  <Text style={styles.childName}>Sarah Brandon</Text>
-                  <View style={styles.attendanceIndicator}>
-                    <MaterialCommunityIcons
-                      name="calendar-check"
-                      size={14}
-                      color="#4CAF50"
+        {isLoading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={styles.loadingText}>Loading student profiles...</Text>
+          </View>
+        ) : studentProfiles && studentProfiles.length > 0 ? (
+          <View style={styles.cardsContainer}>
+            {studentProfiles.map((student) => {
+              const fullName = formatFullName(student);
+              const schoolInfo = getSchoolClassInfo(student);
+              const { isPresent, percentage } = getAttendanceStatus(student);
+
+              const attendanceColor =
+                percentage >= 90
+                  ? "#4CAF50"
+                  : percentage >= 80
+                  ? "#FF9800"
+                  : "#F44336";
+
+              return (
+                <View key={student.id} style={styles.studentCard}>
+                  <View style={styles.cardHeader}>
+                    <InitialsAvatar
+                      name={fullName}
+                      size={60}
+                      imageUri={student.student.profilePicUrl}
+                      style={styles.avatar}
                     />
-                    <Text style={styles.attendanceText}>95%</Text>
+
+                    <View style={styles.headerInfo}>
+                      <Text style={styles.studentName}>{fullName}</Text>
+                      <Text style={styles.schoolInfo} numberOfLines={2}>
+                        {schoolInfo}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <View
+                      style={[
+                        styles.infoTag,
+                        { backgroundColor: attendanceColor + "15" },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="calendar-check"
+                        size={16}
+                        color={attendanceColor}
+                      />
+                      <Text
+                        style={[styles.infoTagText, { color: attendanceColor }]}
+                      >
+                        {percentage}% Attendance
+                      </Text>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.infoTag,
+                        {
+                          backgroundColor: isPresent
+                            ? "#4CAF5015"
+                            : "#F4433615",
+                          marginLeft: 8,
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={isPresent ? "account-check" : "account-cancel"}
+                        size={16}
+                        color={isPresent ? "#4CAF50" : "#F44336"}
+                      />
+                      <Text
+                        style={[
+                          styles.infoTagText,
+                          { color: isPresent ? "#4CAF50" : "#F44336" },
+                        ]}
+                      >
+                        {isPresent ? "Present today" : "Absent today"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.actionGrid}>
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() =>
+                        router.push(`/(parent)/children/details/${student.id}`)
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#795548" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="account-details"
+                          size={24}
+                          color="#795548"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Profile</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() =>
+                        navigateToAttendance(student.id.toString())
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#4CAF50" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="clipboard-check"
+                          size={24}
+                          color="#4CAF50"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Attendance</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() => navigateToDiary(student.id.toString())}
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#2196F3" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="notebook"
+                          size={24}
+                          color="#2196F3"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Diary</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() => navigateToTimetable(student.id.toString())}
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#9C27B0" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="timetable"
+                          size={24}
+                          color="#9C27B0"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Schedule</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() =>
+                        router.push(`/(parent)/children/fees/${student.id}`)
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#FF9800" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="cash"
+                          size={24}
+                          color="#FF9800"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Fees</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() =>
+                        router.push(`/(parent)/children/support/${student.id}`)
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#607D8B" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="help-circle"
+                          size={24}
+                          color="#607D8B"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Support</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-
-                <View style={styles.childDetailsRow}>
-                  <Text
-                    style={styles.childGrade}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    Grade 5-A • Main Campus
-                  </Text>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>Present today</Text>
-                  </View>
-                </View>
-
-                <View style={styles.quickActionsRow}>
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToAttendance("1")}
-                  >
-                    <MaterialCommunityIcons
-                      name="clipboard-check-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToDiary("1")}
-                  >
-                    <MaterialCommunityIcons
-                      name="notebook-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToTimetable("1")}
-                  >
-                    <MaterialCommunityIcons
-                      name="clock-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionButton, styles.viewDetailsButton]}
-                    onPress={() => router.push("/(parent)/children/details/1")}
-                  >
-                    <Text style={styles.viewDetailsText}>View Details</Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={16}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.notificationsContainer}>
-                  <View style={styles.notificationItem}>
-                    <MaterialCommunityIcons
-                      name="bell-ring-outline"
-                      size={14}
-                      color="#FF9800"
-                    />
-                    <Text style={styles.notificationText}>
-                      Math test tomorrow
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.childCard}
-              onPress={() => router.push("/(parent)/children/details/2")}
-            >
-              <InitialsAvatar
-                name="Michael Johnson"
-                size={50}
-                imageUri={studentImages["Michael Johnson"]}
-              />
-              <View style={styles.childInfo}>
-                <View style={styles.childHeaderRow}>
-                  <Text style={styles.childName}>Michael Johnson</Text>
-                  <View style={styles.attendanceIndicator}>
-                    <MaterialCommunityIcons
-                      name="calendar-check"
-                      size={14}
-                      color="#FF9800"
-                    />
-                    <Text style={styles.attendanceText}>87%</Text>
-                  </View>
-                </View>
-
-                <View style={styles.childDetailsRow}>
-                  <Text
-                    style={styles.childGrade}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    Grade 3-B • East Wing
-                  </Text>
-                  <View style={[styles.statusBadge, styles.absentBadge]}>
-                    <Text style={[styles.statusText, styles.absentText]}>
-                      Absent today
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.quickActionsRow}>
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToAttendance("2")}
-                  >
-                    <MaterialCommunityIcons
-                      name="clipboard-check-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToDiary("2")}
-                  >
-                    <MaterialCommunityIcons
-                      name="notebook-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToTimetable("2")}
-                  >
-                    <MaterialCommunityIcons
-                      name="clock-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionButton, styles.viewDetailsButton]}
-                    onPress={() => router.push("/(parent)/children/details/2")}
-                  >
-                    <Text style={styles.viewDetailsText}>View Details</Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={16}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.notificationsContainer}>
-                  <View style={styles.notificationItem}>
-                    <MaterialCommunityIcons
-                      name="file-document-outline"
-                      size={14}
-                      color="#F44336"
-                    />
-                    <Text style={styles.notificationText}>
-                      2 pending assignments
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.childCard}
-              onPress={() => router.push("/(parent)/children/details/3")}
-            >
-              <InitialsAvatar
-                name="Elizabeth Williamson"
-                size={50}
-                imageUri={studentImages["Elizabeth Williamson"]}
-              />
-              <View style={styles.childInfo}>
-                <View style={styles.childHeaderRow}>
-                  <Text style={styles.childName}>Elizabeth Williamson</Text>
-                  <View style={styles.attendanceIndicator}>
-                    <MaterialCommunityIcons
-                      name="calendar-check"
-                      size={14}
-                      color="#4CAF50"
-                    />
-                    <Text style={styles.attendanceText}>91%</Text>
-                  </View>
-                </View>
-
-                <View style={styles.childDetailsRow}>
-                  <Text
-                    style={styles.childGrade}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    Grade 4-C • International School of Excellence and
-                    Leadership Academy
-                  </Text>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>Present today</Text>
-                  </View>
-                </View>
-
-                <View style={styles.quickActionsRow}>
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToAttendance("3")}
-                  >
-                    <MaterialCommunityIcons
-                      name="clipboard-check-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToDiary("3")}
-                  >
-                    <MaterialCommunityIcons
-                      name="notebook-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.quickActionButton}
-                    onPress={() => navigateToTimetable("3")}
-                  >
-                    <MaterialCommunityIcons
-                      name="clock-outline"
-                      size={18}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.quickActionButton, styles.viewDetailsButton]}
-                    onPress={() => router.push("/(parent)/children/details/3")}
-                  >
-                    <Text style={styles.viewDetailsText}>View Details</Text>
-                    <MaterialCommunityIcons
-                      name="chevron-right"
-                      size={16}
-                      color={primary}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.notificationsContainer}>
-                  <View style={styles.notificationItem}>
-                    <MaterialCommunityIcons
-                      name="map-marker-outline"
-                      size={14}
-                      color="#2196F3"
-                    />
-                    <Text style={styles.notificationText}>
-                      Field trip next Friday
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons
+              name="account-child"
+              size={48}
+              color="#ccc"
+            />
+            <Text style={styles.emptyStateText}>No children found</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Please contact your school administrator if this is incorrect
+            </Text>
+          </View>
+        )}
 
         <CustomAlert
           visible={alert.visible}
@@ -397,6 +339,38 @@ export default function ParentDashboard() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyState: {
+    padding: 40,
+    margin: 20,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyStateText: {
+    marginTop: 8,
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+  },
+  emptyStateSubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#999",
+    textAlign: "center",
+  },
   safeArea: {
     flex: 1,
     backgroundColor: "#f5f7fa",
@@ -422,154 +396,86 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 4,
   },
-  childrenSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  cardsContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  childrenList: {
-    flex: 1,
-  },
-  childCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    flexDirection: "row",
-    alignItems: "center",
+  studentCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    marginBottom: 20,
+    padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  childAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  cardHeader: {
+    flexDirection: "row",
+    marginBottom: 16,
   },
-  childInfo: {
+  avatar: {
+    borderWidth: 2,
+    borderColor: "#f0f0f0",
+  },
+  headerInfo: {
+    marginLeft: 14,
+    justifyContent: "center",
     flex: 1,
-    paddingHorizontal: 15,
   },
-  childName: {
-    fontSize: 16,
+  studentName: {
+    fontSize: 18,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
+    marginBottom: 4,
   },
-  childGrade: {
-    fontSize: 12,
+  schoolInfo: {
+    fontSize: 13,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
-    flex: 1,
-    marginRight: 8,
+    lineHeight: 18,
   },
-  addChildCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    height: 120,
-  },
-  addChildIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  addChildText: {
-    fontSize: 14,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-  },
-  childHeaderRow: {
+  infoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 16,
+    flexWrap: "wrap",
   },
-  childDetailsRow: {
+  infoTag: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
     marginBottom: 8,
   },
-  attendanceIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  attendanceText: {
+  infoTagText: {
     fontSize: 12,
     fontFamily: Typography.fontWeight.medium.primary,
-    color: "#333",
-    marginLeft: 3,
+    marginLeft: 6,
   },
-  statusBadge: {
-    backgroundColor: "rgba(76, 175, 80, 0.1)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  absentBadge: {
-    backgroundColor: "rgba(244, 67, 54, 0.1)",
-  },
-  statusText: {
-    fontSize: 10,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#4CAF50",
-  },
-  absentText: {
-    color: "#F44336",
-  },
-  quickActionsRow: {
+  actionGrid: {
     flexDirection: "row",
-    marginBottom: 8,
+    flexWrap: "wrap",
+    marginHorizontal: -6,
   },
-  quickActionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
+  actionTile: {
+    width: "33.33%",
+    alignItems: "center",
+    padding: 8,
+  },
+  actionIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 8,
+    marginBottom: 6,
   },
-  viewDetailsButton: {
-    flex: 1,
-    width: "auto",
-    borderRadius: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-  },
-  viewDetailsText: {
+  actionText: {
     fontSize: 12,
     fontFamily: Typography.fontWeight.medium.primary,
-    color: primary,
-  },
-  notificationsContainer: {
-    marginTop: 4,
-  },
-  notificationItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  notificationText: {
-    fontSize: 11,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-    marginLeft: 4,
+    color: "#555",
+    textAlign: "center",
   },
 });

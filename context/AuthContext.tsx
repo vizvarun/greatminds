@@ -7,13 +7,17 @@ import { logAuthState } from "@/utils/debugUtils";
 import { router } from "expo-router";
 import CustomAlert from "@/components/ui/CustomAlert";
 
-// Update the UserProfile type to reflect the new API response structure
+// Update the UserProfile type to include student profiles
 interface UserProfile {
+  user?: {
+    id: number;
+    // other user fields
+  };
   student_ids?: number[];
-  school_ids?: number[];
+  school_ids?: any[]; // Using the existing structure
   class_ids?: number[];
   sections?: any[];
-  // ...other properties as needed
+  // ...other properties
 }
 
 type AuthContextType = {
@@ -24,7 +28,8 @@ type AuthContextType = {
   isLoading: boolean;
   authError: string | null;
   hasBothRoles: boolean;
-  userProfile: UserProfile | null; // Add userProfile to context type
+  userProfile: UserProfile | null;
+  studentProfiles: StudentProfile[] | null; // Add studentProfiles to context type
   completeOnboarding: () => Promise<void>;
   login: (
     phoneNumber: string
@@ -35,7 +40,7 @@ type AuthContextType = {
   setUserRole: (role: UserRole) => Promise<void>;
   clearError: () => void;
   getUserProfileAndNavigationTarget: (userId: number) => Promise<string>;
-  refreshUserProfile: () => Promise<void>; // Add a method to refresh profile data
+  refreshUserProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -46,7 +51,8 @@ const AuthContext = createContext<AuthContextType>({
   userRole: null,
   authError: null,
   hasBothRoles: false,
-  userProfile: null, // Add default value
+  userProfile: null,
+  studentProfiles: null, // Add default value
   completeOnboarding: async () => {},
   login: async () => ({ success: false }),
   verifyOtp: async () => false,
@@ -55,7 +61,7 @@ const AuthContext = createContext<AuthContextType>({
   setUserRole: async () => {},
   clearError: () => {},
   getUserProfileAndNavigationTarget: async () => "role-select",
-  refreshUserProfile: async () => {}, // Add default implementation
+  refreshUserProfile: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -71,8 +77,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [requestId, setRequestId] = useState<string | undefined>(undefined);
   const [hasBothRoles, setHasBothRoles] = useState<boolean>(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [studentProfiles, setStudentProfiles] = useState<
+    StudentProfile[] | null
+  >(null);
 
-  // New state for our custom alert
   const [customAlert, setCustomAlert] = useState<{
     visible: boolean;
     title: string;
@@ -82,10 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   } | null>(null);
 
   useEffect(() => {
-    // Load auth state from storage
     const loadAuthState = async () => {
       try {
-        // Check for auth token first (most important)
         const authToken = await AsyncStorage.getItem("authToken");
         const onboardingStatus = await AsyncStorage.getItem(
           "hasCompletedOnboarding"
@@ -141,7 +147,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setPhoneNumber(phoneNum);
 
     try {
-      // Get or generate device ID
       const storedDeviceId = await AsyncStorage.getItem("deviceId");
       const currentDeviceId = storedDeviceId || generateDeviceId();
 
@@ -157,7 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       return { success: true, requestId: response.requestId };
     } catch (error: any) {
-      // Extract error message if available
       const errorMessage =
         error.response?.data?.detail || "Failed to send OTP. Please try again.";
       setAuthError(errorMessage);
@@ -175,7 +179,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       console.log("Verifying OTP:", otp, "for phone:", phoneNumber);
 
-      // Call API to verify OTP with the deviceId parameter
       const response = await authService.verifyOtp(
         phoneNumber,
         otp,
@@ -185,32 +188,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       console.log("Verification response received:", JSON.stringify(response));
 
-      // Explicit check for token existence
       if (!response || typeof response.token !== "string") {
         console.error("Invalid response structure:", response);
         setAuthError("Invalid response received from server");
         return false;
       }
 
-      // Store tokens in AsyncStorage
       console.log("Storing tokens in AsyncStorage");
       await AsyncStorage.setItem("authToken", response.token);
       await AsyncStorage.setItem("phoneNumber", phoneNumber);
 
-      // Log auth state to verify storage
       await logAuthState();
 
-      // Update authentication state
       console.log("Setting authenticated state to true");
       setIsAuthenticated(true);
 
-      // Store user data if available
       if (response.user) {
         await AsyncStorage.setItem("userData", JSON.stringify(response.user));
         console.log("User data stored:", response.user);
       }
 
-      // If user profile includes role, set it
       if (response.user && response.user.role) {
         console.log("Setting user role:", response.user.role);
         try {
@@ -224,7 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return true;
     } catch (error: any) {
       console.error("OTP verification error:", error);
-      // Extract error message if available
       const errorMessage =
         error.response?.data?.message ||
         "Failed to verify OTP. Please try again.";
@@ -241,10 +237,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsLoading(true);
       clearError();
 
-      // Skip API call as we already have the data from user profile
-      // await authService.setUserRole(role);
-
-      // Update local storage and state
       if (role) {
         await AsyncStorage.setItem("userRole", role);
       } else {
@@ -270,16 +262,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     clearError();
 
     try {
-      // Call service function that only clears storage
       await authService.logout();
 
-      // Also clear additional data
       await AsyncStorage.removeItem("userData");
       await AsyncStorage.removeItem("phoneNumber");
-      // Note: We're not clearing userRole as per existing comment
-      // "Don't reset role on logout to remember preference"
 
-      // Update state
       setIsAuthenticated(false);
       setPhoneNumber("");
 
@@ -292,12 +279,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Helper function to generate a deviceId if none exists
   const generateDeviceId = (): string => {
     return "dev_" + Math.random().toString(36).substring(2, 15);
   };
 
-  // Add a method to refresh the user profile
   const refreshUserProfile = async () => {
     try {
       const userData = await AsyncStorage.getItem("userData");
@@ -307,17 +292,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setIsLoading(true);
           const profile = await userService.getUserProfile(parsedUserData.id);
           setUserProfile(profile);
+
+          if (profile.student_ids && profile.student_ids.length > 0) {
+            try {
+              const profiles = await userService.getStudentProfiles(
+                parsedUserData.id,
+                profile.student_ids
+              );
+              setStudentProfiles(profiles);
+            } catch (profileError: any) {
+              console.error("Error fetching student profiles:", profileError);
+              setCustomAlert({
+                visible: true,
+                title: "Student Profile Error",
+                message:
+                  profileError.response?.data?.message ||
+                  "Failed to load student profile data. Please try again later.",
+                type: "error",
+                onConfirm: () => {
+                  setCustomAlert(null);
+                },
+              });
+            }
+          }
+
           return profile;
         }
       }
     } catch (error) {
       console.error("Error refreshing user profile:", error);
+      setCustomAlert({
+        visible: true,
+        title: "Profile Error",
+        message:
+          "Failed to refresh profile data. Please check your connection and try again.",
+        type: "error",
+        onConfirm: () => {
+          setCustomAlert(null);
+        },
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Enhance the getUserProfileAndNavigationTarget method to store profile data
   const getUserProfileAndNavigationTarget = async (
     userId: number
   ): Promise<string> => {
@@ -326,7 +344,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const userProfile = await userService.getUserProfile(userId);
       console.log("User profile fetched:", userProfile);
 
-      // Store the profile data in state
       setUserProfile(userProfile);
 
       const hasStudents =
@@ -337,6 +354,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         userProfile.school_ids.length > 0;
 
       setHasBothRoles(hasStudents && hasSchools);
+
+      if (hasStudents) {
+        try {
+          const profiles = await userService.getStudentProfiles(
+            userId,
+            userProfile.student_ids
+          );
+          console.log("Student profiles fetched:", profiles);
+          setStudentProfiles(profiles);
+        } catch (profileError: any) {
+          console.error("Error fetching student profiles:", profileError);
+          setCustomAlert({
+            visible: true,
+            title: "Student Profile Error",
+            message:
+              profileError.response?.data?.message ||
+              "Failed to load student profile data. Please try again later.",
+            type: "error",
+            onConfirm: () => {
+              setCustomAlert(null);
+            },
+          });
+        }
+      }
 
       if (!hasStudents && !hasSchools) {
         setCustomAlert({
@@ -354,13 +395,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (hasStudents && hasSchools) {
-        return "role-select"; // Show role switcher
+        return "role-select";
       } else if (hasStudents) {
-        return "parent"; // Show parent dashboard
+        return "parent";
       } else if (hasSchools) {
-        return "teacher"; // Show teacher dashboard
+        return "teacher";
       } else {
-        return "role-select"; // Default fallback
+        return "role-select";
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -391,7 +432,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         isLoading,
         authError,
         hasBothRoles,
-        userProfile, // Provide the profile data
+        userProfile,
+        studentProfiles,
         completeOnboarding,
         login,
         verifyOtp,
@@ -400,10 +442,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUserRole,
         clearError,
         getUserProfileAndNavigationTarget,
-        refreshUserProfile, // Provide the refresh method
+        refreshUserProfile,
       }}
     >
-      {/* Render CustomAlert if triggered */}
       {customAlert && (
         <CustomAlert
           visible={customAlert.visible}
