@@ -52,40 +52,31 @@ export default function AddTimetableEntryScreen() {
     isEditMode && subjectFromUrl ? subjectFromUrl.toString() : null
   );
 
-  // Initialize form with URL parameters if in edit mode
+  // Improved parseTimeString function to handle different time formats
+  const parseTimeString = (timeStr: string | string[] | undefined): Date => {
+    if (!timeStr) return new Date();
+    const t = Array.isArray(timeStr) ? timeStr[0] : timeStr;
+    const parsedDate = new Date(t);
+    if (isNaN(parsedDate.getTime())) {
+      const parts = t.match(/^(\d{1,2}):(\d{2})(\s*(AM|PM))?$/i);
+      if (parts) {
+        let hours = parseInt(parts[1], 10);
+        const minutes = parseInt(parts[2], 10);
+        const meridian = parts[4] ? parts[4].toUpperCase() : null;
+        if (meridian === "PM" && hours < 12) hours += 12;
+        if (meridian === "AM" && hours === 12) hours = 0;
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date;
+      }
+      return new Date();
+    }
+    return parsedDate;
+  };
+
+  // Initialize form data using the improved parseTimeString for update (edit) mode
   const initialFormData = React.useMemo(() => {
     if (isEditMode && periodId) {
-      // Parse time strings into Date objects
-      const parseTimeString = (timeStr: string | string[] | undefined) => {
-        if (!timeStr) return new Date();
-
-        const timeString = Array.isArray(timeStr) ? timeStr[0] : timeStr;
-        try {
-          // Handle formats like "09:00 AM" or "09:00"
-          const [timePart, meridian] = timeString.split(" ");
-          const [hours, minutes] = timePart.split(":").map(Number);
-
-          const date = new Date();
-
-          if (meridian && meridian.toUpperCase() === "PM" && hours < 12) {
-            date.setHours(hours + 12, minutes);
-          } else if (
-            meridian &&
-            meridian.toUpperCase() === "AM" &&
-            hours === 12
-          ) {
-            date.setHours(0, minutes);
-          } else {
-            date.setHours(hours, minutes);
-          }
-
-          return date;
-        } catch (error) {
-          console.error("Error parsing time string:", error);
-          return new Date();
-        }
-      };
-
       return {
         subject: subjectFromUrl?.toString() || "",
         topic: topic?.toString() || "",
@@ -95,7 +86,6 @@ export default function AddTimetableEntryScreen() {
         teacher: teacher?.toString() || "",
       };
     }
-
     return {
       subject: "",
       topic: "",
@@ -496,12 +486,23 @@ export default function AddTimetableEntryScreen() {
   }, [teachers]);
 
   const handleSubmit = async () => {
-    // Validate required fields - topic is not mandatory
-    if (!formData.subject || !formData.startTime || !formData.endTime) {
-      showAlert("Error", "Please fill all required fields", "error");
+    // Validate mandatory fields individually
+    if (!formData.subject) {
+      showAlert("Error", "Subject is required", "error");
       return;
     }
-
+    if (!formData.teacher) {
+      showAlert("Error", "Teacher is required", "error");
+      return;
+    }
+    if (!formData.startTime) {
+      showAlert("Error", "Start time is required", "error");
+      return;
+    }
+    if (!formData.endTime) {
+      showAlert("Error", "End time is required", "error");
+      return;
+    }
     // Validate that end time is after start time
     if (formData.endTime <= formData.startTime) {
       showAlert("Error", "End time must be after start time", "error");
