@@ -506,7 +506,7 @@ export default function AddDiaryEntryScreen() {
 
   const handleSubmit = async () => {
     // Validate required fields
-    if (!formData.title || !formData.description) {
+    if (!formData.description) {
       showAlert("Error", "Please fill all required fields", "error");
       return;
     }
