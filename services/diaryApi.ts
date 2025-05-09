@@ -144,7 +144,7 @@ export const deleteDiaryEntry = async (diaryId: string): Promise<any> => {
  */
 export const fetchDiaryEntryById = async (entryId: string) => {
   try {
-    const response = await api.get(`/diary/${entryId}`);
+    const response = await api.get(`/diary/diary_id?diary_id=${entryId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching diary entry:", error);

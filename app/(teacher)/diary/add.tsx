@@ -59,6 +59,9 @@ export default function AddDiaryEntryScreen() {
   const [isFetchingEntry, setIsFetchingEntry] = useState(false);
   const [fetchEntryError, setFetchEntryError] = useState<string | null>(null);
 
+  // Add state to store original entry data
+  const [originalEntryData, setOriginalEntryData] = useState<any>(null);
+
   // Fetch subjects from API when component mounts
   useEffect(() => {
     const getSubjects = async () => {
@@ -358,14 +361,74 @@ export default function AddDiaryEntryScreen() {
     }
   }, [isEditMode, entryId]);
 
+  // Add a new useEffect to handle subject matching after subjects are loaded
+  useEffect(() => {
+    // If we have original entry data and subjects are loaded, try to match the subject
+    if (originalEntryData && subjects.length > 0) {
+      console.log("Trying to match subject:", originalEntryData.subject);
+      console.log(
+        "Available subjects:",
+        subjects.map((s) => `${s.id}: ${s.label}`).join(", ")
+      );
+
+      let subjectId = "";
+      if (originalEntryData.subject) {
+        // Try exact match first
+        let matchingSubject = subjects.find(
+          (s) =>
+            s.label.toLowerCase() === originalEntryData.subject.toLowerCase()
+        );
+
+        // If no exact match, try partial match (subject name contains API subject or vice versa)
+        if (!matchingSubject) {
+          matchingSubject = subjects.find(
+            (s) =>
+              s.label
+                .toLowerCase()
+                .includes(originalEntryData.subject.toLowerCase()) ||
+              originalEntryData.subject
+                .toLowerCase()
+                .includes(s.label.toLowerCase())
+          );
+        }
+
+        if (matchingSubject) {
+          console.log("Found matching subject:", matchingSubject.label);
+          subjectId = matchingSubject.id;
+        } else {
+          console.log(
+            "No matching subject found. Using first available subject."
+          );
+          // If we still can't find a match, use the first subject as fallback
+          if (subjects.length > 0) {
+            subjectId = subjects[0].id;
+          }
+        }
+      }
+
+      // Always update the form data with either the matched subject or the first subject
+      setFormData((prevData) => ({
+        ...prevData,
+        subject: subjectId,
+      }));
+    }
+  }, [subjects, originalEntryData]);
+
   const fetchEntryData = async (id: string) => {
     setIsFetchingEntry(true);
     setFetchEntryError(null);
 
     try {
-      const entryData = await fetchDiaryEntryById(id);
+      const response = await fetchDiaryEntryById(id);
+
+      // Handle the nested response structure
+      const entryData = response.diary_id ? response.diary_id : response;
 
       if (entryData) {
+        console.log("Received entry data:", entryData);
+        // Store original entry data for subject matching later
+        setOriginalEntryData(entryData);
+
         // Map API response to form data
         const entryType = mapNoteTypeToFormType(entryData.notetype);
 
@@ -377,7 +440,8 @@ export default function AddDiaryEntryScreen() {
           ? new Date(entryData.duedate)
           : new Date(new Date().setDate(new Date().getDate() + 7));
 
-        // Find matching subject ID from our subjects list
+        // Find matching subject ID - this might fail if subjects aren't loaded yet
+        // We'll handle this in the useEffect above once subjects are available
         let subjectId = "";
         if (subjects.length > 0 && entryData.subject) {
           const matchingSubject = subjects.find(
@@ -392,10 +456,10 @@ export default function AddDiaryEntryScreen() {
           title: entryData.notetype || "",
           description: entryData.description || "",
           type: entryType,
-          subject: subjectId,
+          subject: subjectId, // This will be re-populated in the useEffect if needed
           effectiveDate: effectiveDate,
           dueDate: dueDate,
-          isUrgent: entryData.isUrgent || false,
+          isUrgent: entryData.isurgent || false,
         });
       }
     } catch (error) {
@@ -677,22 +741,6 @@ export default function AddDiaryEntryScreen() {
                     label="Subject"
                   />
                 )}
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Title *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={formData.title}
-                    onChangeText={(text) =>
-                      setFormData({ ...formData, title: text })
-                    }
-                    placeholder="e.g. Complete Math Exercises"
-                    placeholderTextColor="#999"
-                    inputAccessoryViewID={
-                      Platform.OS === "ios" ? inputAccessoryViewID : undefined
-                    }
-                  />
-                </View>
 
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Description *</Text>

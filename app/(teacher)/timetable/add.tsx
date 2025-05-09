@@ -3,11 +3,13 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import { useAuth } from "@/context/AuthContext";
 import {
   createTimetableEntry,
   updateTimetableEntry,
 } from "@/services/timetableApi";
 import { fetchSectionTeachers, Teacher } from "@/services/teacherApi";
+import { fetchSubjects } from "@/services/subjectApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -31,9 +33,10 @@ export default function AddTimetableEntryScreen() {
   const params = useLocalSearchParams();
   const { branchId, gradeId, sectionId, day, edit, entryId } = params;
   const isEditMode = edit === "true";
+  const { userProfile } = useAuth();
 
   const [formData, setFormData] = useState({
-    subject: "math",
+    subject: "",
     topic: "",
     day: day ? (day as string).toLowerCase() : "monday",
     startTime: new Date(new Date().setHours(9, 0, 0, 0)),
@@ -47,6 +50,11 @@ export default function AddTimetableEntryScreen() {
   const [tempStartTime, setTempStartTime] = useState<Date | null>(null);
   const [tempEndTime, setTempEndTime] = useState<Date | null>(null);
 
+  // New state variables for subjects
+  const [subjects, setSubjects] = useState<{ id: string; label: string }[]>([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
+  const [subjectError, setSubjectError] = useState<string | null>(null);
+
   // Time pickers state
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
@@ -59,18 +67,6 @@ export default function AddTimetableEntryScreen() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
 
-  // Subject options
-  const subjects = [
-    { id: "math", label: "Mathematics" },
-    { id: "science", label: "Science" },
-    { id: "english", label: "English" },
-    { id: "social", label: "Social Studies" },
-    { id: "language", label: "Second Language" },
-    { id: "computer", label: "Computer Science" },
-    { id: "pe", label: "Physical Education" },
-    { id: "art", label: "Arts & Crafts" },
-  ];
-
   // Day options
   const days = [
     { id: "monday", label: "Monday" },
@@ -80,6 +76,110 @@ export default function AddTimetableEntryScreen() {
     { id: "friday", label: "Friday" },
     { id: "saturday", label: "Saturday" },
   ];
+
+  // Fetch subjects from API when component mounts
+  useEffect(() => {
+    const getSubjects = async () => {
+      if (!userProfile || !branchId) return;
+
+      try {
+        setIsLoadingSubjects(true);
+        setSubjectError(null);
+
+        // Get user ID from profile
+        const userId = userProfile.user?.id.toString() || "";
+
+        // Fetch subjects from API
+        const subjectsData = await fetchSubjects(branchId as string, userId);
+
+        console.log("Subjects data received:", subjectsData);
+
+        // Transform to format expected by CustomDropdown
+        const formattedSubjects = Array.isArray(subjectsData)
+          ? subjectsData.map((subject) => ({
+              id: subject.id.toString(), // Ensure ID is a string
+              label: subject.name || subject.subject_name || "Unknown Subject",
+            }))
+          : Object.entries(subjectsData).map(
+              ([key, subject]: [string, any]) => ({
+                id: (subject.id || key).toString(),
+                label:
+                  subject.name || subject.subject_name || "Unknown Subject",
+              })
+            );
+
+        console.log("Formatted subjects:", formattedSubjects);
+
+        if (formattedSubjects.length > 0) {
+          setSubjects(formattedSubjects);
+
+          // Only set default subject if not already set
+          if (!formData.subject) {
+            setFormData((prev) => ({
+              ...prev,
+              subject: formattedSubjects[0].id,
+            }));
+          }
+        } else {
+          console.warn("No subjects found in the response");
+          setSubjectError("No subjects available for this class");
+        }
+      } catch (error) {
+        console.error("Failed to fetch subjects:", error);
+        setSubjectError("Failed to load subjects. Please try again.");
+      } finally {
+        setIsLoadingSubjects(false);
+      }
+    };
+
+    getSubjects();
+  }, [userProfile, branchId]);
+
+  const retryFetchSubjects = async () => {
+    if (!userProfile || !branchId) return;
+
+    try {
+      setIsLoadingSubjects(true);
+      setSubjectError(null);
+
+      const userId = userProfile.user?.id.toString() || "";
+      const subjectsData = await fetchSubjects(branchId as string, userId);
+
+      console.log("Retry - Subjects data received:", subjectsData);
+
+      // Transform to format expected by CustomDropdown with more robust handling
+      const formattedSubjects = Array.isArray(subjectsData)
+        ? subjectsData.map((subject) => ({
+            id: subject.id.toString(),
+            label: subject.name || subject.subject_name || "Unknown Subject",
+          }))
+        : Object.entries(subjectsData).map(([key, subject]: [string, any]) => ({
+            id: (subject.id || key).toString(),
+            label: subject.name || subject.subject_name || "Unknown Subject",
+          }));
+
+      console.log("Retry - Formatted subjects:", formattedSubjects);
+
+      if (formattedSubjects.length > 0) {
+        setSubjects(formattedSubjects);
+
+        // Only set default subject if not already set
+        if (!formData.subject) {
+          setFormData((prev) => ({
+            ...prev,
+            subject: formattedSubjects[0].id,
+          }));
+        }
+      } else {
+        setSubjectError("No subjects available for this class");
+      }
+    } catch (error) {
+      console.error("Retry failed to fetch subjects:", error);
+      setSubjectError("Failed to load subjects. Please try again.");
+    } finally {
+      setIsLoadingSubjects(false);
+    }
+  };
 
   const showAlert = (
     title: string,
@@ -440,15 +540,32 @@ export default function AddTimetableEntryScreen() {
         </View>
       </View>
       <ScrollView style={styles.formContainer}>
-        <CustomDropdown
-          options={subjects}
-          selectedValue={formData.subject}
-          onValueChange={(value) =>
-            setFormData({ ...formData, subject: value })
-          }
-          placeholder="Select a subject"
-          label="Subject"
-        />
+        {isLoadingSubjects ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={primary} />
+            <Text style={styles.loadingText}>Loading subjects...</Text>
+          </View>
+        ) : subjectError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{subjectError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={retryFetchSubjects}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <CustomDropdown
+            options={subjects}
+            selectedValue={formData.subject}
+            onValueChange={(value) =>
+              setFormData({ ...formData, subject: value })
+            }
+            placeholder="Select a subject"
+            label="Subject"
+          />
+        )}
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Topic</Text>
@@ -464,23 +581,23 @@ export default function AddTimetableEntryScreen() {
           />
         </View>
 
-          {isLoadingTeachers ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={primary} />
-              <Text style={styles.loadingText}>Loading teachers...</Text>
-            </View>
-          ) : (
-            <CustomDropdown
-              options={teacherOptions}
-              selectedValue={formData.teacher}
-              onValueChange={(value) =>
-                setFormData({ ...formData, teacher: value })
-              }
-              placeholder="Select a teacher"
-              label="Teacher"
-            />
+        {isLoadingTeachers ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={primary} />
+            <Text style={styles.loadingText}>Loading teachers...</Text>
+          </View>
+        ) : (
+          <CustomDropdown
+            options={teacherOptions}
+            selectedValue={formData.teacher}
+            onValueChange={(value) =>
+              setFormData({ ...formData, teacher: value })
+            }
+            placeholder="Select a teacher"
+            label="Teacher"
+          />
         )}
-        
+
         <CustomDropdown
           options={days}
           selectedValue={formData.day}
@@ -826,5 +943,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     fontFamily: Typography.fontFamily.primary,
+  },
+  errorContainer: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#FFE5E5",
+    borderWidth: 1,
+    borderColor: "#FFB8B8",
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#D32F2F",
+    marginBottom: 8,
+  },
+  retryButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: primary,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
   },
 });
