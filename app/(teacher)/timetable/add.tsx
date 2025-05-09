@@ -3,6 +3,10 @@ import CustomDropdown from "@/components/ui/CustomDropdown";
 import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import {
+  createTimetableEntry,
+  updateTimetableEntry,
+} from "@/services/timetableApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
@@ -19,22 +23,24 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 
 export default function AddTimetableEntryScreen() {
   const params = useLocalSearchParams();
-  const { branchId, gradeId, sectionId, edit, entryId } = params;
+  const { branchId, gradeId, sectionId, day, edit, entryId } = params;
   const isEditMode = edit === "true";
 
   const [formData, setFormData] = useState({
     subject: "math",
     topic: "",
-    day: "monday",
+    day: day ? (day as string).toLowerCase() : "monday",
     startTime: new Date(new Date().setHours(9, 0, 0, 0)),
     endTime: new Date(new Date().setHours(10, 0, 0, 0)),
     teacher: "", // Add teacher field to form data
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [tempStartTime, setTempStartTime] = useState<Date | null>(null);
   const [tempEndTime, setTempEndTime] = useState<Date | null>(null);
 
@@ -299,9 +305,9 @@ export default function AddTimetableEntryScreen() {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate required fields - topic is not mandatory
-    if (!formData.startTime || !formData.endTime) {
+    if (!formData.subject || !formData.startTime || !formData.endTime) {
       showAlert("Error", "Please fill all required fields", "error");
       return;
     }
@@ -312,17 +318,60 @@ export default function AddTimetableEntryScreen() {
       return;
     }
 
-    // In a real app, you would save the timetable entry here
-    if (isEditMode) {
-      showAlert("Success", "Timetable entry updated successfully", "success");
-    } else {
-      showAlert("Success", "Timetable entry added successfully", "success");
-    }
+    setIsSubmitting(true);
 
-    // Reset form or navigate back after successful submission
-    setTimeout(() => {
-      router.back();
-    }, 1500);
+    try {
+      // Format times for API (HH:MM AM/PM format)
+      const formatTimeForApi = (date: Date): string => {
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      };
+
+      // Get the selected subject label
+      const getSubjectLabel = (subjectId: string): string => {
+        const subject = subjects.find((s) => s.id === subjectId);
+        return subject ? subject.label : subjectId;
+      };
+
+      // Prepare data for API
+      const apiData = {
+        section_id: Number(sectionId),
+        day_of_week:
+          formData.day.charAt(0).toUpperCase() + formData.day.slice(1), // Capitalize first letter
+        start_time: formatTimeForApi(formData.startTime),
+        end_time: formatTimeForApi(formData.endTime),
+        subject: getSubjectLabel(formData.subject),
+        description: formData.topic || "", // Using topic as description
+      };
+
+      console.log("Submitting timetable data:", apiData);
+
+      // Call the appropriate API based on mode
+      if (isEditMode && entryId) {
+        await updateTimetableEntry(entryId as string, apiData);
+        showAlert("Success", "Timetable entry updated successfully", "success");
+      } else {
+        await createTimetableEntry(apiData);
+        showAlert("Success", "Timetable entry added successfully", "success");
+      }
+
+      // Navigate back after successful submission
+      setTimeout(() => {
+        router.back();
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving timetable entry:", error);
+      showAlert(
+        "Error",
+        "Failed to save timetable entry. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -440,10 +489,18 @@ export default function AddTimetableEntryScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>
-            {isEditMode ? "Update Period" : "Add Period"}
-          </Text>
+        <TouchableOpacity
+          style={[styles.submitButton, isSubmitting && styles.disabledButton]}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>
+              {isEditMode ? "Update Period" : "Add Period"}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -718,5 +775,8 @@ const styles = StyleSheet.create({
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
     fontSize: 16,
+  },
+  disabledButton: {
+    opacity: 0.7,
   },
 });

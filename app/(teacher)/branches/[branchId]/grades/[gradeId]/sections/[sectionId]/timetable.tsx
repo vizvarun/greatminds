@@ -1,9 +1,14 @@
 import CustomAlert from "@/components/ui/CustomAlert";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import {
+  fetchSectionTimetable,
+  TimetableEntry,
+  deleteTimetableEntry,
+} from "@/services/timetableApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Platform,
   ScrollView,
@@ -11,6 +16,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 
 type Day =
@@ -21,18 +27,9 @@ type Day =
   | "Friday"
   | "Saturday";
 
-type Period = {
-  id: string;
-  subject: string;
-  teacher: string;
-  time: string;
-  color: string;
-  topic?: string; // Optional topic field
-};
-
 type DaySchedule = {
   day: Day;
-  periods: Period[];
+  periods: TimetableEntry[];
 };
 
 export default function SectionTimetableScreen() {
@@ -59,228 +56,17 @@ export default function SectionTimetableScreen() {
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(
     new Set()
   );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [timetableData, setTimetableData] = useState<DaySchedule[]>([
-    {
-      day: "Monday",
-      periods: [
-        {
-          id: "m1",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "08:00 - 09:30",
-          color: "#4CAF50",
-          topic: "Introduction to Algebra - Linear Equations",
-        },
-        {
-          id: "m2",
-          subject: "English",
-          teacher: "Mr. Johnson",
-          time: "09:45 - 11:15",
-          color: "#2196F3",
-        },
-        {
-          id: "m3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "m4",
-          subject: "Science",
-          teacher: "Mrs. Davis",
-          time: "12:00 - 13:30",
-          color: "#9C27B0",
-        },
-        {
-          id: "m5",
-          subject: "Physical Education",
-          teacher: "Mr. Thompson",
-          time: "13:45 - 15:15",
-          color: "#FF9800",
-        },
-      ],
-    },
-    {
-      day: "Tuesday",
-      periods: [
-        {
-          id: "t1",
-          subject: "History",
-          teacher: "Mr. Wilson",
-          time: "08:00 - 09:30",
-          color: "#795548",
-        },
-        {
-          id: "t2",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "09:45 - 11:15",
-          color: "#4CAF50",
-        },
-        {
-          id: "t3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "t4",
-          subject: "Art",
-          teacher: "Ms. Garcia",
-          time: "12:00 - 13:30",
-          color: "#FF5722",
-        },
-        {
-          id: "t5",
-          subject: "English",
-          teacher: "Mr. Johnson",
-          time: "13:45 - 15:15",
-          color: "#2196F3",
-        },
-      ],
-    },
-    {
-      day: "Wednesday",
-      periods: [
-        {
-          id: "w1",
-          subject: "Science",
-          teacher: "Mrs. Davis",
-          time: "08:00 - 09:30",
-          color: "#9C27B0",
-        },
-        {
-          id: "w2",
-          subject: "Music",
-          teacher: "Mr. Martinez",
-          time: "09:45 - 11:15",
-          color: "#E91E63",
-        },
-        {
-          id: "w3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "w4",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "12:00 - 13:30",
-          color: "#4CAF50",
-        },
-        {
-          id: "w5",
-          subject: "Computer Science",
-          teacher: "Mr. Lee",
-          time: "13:45 - 15:15",
-          color: "#00BCD4",
-        },
-      ],
-    },
-    {
-      day: "Thursday",
-      periods: [
-        {
-          id: "th1",
-          subject: "English",
-          teacher: "Mr. Johnson",
-          time: "08:00 - 09:30",
-          color: "#2196F3",
-        },
-        {
-          id: "th2",
-          subject: "Social Studies",
-          teacher: "Mrs. Anderson",
-          time: "09:45 - 11:15",
-          color: "#607D8B",
-        },
-        {
-          id: "th3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "th4",
-          subject: "Science",
-          teacher: "Mrs. Davis",
-          time: "12:00 - 13:30",
-          color: "#9C27B0",
-        },
-        {
-          id: "th5",
-          subject: "Study Hall",
-          teacher: "Ms. Taylor",
-          time: "13:45 - 15:15",
-          color: "#3F51B5",
-        },
-      ],
-    },
-    {
-      day: "Friday",
-      periods: [
-        {
-          id: "f1",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "08:00 - 09:30",
-          color: "#4CAF50",
-        },
-        {
-          id: "f2",
-          subject: "Language",
-          teacher: "Ms. Rodriguez",
-          time: "09:45 - 11:15",
-          color: "#009688",
-        },
-        {
-          id: "f3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "f4",
-          subject: "Health",
-          teacher: "Mrs. White",
-          time: "12:00 - 13:30",
-          color: "#F44336",
-        },
-        {
-          id: "f5",
-          subject: "Club Activities",
-          teacher: "Various",
-          time: "13:45 - 15:15",
-          color: "#CDDC39",
-        },
-      ],
-    },
-    {
-      day: "Saturday",
-      periods: [
-        {
-          id: "s1",
-          subject: "Extra Mathematics",
-          teacher: "Mrs. Smith",
-          time: "09:00 - 10:30",
-          color: "#4CAF50",
-        },
-        {
-          id: "s2",
-          subject: "Art Club",
-          teacher: "Ms. Garcia",
-          time: "10:45 - 12:15",
-          color: "#FF5722",
-        },
-      ],
-    },
+    { day: "Monday", periods: [] },
+    { day: "Tuesday", periods: [] },
+    { day: "Wednesday", periods: [] },
+    { day: "Thursday", periods: [] },
+    { day: "Friday", periods: [] },
+    { day: "Saturday", periods: [] },
   ]);
+
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -291,6 +77,48 @@ export default function SectionTimetableScreen() {
   });
 
   const daysScrollViewRef = useRef<ScrollView>(null);
+
+  // Fetch timetable data when day changes
+  const fetchTimetable = useCallback(async () => {
+    if (!sectionId) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await fetchSectionTimetable(
+        sectionId as string,
+        selectedDay
+      );
+
+      console.log("Timetable data received:", data, "length:", data.length);
+
+      if (!data || data.length === 0) {
+        console.log("No timetable entries found for this day");
+      }
+
+      // Update the timetable data state for the selected day
+      setTimetableData((prev) =>
+        prev.map((dayData) => {
+          if (dayData.day === selectedDay) {
+            return { ...dayData, periods: data };
+          }
+          return dayData;
+        })
+      );
+    } catch (err) {
+      console.error("Failed to fetch timetable data:", err);
+      setError("Failed to load timetable. Please try again.");
+      showAlert("Error", "Failed to load timetable data", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sectionId, selectedDay]);
+
+  // Fetch data when component mounts or day changes
+  useEffect(() => {
+    fetchTimetable();
+  }, [fetchTimetable]);
 
   // Fix the auto-scroll to selected day
   useEffect(() => {
@@ -357,7 +185,7 @@ export default function SectionTimetableScreen() {
     );
   };
 
-  const handleEditPeriod = (period: Period) => {
+  const handleEditPeriod = (period: TimetableEntry) => {
     router.push(
       `/(teacher)/timetable/add?branchId=${branchId}&gradeId=${gradeId}&sectionId=${sectionId}&day=${selectedDay}&edit=true&periodId=${period.id}`
     );
@@ -368,38 +196,56 @@ export default function SectionTimetableScreen() {
       "Delete Period",
       "Are you sure you want to delete this period? This action cannot be undone.",
       "warning",
-      () => {
+      async () => {
         // First close the confirmation alert
         setAlert((prev) => ({ ...prev, visible: false }));
 
-        // Then delete the period
-        setTimetableData((prevData) =>
-          prevData.map((daySchedule) => {
-            if (daySchedule.day === selectedDay) {
-              return {
-                ...daySchedule,
-                periods: daySchedule.periods.filter(
-                  (period) => period.id !== periodId
-                ),
-              };
-            }
-            return daySchedule;
-          })
-        );
+        try {
+          setIsLoading(true);
 
-        // After deleting, show the success alert
-        setTimeout(() => {
+          // Call API to delete the period
+          await deleteTimetableEntry(periodId);
+
+          // Update local state after successful deletion
+          setTimetableData((prevData) =>
+            prevData.map((daySchedule) => {
+              if (daySchedule.day === selectedDay) {
+                return {
+                  ...daySchedule,
+                  periods: daySchedule.periods.filter(
+                    (period) => period.id !== periodId
+                  ),
+                };
+              }
+              return daySchedule;
+            })
+          );
+
+          // After deleting, show the success alert
           showAlert(
             "Success",
             "The period has been deleted successfully",
             "success"
           );
-        }, 100);
+        } catch (error) {
+          console.error("Error deleting period:", error);
+          showAlert(
+            "Error",
+            "Failed to delete period. Please try again.",
+            "error"
+          );
+        } finally {
+          setIsLoading(false);
+        }
       },
       () => {
         console.log("Delete operation canceled");
       }
     );
+  };
+
+  const handleRefresh = () => {
+    fetchTimetable();
   };
 
   const currentSchedule = timetableData.find(
@@ -418,10 +264,18 @@ export default function SectionTimetableScreen() {
           </TouchableOpacity>
           <Text style={styles.title}>Class Timetable</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddPeriod}>
-          <MaterialCommunityIcons name="plus" size={18} color="#fff" />
-          <Text style={styles.addButtonText}>Add Period</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={handleRefresh}
+          >
+            <MaterialCommunityIcons name="sync" size={18} color={primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} onPress={handleAddPeriod}>
+            <MaterialCommunityIcons name="plus" size={18} color="#fff" />
+            <Text style={styles.addButtonText}>Add Period</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.daysOuterContainer}>
@@ -438,7 +292,7 @@ export default function SectionTimetableScreen() {
                 styles.dayButton,
                 selectedDay === dayData.day && styles.selectedDayButton,
               ]}
-              onPress={() => setSelectedDay(dayData.day)}
+              onPress={() => setSelectedDay(dayData.day as Day)}
             >
               <Text
                 style={[
@@ -457,82 +311,121 @@ export default function SectionTimetableScreen() {
         style={styles.scheduleContainer}
         contentContainerStyle={styles.scheduleContentContainer}
       >
-        {currentSchedule?.periods.map((period) => {
-          const isExpanded = expandedPeriods.has(period.id);
-          const hasTopic = Boolean(period.topic);
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={styles.loadingText}>Loading timetable...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={50}
+              color="#F44336"
+            />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchTimetable}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : currentSchedule &&
+          currentSchedule.periods &&
+          currentSchedule.periods.length > 0 ? (
+          currentSchedule.periods.map((period) => {
+            const isExpanded = expandedPeriods.has(period.id);
 
-          return (
-            <View key={period.id} style={styles.periodCard}>
-              <View
-                style={[styles.periodColor, { backgroundColor: period.color }]}
-              />
+            return (
+              <View key={period.id} style={styles.periodCard}>
+                <View
+                  style={[
+                    styles.periodColor,
+                    { backgroundColor: period.color },
+                  ]}
+                />
 
-              <View style={styles.periodTimeContainer}>
-                <Text style={styles.periodTime}>{period.time}</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.periodDetails}
-                activeOpacity={0.7}
-                onPress={() => togglePeriodExpansion(period.id)}
-              >
-                <View style={styles.periodMainInfo}>
-                  <View style={styles.subjectContainer}>
-                    <Text style={styles.periodSubject}>{period.subject}</Text>
-                    <MaterialCommunityIcons
-                      name={isExpanded ? "chevron-up" : "chevron-down"}
-                      size={18}
-                      color="#666"
-                    />
-                  </View>
-
-                  {period.teacher && (
-                    <Text style={styles.periodTeacher}>
-                      <MaterialCommunityIcons
-                        name="account-outline"
-                        size={14}
-                        color="#666"
-                      />{" "}
-                      {period.teacher}
-                    </Text>
-                  )}
+                <View style={styles.periodTimeContainer}>
+                  <Text style={styles.periodTime}>{period.time}</Text>
                 </View>
 
-                {isExpanded && (
-                  <View style={styles.topicContainer}>
-                    <Text style={styles.topicLabel}>Topic:</Text>
-                    <Text style={styles.topicText}>
-                      {period.topic || "No topic specified for this period"}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.periodDetails}
+                  activeOpacity={0.7}
+                  onPress={() => togglePeriodExpansion(period.id)}
+                >
+                  <View style={styles.periodMainInfo}>
+                    <View style={styles.subjectContainer}>
+                      <Text style={styles.periodSubject}>{period.subject}</Text>
+                      <MaterialCommunityIcons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={18}
+                        color="#666"
+                      />
+                    </View>
 
-              <View style={styles.periodActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEditPeriod(period)}
-                >
-                  <MaterialCommunityIcons
-                    name="pencil"
-                    size={20}
-                    color="#666"
-                  />
+                    {period.teacher && (
+                      <Text style={styles.periodTeacher}>
+                        <MaterialCommunityIcons
+                          name="account-outline"
+                          size={14}
+                          color="#666"
+                        />{" "}
+                        {period.teacher}
+                      </Text>
+                    )}
+                  </View>
+
+                  {isExpanded && (
+                    <View style={styles.topicContainer}>
+                      <Text style={styles.topicLabel}>Topic:</Text>
+                      <Text style={styles.topicText}>
+                        {period.topic || "No topic specified for this period"}
+                      </Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleDeletePeriod(period.id)}
-                >
-                  <MaterialCommunityIcons
-                    name="delete"
-                    size={20}
-                    color="#F44336"
-                  />
-                </TouchableOpacity>
+
+                <View style={styles.periodActions}>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleEditPeriod(period)}
+                  >
+                    <MaterialCommunityIcons
+                      name="pencil"
+                      size={20}
+                      color="#666"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleDeletePeriod(period.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name="delete"
+                      size={20}
+                      color="#F44336"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          );
-        })}
+            );
+          })
+        ) : (
+          <View style={styles.noPeriodsContainer}>
+            <MaterialCommunityIcons name="timetable" size={50} color="#ddd" />
+            <Text style={styles.noPeriodsText}>
+              No periods scheduled for {selectedDay}
+            </Text>
+            <TouchableOpacity
+              style={styles.emptyAddButton}
+              onPress={handleAddPeriod}
+            >
+              <Text style={styles.emptyAddButtonText}>Add a period</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       <CustomAlert
@@ -566,6 +459,14 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  refreshButton: {
+    padding: 8,
+    marginRight: 10,
   },
   backButton: {
     marginRight: 8,
@@ -628,6 +529,7 @@ const styles = StyleSheet.create({
   },
   scheduleContentContainer: {
     paddingBottom: Platform.OS === "android" ? 80 : 20,
+    minHeight: 300,
   },
   periodCard: {
     backgroundColor: "#fff",
@@ -683,6 +585,11 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 2,
   },
+  periodRoom: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
   topicContainer: {
     marginTop: 8,
     paddingTop: 8,
@@ -717,5 +624,66 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  errorText: {
+    marginVertical: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: primary,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
+  },
+  noPeriodsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  noPeriodsText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#999",
+  },
+  emptyAddButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: primary,
+    borderRadius: 6,
+  },
+  emptyAddButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
   },
 });

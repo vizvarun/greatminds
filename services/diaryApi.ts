@@ -138,3 +138,16 @@ export const deleteDiaryEntry = async (diaryId: string): Promise<any> => {
     throw error;
   }
 };
+
+/**
+ * Fetch a single diary entry by ID
+ */
+export const fetchDiaryEntryById = async (entryId: string) => {
+  try {
+    const response = await api.get(`/diary/${entryId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching diary entry:", error);
+    throw error;
+  }
+};

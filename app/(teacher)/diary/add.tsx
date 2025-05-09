@@ -4,7 +4,11 @@ import KeyboardDismissBar from "@/components/ui/KeyboardDismissBar";
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import { useAuth } from "@/context/AuthContext";
-import { createDiaryEntry, updateDiaryEntry } from "@/services/diaryApi";
+import {
+  createDiaryEntry,
+  updateDiaryEntry,
+  fetchDiaryEntryById,
+} from "@/services/diaryApi";
 import { fetchSubjects, Subject } from "@/services/subjectApi";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker, {
@@ -51,6 +55,9 @@ export default function AddDiaryEntryScreen() {
 
   const [tempEffectiveDate, setTempEffectiveDate] = useState<Date | null>(null);
   const [tempDueDate, setTempDueDate] = useState<Date | null>(null);
+
+  const [isFetchingEntry, setIsFetchingEntry] = useState(false);
+  const [fetchEntryError, setFetchEntryError] = useState<string | null>(null);
 
   // Fetch subjects from API when component mounts
   useEffect(() => {
@@ -347,88 +354,85 @@ export default function AddDiaryEntryScreen() {
   // Fetch entry data when in edit mode
   useEffect(() => {
     if (isEditMode && entryId) {
-      // In a real app, you would fetch the entry from an API
-      // For demo purposes, we'll simulate fetching entry data
       fetchEntryData(entryId as string);
     }
   }, [isEditMode, entryId]);
 
-  const fetchEntryData = (id: string) => {
-    // This is a mock implementation - in a real app, you would fetch from an API
-    // Mock data based on the entry ID
-    let mockEntry;
+  const fetchEntryData = async (id: string) => {
+    setIsFetchingEntry(true);
+    setFetchEntryError(null);
 
-    // Simulate different types of entries based on the entryId
-    // In a real app, you would fetch the actual entry from your database
-    switch (id) {
-      case "1":
-        mockEntry = {
-          id: id,
-          title: "Math Quiz Preparation",
-          description: "Complete practice problems 1-20 from Chapter 5",
-          type: "homework",
-          subject: "math",
-          effectiveDate: new Date(),
-          dueDate: new Date(new Date().setDate(new Date().getDate() + 3)),
-        };
-        break;
-      case "2":
-        mockEntry = {
-          id: id,
-          title: "Group Discussion",
-          description: "In-class discussion on renewable energy sources",
-          type: "classwork",
-          subject: "science",
-          effectiveDate: new Date(),
-          dueDate: null, // classwork doesn't necessarily have a due date
-        };
-        break;
-      case "3":
-        mockEntry = {
-          id: id,
-          title: "Research Project",
-          description:
-            "Research on historical figures for upcoming presentation",
-          type: "research",
-          subject: "social",
-          effectiveDate: new Date(),
-          dueDate: new Date(new Date().setDate(new Date().getDate() + 7)),
-        };
-        break;
-      case "4":
-        mockEntry = {
-          id: id,
-          title: "Exam Preparation",
-          description: "Review previous chapters for mid-term exam",
-          type: "preparation",
-          subject: "english",
-          effectiveDate: new Date(),
-          dueDate: new Date(new Date().setDate(new Date().getDate() + 5)),
-        };
-        break;
-      default:
-        mockEntry = {
-          id: id,
-          title: "Assignment",
-          description: "General description for any entry type",
-          type: "homework",
-          subject: "math",
-          effectiveDate: new Date(),
-          dueDate: new Date(new Date().setDate(new Date().getDate() + 3)),
-        };
+    try {
+      const entryData = await fetchDiaryEntryById(id);
+
+      if (entryData) {
+        // Map API response to form data
+        const entryType = mapNoteTypeToFormType(entryData.notetype);
+
+        // Parse dates from API (format could be YYYY-MM-DD or ISO string)
+        const effectiveDate = entryData.effectivedate
+          ? new Date(entryData.effectivedate)
+          : new Date();
+        const dueDate = entryData.duedate
+          ? new Date(entryData.duedate)
+          : new Date(new Date().setDate(new Date().getDate() + 7));
+
+        // Find matching subject ID from our subjects list
+        let subjectId = "";
+        if (subjects.length > 0 && entryData.subject) {
+          const matchingSubject = subjects.find(
+            (s) => s.label.toLowerCase() === entryData.subject.toLowerCase()
+          );
+          if (matchingSubject) {
+            subjectId = matchingSubject.id;
+          }
+        }
+
+        setFormData({
+          title: entryData.notetype || "",
+          description: entryData.description || "",
+          type: entryType,
+          subject: subjectId,
+          effectiveDate: effectiveDate,
+          dueDate: dueDate,
+          isUrgent: entryData.isUrgent || false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching diary entry:", error);
+      setFetchEntryError("Failed to load diary entry. Please try again.");
+      showAlert("Error", "Failed to load diary entry", "error");
+    } finally {
+      setIsFetchingEntry(false);
     }
+  };
 
-    // Prefill the form with the fetched data
-    setFormData({
-      title: mockEntry.title,
-      description: mockEntry.description,
-      type: mockEntry.type,
-      subject: mockEntry.subject,
-      effectiveDate: mockEntry.effectiveDate,
-      dueDate:
-        mockEntry.dueDate ||
-        new Date(new Date().setDate(new Date().getDate() + 7)),
-    });
+  // Map API note type to our form type
+  const mapNoteTypeToFormType = (noteType: string): string => {
+    const normalizedType = noteType?.toLowerCase() || "";
+
+    if (
+      normalizedType.includes("home") ||
+      normalizedType.includes("homework")
+    ) {
+      return "homework";
+    } else if (
+      normalizedType.includes("class") ||
+      normalizedType.includes("classwork")
+    ) {
+      return "classwork";
+    } else if (
+      normalizedType.includes("prep") ||
+      normalizedType.includes("preparation")
+    ) {
+      return "preparation";
+    } else if (normalizedType.includes("research")) {
+      return "research";
+    } else if (normalizedType.includes("test")) {
+      return "test";
+    } else {
+      return "other";
+    }
   };
 
   const handleSubmit = async () => {
@@ -560,218 +564,239 @@ export default function AddDiaryEntryScreen() {
         </View>
       </View>
       <ScrollView style={styles.formContainer}>
-        <CustomDropdown
-          options={entryTypeOptions}
-          selectedValue={formData.type}
-          onValueChange={(value) => handleTypeSelect(value)}
-          placeholder="Select entry type"
-          label="Entry Type"
-        />
-
-        {formData.type === "other" ? (
-          <>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Title *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.title}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, title: text })
-                }
-                placeholder="e.g. Special Announcement"
-                placeholderTextColor="#999"
-                inputAccessoryViewID={
-                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
-                }
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Description *</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={formData.description}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, description: text })
-                }
-                placeholder="e.g. Important information about upcoming events"
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                inputAccessoryViewID={
-                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
-                }
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Date *</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={handleEffectiveDatePress}
-              >
-                <Text style={styles.dateText}>
-                  {formatDate(formData.effectiveDate)}
-                </Text>
-                <MaterialCommunityIcons
-                  name="calendar"
-                  size={22}
-                  color="#666"
-                />
-              </TouchableOpacity>
-            </View>
-          </>
+        {isFetchingEntry ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={styles.loadingText}>Loading diary entry...</Text>
+          </View>
+        ) : fetchEntryError ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{fetchEntryError}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => fetchEntryData(entryId as string)}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
-            {isLoadingSubjects ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={primary} />
-                <Text style={styles.loadingText}>Loading subjects...</Text>
-              </View>
-            ) : subjectError ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>{subjectError}</Text>
-                <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={retryFetchSubjects}
-                >
-                  <Text style={styles.retryButtonText}>Retry</Text>
-                </TouchableOpacity>
-              </View>
-            ) : subjects.length === 0 ? (
-              <View style={styles.formGroup}>
-                <Text style={styles.warningText}>
-                  No subjects available. Default subject will be used.
-                </Text>
-              </View>
-            ) : (
-              <CustomDropdown
-                options={subjects}
-                selectedValue={formData.subject}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, subject: value })
-                }
-                placeholder="Select a subject"
-                label="Subject"
-              />
-            )}
+            <CustomDropdown
+              options={entryTypeOptions}
+              selectedValue={formData.type}
+              onValueChange={(value) => handleTypeSelect(value)}
+              placeholder="Select entry type"
+              label="Entry Type"
+            />
 
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Title *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.title}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, title: text })
-                }
-                placeholder="e.g. Complete Math Exercises"
-                placeholderTextColor="#999"
-                inputAccessoryViewID={
-                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
-                }
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Description *</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={formData.description}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, description: text })
-                }
-                placeholder="e.g. Complete exercises 1-10 on page 25"
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                inputAccessoryViewID={
-                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
-                }
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Effective Date *</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={handleEffectiveDatePress}
-              >
-                <Text style={styles.dateText}>
-                  {formatDate(formData.effectiveDate)}
-                </Text>
-                <MaterialCommunityIcons
-                  name="calendar"
-                  size={22}
-                  color="#666"
-                />
-              </TouchableOpacity>
-            </View>
-
-            {["homework", "research", "preparation"].includes(
-              formData.type
-            ) && (
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Due Date *</Text>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={handleDueDatePress}
-                >
-                  <Text style={styles.dateText}>
-                    {formatDate(formData.dueDate)}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="calendar"
-                    size={22}
-                    color="#666"
+            {formData.type === "other" ? (
+              <>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Title *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.title}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, title: text })
+                    }
+                    placeholder="e.g. Special Announcement"
+                    placeholderTextColor="#999"
+                    inputAccessoryViewID={
+                      Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                    }
                   />
-                </TouchableOpacity>
-              </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Description *</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.description}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, description: text })
+                    }
+                    placeholder="e.g. Important information about upcoming events"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    inputAccessoryViewID={
+                      Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                    }
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Date *</Text>
+                  <TouchableOpacity
+                    style={styles.datePickerButton}
+                    onPress={handleEffectiveDatePress}
+                  >
+                    <Text style={styles.dateText}>
+                      {formatDate(formData.effectiveDate)}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="calendar"
+                      size={22}
+                      color="#666"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                {isLoadingSubjects ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={primary} />
+                    <Text style={styles.loadingText}>Loading subjects...</Text>
+                  </View>
+                ) : subjectError ? (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{subjectError}</Text>
+                    <TouchableOpacity
+                      style={styles.retryButton}
+                      onPress={retryFetchSubjects}
+                    >
+                      <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : subjects.length === 0 ? (
+                  <View style={styles.formGroup}>
+                    <Text style={styles.warningText}>
+                      No subjects available. Default subject will be used.
+                    </Text>
+                  </View>
+                ) : (
+                  <CustomDropdown
+                    options={subjects}
+                    selectedValue={formData.subject}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, subject: value })
+                    }
+                    placeholder="Select a subject"
+                    label="Subject"
+                  />
+                )}
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Title *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.title}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, title: text })
+                    }
+                    placeholder="e.g. Complete Math Exercises"
+                    placeholderTextColor="#999"
+                    inputAccessoryViewID={
+                      Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                    }
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Description *</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={formData.description}
+                    onChangeText={(text) =>
+                      setFormData({ ...formData, description: text })
+                    }
+                    placeholder="e.g. Complete exercises 1-10 on page 25"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                    inputAccessoryViewID={
+                      Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                    }
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Effective Date *</Text>
+                  <TouchableOpacity
+                    style={styles.datePickerButton}
+                    onPress={handleEffectiveDatePress}
+                  >
+                    <Text style={styles.dateText}>
+                      {formatDate(formData.effectiveDate)}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="calendar"
+                      size={22}
+                      color="#666"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {["homework", "research", "preparation"].includes(
+                  formData.type
+                ) && (
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Due Date *</Text>
+                    <TouchableOpacity
+                      style={styles.datePickerButton}
+                      onPress={handleDueDatePress}
+                    >
+                      <Text style={styles.dateText}>
+                        {formatDate(formData.dueDate)}
+                      </Text>
+                      <MaterialCommunityIcons
+                        name="calendar"
+                        size={22}
+                        color="#666"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Urgent Information</Text>
+              <View style={styles.toggleWrapper}>
+                <View style={styles.toggleContainer}>
+                  <Text style={styles.toggleLabel}>
+                    Mark as urgent information
+                  </Text>
+                  <Switch
+                    trackColor={{ false: "#dddddd", true: primary }}
+                    thumbColor={formData.isUrgent ? "#ffffff" : "#f4f3f4"}
+                    ios_backgroundColor="#dddddd"
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, isUrgent: value })
+                    }
+                    value={formData.isUrgent}
+                  />
+                </View>
+                {formData.isUrgent && (
+                  <Text style={styles.urgentHint}>
+                    This will be highlighted as important information
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                { backgroundColor: getTypeColor(formData.type) },
+                isSubmitting && styles.disabledButton,
+              ]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  {isEditMode ? "Update Entry" : "Add Entry"}
+                </Text>
+              )}
+            </TouchableOpacity>
           </>
         )}
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Urgent Information</Text>
-          <View style={styles.toggleWrapper}>
-            <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>Mark as urgent information</Text>
-              <Switch
-                trackColor={{ false: "#dddddd", true: primary }}
-                thumbColor={formData.isUrgent ? "#ffffff" : "#f4f3f4"}
-                ios_backgroundColor="#dddddd"
-                onValueChange={(value) =>
-                  setFormData({ ...formData, isUrgent: value })
-                }
-                value={formData.isUrgent}
-              />
-            </View>
-            {formData.isUrgent && (
-              <Text style={styles.urgentHint}>
-                This will be highlighted as important information
-              </Text>
-            )}
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: getTypeColor(formData.type) },
-            isSubmitting && styles.disabledButton,
-          ]}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {isEditMode ? "Update Entry" : "Add Entry"}
-            </Text>
-          )}
-        </TouchableOpacity>
       </ScrollView>
 
       {showEffectiveDatePicker && Platform.OS === "ios" && (
@@ -1071,42 +1096,39 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   loadingContainer: {
-    paddingVertical: 16,
+    padding: 24,
     alignItems: "center",
     justifyContent: "center",
   },
   loadingText: {
-    marginTop: 8,
-    fontSize: 14,
+    marginTop: 12,
+    fontSize: 16,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
+    textAlign: "center",
   },
   errorContainer: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: "rgba(244, 67, 54, 0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(244, 67, 54, 0.2)",
-    marginBottom: 16,
+    padding: 24,
     alignItems: "center",
+    justifyContent: "center",
   },
   errorText: {
-    color: "#F44336",
-    fontSize: 14,
+    marginBottom: 16,
+    fontSize: 16,
     fontFamily: Typography.fontFamily.primary,
+    color: "#F44336",
     textAlign: "center",
   },
   retryButton: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "#F44336",
-    borderRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    backgroundColor: primary,
+    borderRadius: 8,
   },
   retryButtonText: {
-    color: "#fff",
-    fontSize: 14,
+    color: "white",
     fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 16,
   },
   warningText: {
     color: "#FF9800",
