@@ -110,6 +110,7 @@ export default function ParentDashboard() {
         ) : studentProfiles && studentProfiles.length > 0 ? (
           <View style={styles.cardsContainer}>
             {studentProfiles.map((student) => {
+              console.log("Student Data: ", student);
               const fullName = formatFullName(student);
               const schoolInfo = getSchoolClassInfo(student);
               const { isPresent, percentage } = getAttendanceStatus(student);
@@ -263,7 +264,7 @@ export default function ParentDashboard() {
                           color="#9C27B0"
                         />
                       </View>
-                      <Text style={styles.actionText}>Schedule</Text>
+                      <Text style={styles.actionText}>Timetable</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity

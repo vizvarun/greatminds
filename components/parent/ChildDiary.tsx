@@ -1,7 +1,7 @@
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useCallback, useState, useRef } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import {
   FlatList,
   RefreshControl,
@@ -11,11 +11,13 @@ import {
   View,
   Animated,
   Easing,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
+import { fetchSectionDiaryEntries } from "@/services/diaryApi";
 
 type Props = {
-  childId: string;
+  sectionId: string;
   showAlert: (
     title: string,
     message: string,
@@ -29,10 +31,17 @@ type DiaryEntry = {
   formattedDate: string;
   title: string;
   description: string;
-  type: "homework" | "note" | "reminder" | "test";
+  type:
+    | "homework"
+    | "note"
+    | "reminder"
+    | "test"
+    | "classwork"
+    | "preparation"
+    | "research";
 };
 
-export default function ChildDiary({ childId, showAlert }: Props) {
+export default function ChildDiary({ sectionId, showAlert }: Props) {
   const normalizeDate = (date: Date): string => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
       2,
@@ -43,168 +52,83 @@ export default function ChildDiary({ childId, showAlert }: Props) {
   const [selectedDate, setSelectedDate] = useState(normalizeDate(new Date()));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([
-    {
-      id: "6",
-      date: normalizeDate(new Date()),
-      formattedDate: new Date().toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Today's Math Quiz",
-      description: "Algebra quiz covering last week's material",
-      type: "test",
-    },
-    {
-      id: "7",
-      date: normalizeDate(new Date()),
-      formattedDate: new Date().toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Homework Submission",
-      description: "Submit science project outline",
-      type: "homework",
-    },
-    {
-      id: "8",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 1))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 1)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "French Vocabulary Test",
-      description: "Chapters 7-9 vocabulary will be tested",
-      type: "test",
-    },
-    {
-      id: "9",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 2))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 2)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Geography Project Due",
-      description: "Submit completed world map project",
-      type: "homework",
-    },
-    {
-      id: "10",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 3))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 3)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Library Books Return",
-      description: "Return all borrowed books to avoid late fees",
-      type: "reminder",
-    },
-    {
-      id: "11",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 5))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 5)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Sports Day Preparation",
-      description: "Bring sports uniform and water bottle",
-      type: "note",
-    },
-    {
-      id: "12",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 7))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 7)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "History Presentation",
-      description: "Group presentation on Ancient Egypt",
-      type: "homework",
-    },
-    {
-      id: "13",
-      date: normalizeDate(
-        new Date(new Date().setDate(new Date().getDate() + 14))
-      ),
-      formattedDate: new Date(
-        new Date().setDate(new Date().getDate() + 14)
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "End of Term Exam",
-      description: "Final mathematics examination for the term",
-      type: "test",
-    },
-    {
-      id: "14",
-      date: normalizeDate(
-        new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20)
-      ),
-      formattedDate: new Date(
-        new Date().getFullYear(),
-        new Date().getMonth() - 1,
-        20
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Last Month Assignment",
-      description: "Science lab report on plant growth experiment",
-      type: "homework",
-    },
-    {
-      id: "15",
-      date: normalizeDate(
-        new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10)
-      ),
-      formattedDate: new Date(
-        new Date().getFullYear(),
-        new Date().getMonth() + 1,
-        10
-      ).toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      }),
-      title: "Future School Event",
-      description: "Annual science fair participation confirmation",
-      type: "reminder",
-    },
-  ]);
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
 
   const syncIconRotation = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    fetchDiaryEntries();
+  }, [sectionId, selectedDate]);
+
+  const fetchDiaryEntries = async (date?: string) => {
+    if (!sectionId) return;
+
+    setError(null);
+    if (!refreshing) setIsLoading(true);
+
+    try {
+      const dateToFetch = date || selectedDate;
+      const response = await fetchSectionDiaryEntries(sectionId, dateToFetch);
+
+      if (Array.isArray(response.items)) {
+        const transformedEntries: DiaryEntry[] = response.items.map((entry) => {
+          let type: DiaryEntry["type"] = "note";
+          const noteType = entry.notetype?.toLowerCase() || "";
+
+          if (noteType.includes("home") || noteType.includes("homework")) {
+            type = "homework";
+          } else if (noteType.includes("test") || noteType.includes("quiz")) {
+            type = "test";
+          } else if (noteType.includes("research")) {
+            type = "research";
+          } else if (noteType.includes("prep")) {
+            type = "preparation";
+          } else if (noteType.includes("class")) {
+            type = "classwork";
+          } else if (noteType.includes("remind")) {
+            type = "reminder";
+          }
+
+          const title = entry.subject
+            ? `${entry.notetype}: ${entry.subject}`
+            : entry.notetype;
+
+          const entryDate = new Date(entry.effectivedate);
+
+          return {
+            id: entry.id.toString(),
+            date: normalizeDate(entryDate),
+            formattedDate: entryDate.toLocaleDateString("en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }),
+            title: title,
+            description: entry.description,
+            type,
+          };
+        });
+
+        setDiaryEntries(transformedEntries);
+      } else {
+        console.warn("Unexpected API response format:", response);
+        setDiaryEntries([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch diary entries:", err);
+      setError("Failed to load diary entries. Please try again.");
+      showAlert("Error", "Failed to load diary entries", "error");
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+      syncIconRotation.setValue(0);
+      Animated.timing(syncIconRotation).stop();
+    }
+  };
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -218,23 +142,16 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       })
     ).start();
 
-    setTimeout(() => {
-      const today = new Date();
-      setCurrentMonth(today.getMonth());
-      setCurrentYear(today.getFullYear());
-      setSelectedDate(normalizeDate(today));
-      setShowDatePicker(false);
+    const today = new Date();
+    const todayString = normalizeDate(today);
 
-      showAlert(
-        "Diary Updated",
-        "Your child's diary has been refreshed",
-        "success"
-      );
-      setRefreshing(false);
-      syncIconRotation.setValue(0);
-      Animated.timing(syncIconRotation).stop();
-    }, 1000);
-  }, [showAlert, syncIconRotation]);
+    setCurrentMonth(today.getMonth());
+    setCurrentYear(today.getFullYear());
+    setSelectedDate(todayString);
+    setShowDatePicker(false);
+
+    fetchDiaryEntries(todayString);
+  }, [sectionId, syncIconRotation]);
 
   const spin = syncIconRotation.interpolate({
     inputRange: [0, 1],
@@ -428,6 +345,12 @@ export default function ChildDiary({ childId, showAlert }: Props) {
         return "bell-outline";
       case "note":
         return "note-outline";
+      case "classwork":
+        return "pencil-outline";
+      case "preparation":
+        return "clipboard-outline";
+      case "research":
+        return "magnify";
       default:
         return "information-outline";
     }
@@ -483,7 +406,27 @@ export default function ChildDiary({ childId, showAlert }: Props) {
       <View style={styles.entriesContainer}>
         <Text style={styles.dateHeader}>{formatDate(selectedDate)}</Text>
 
-        {entriesForSelectedDate.length > 0 ? (
+        {isLoading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={styles.loadingText}>Loading diary entries...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.noEntriesContainer}>
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={50}
+              color="#F44336"
+            />
+            <Text style={styles.noEntriesText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchDiaryEntries}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : entriesForSelectedDate.length > 0 ? (
           <FlatList
             data={entriesForSelectedDate}
             keyExtractor={(item) => item.id}
@@ -502,6 +445,12 @@ export default function ChildDiary({ childId, showAlert }: Props) {
                       ? styles.testIcon
                       : item.type === "reminder"
                       ? styles.reminderIcon
+                      : item.type === "classwork"
+                      ? styles.classworkIcon
+                      : item.type === "preparation"
+                      ? styles.preparationIcon
+                      : item.type === "research"
+                      ? styles.researchIcon
                       : styles.noteIcon,
                   ]}
                 >
@@ -642,6 +591,15 @@ const styles = StyleSheet.create({
   noteIcon: {
     backgroundColor: "#2196F3",
   },
+  classworkIcon: {
+    backgroundColor: "#00BCD4",
+  },
+  preparationIcon: {
+    backgroundColor: "#F44336",
+  },
+  researchIcon: {
+    backgroundColor: "#673AB7",
+  },
   entryContent: {
     flex: 1,
   },
@@ -656,6 +614,18 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
     marginBottom: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
   },
   noEntriesContainer: {
     flex: 1,
@@ -773,5 +743,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderRightColor: "transparent",
     borderTopColor: primary,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
   },
 });

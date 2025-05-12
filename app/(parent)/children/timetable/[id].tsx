@@ -1,14 +1,31 @@
 import ChildTimetable from "@/components/parent/ChildTimetable";
 import CustomAlert from "@/components/ui/CustomAlert";
 import { Typography } from "@/constants/Typography";
+import { useAuth } from "@/context/AuthContext";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChildTimetableScreen() {
   const { id } = useLocalSearchParams();
+  const { studentProfiles } = useAuth();
+  const [sectionId, setSectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (studentProfiles && studentProfiles.length > 0) {
+      const foundStudent = studentProfiles.find((s) => s.id.toString() === id);
+
+      if (
+        foundStudent?.section_details &&
+        foundStudent.section_details.length > 0
+      ) {
+        setSectionId(foundStudent.section_details[0].sectionid.toString());
+      }
+    }
+  }, [id, studentProfiles]);
+
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -33,7 +50,7 @@ export default function ChildTimetableScreen() {
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
       <View style={styles.content}>
-        <ChildTimetable childId={id as string} />
+        <ChildTimetable sectionId={sectionId as string} />
       </View>
 
       <CustomAlert

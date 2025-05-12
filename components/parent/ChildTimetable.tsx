@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -6,14 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import { router } from "expo-router";
+import { fetchSectionTimetable, TimetableEntry } from "@/services/timetableApi";
 
 type Props = {
-  childId: string;
+  sectionId: string;
 };
 
 type Day =
@@ -24,21 +26,12 @@ type Day =
   | "Friday"
   | "Saturday";
 
-type Period = {
-  id: string;
-  subject: string;
-  teacher: string;
-  time: string;
-  color: string;
-  topic?: string;
-};
-
 type DaySchedule = {
   day: Day;
-  periods: Period[];
+  periods: TimetableEntry[];
 };
 
-export default function ChildTimetable({ childId }: Props) {
+export default function ChildTimetable({ sectionId }: Props) {
   const getTodayDayName = (): Day => {
     const days: Day[] = [
       "Monday",
@@ -53,31 +46,65 @@ export default function ChildTimetable({ childId }: Props) {
     return dayIndex >= 0 && dayIndex < days.length ? days[dayIndex] : "Monday";
   };
 
-  // Change from hardcoded "Friday" to using today's day
   const [selectedDay, setSelectedDay] = useState<Day>(getTodayDayName());
   const [expandedPeriods, setExpandedPeriods] = useState<Set<string>>(
     new Set()
   );
   const daysScrollViewRef = useRef<ScrollView>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [timetableData, setTimetableData] = useState<DaySchedule[]>([
+    { day: "Monday", periods: [] },
+    { day: "Tuesday", periods: [] },
+    { day: "Wednesday", periods: [] },
+    { day: "Thursday", periods: [] },
+    { day: "Friday", periods: [] },
+    { day: "Saturday", periods: [] },
+  ]);
 
-  // Fix the auto-scroll to selected day
+  // Fetch timetable data when day changes
+  const fetchTimetable = useCallback(async () => {
+    if (!sectionId) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await fetchSectionTimetable(sectionId, selectedDay);
+
+      setTimetableData((prev) =>
+        prev.map((dayData) => {
+          if (dayData.day === selectedDay) {
+            return { ...dayData, periods: data };
+          }
+          return dayData;
+        })
+      );
+    } catch (err) {
+      console.error("Failed to fetch timetable data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sectionId, selectedDay]);
+
   useEffect(() => {
-    // Find the index of today's day in the timetable data
+    fetchTimetable();
+  }, [fetchTimetable]);
+
+  useEffect(() => {
     const todayIndex = timetableData.findIndex(
       (day) => day.day === selectedDay
     );
 
-    // Calculate approximate scroll position (each button is about 100-120px wide)
     if (todayIndex >= 0 && daysScrollViewRef.current) {
-      // Increase timeout to ensure the ScrollView is fully rendered
       setTimeout(() => {
         daysScrollViewRef.current?.scrollTo({
-          x: todayIndex * 80, // Adjusted width for more accurate positioning
-          animated: true, // Set to false initially to avoid animation conflicts
+          x: todayIndex * 80,
+          animated: true,
         });
-      }, 100); // Increased timeout for better reliability
+      }, 100);
     }
-  }, [selectedDay]);
+  }, [selectedDay, timetableData]);
 
   const togglePeriodExpansion = (periodId: string) => {
     setExpandedPeriods((prev) => {
@@ -90,248 +117,6 @@ export default function ChildTimetable({ childId }: Props) {
       return newSet;
     });
   };
-
-  const timetableData: DaySchedule[] = [
-    {
-      day: "Monday",
-      periods: [
-        {
-          id: "m1",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "08:00 - 09:30",
-          color: "#4CAF50",
-          topic: "Algebra",
-        },
-        {
-          id: "m2",
-          subject: "English",
-          teacher: "Mr. Johnson",
-          time: "09:45 - 11:15",
-          color: "#2196F3",
-          topic: "Grammar",
-        },
-        {
-          id: "m3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "m4",
-          subject: "Science",
-          teacher: "Mrs. Davis",
-          time: "12:00 - 13:30",
-          color: "#9C27B0",
-          topic: "Physics",
-        },
-        {
-          id: "m5",
-          subject: "Physical Education",
-          teacher: "Mr. Thompson",
-          time: "13:45 - 15:15",
-          color: "#FF9800",
-          topic: "Basketball",
-        },
-      ],
-    },
-    {
-      day: "Tuesday",
-      periods: [
-        {
-          id: "t1",
-          subject: "History",
-          teacher: "Mr. Wilson",
-          time: "08:00 - 09:30",
-          color: "#795548",
-          topic: "World War II",
-        },
-        {
-          id: "t2",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "09:45 - 11:15",
-          color: "#4CAF50",
-          topic: "Geometry",
-        },
-        {
-          id: "t3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "t4",
-          subject: "Art",
-          teacher: "Ms. Garcia",
-          time: "12:00 - 13:30",
-          color: "#FF5722",
-          topic: "Painting",
-        },
-        {
-          id: "t5",
-          subject: "English",
-          teacher: "Mr. Johnson",
-          time: "13:45 - 15:15",
-          color: "#2196F3",
-          topic: "Literature",
-        },
-      ],
-    },
-    {
-      day: "Wednesday",
-      periods: [
-        {
-          id: "w1",
-          subject: "Science",
-          teacher: "Mrs. Davis",
-          time: "08:00 - 09:30",
-          color: "#9C27B0",
-          topic: "Chemistry",
-        },
-        {
-          id: "w2",
-          subject: "Music",
-          teacher: "Mr. Martinez",
-          time: "09:45 - 11:15",
-          color: "#E91E63",
-          topic: "Classical Music",
-        },
-        {
-          id: "w3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "w4",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "12:00 - 13:30",
-          color: "#4CAF50",
-          topic: "Trigonometry",
-        },
-        {
-          id: "w5",
-          subject: "Computer Science",
-          teacher: "Mr. Lee",
-          time: "13:45 - 15:15",
-          color: "#00BCD4",
-          topic: "Programming",
-        },
-      ],
-    },
-    {
-      day: "Thursday",
-      periods: [
-        {
-          id: "th1",
-          subject: "English",
-          teacher: "Mr. Johnson",
-          time: "08:00 - 09:30",
-          color: "#2196F3",
-          topic: "Essay Writing",
-        },
-        {
-          id: "th2",
-          subject: "Social Studies",
-          teacher: "Mrs. Anderson",
-          time: "09:45 - 11:15",
-          color: "#607D8B",
-          topic: "Civics",
-        },
-        {
-          id: "th3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "th4",
-          subject: "Science",
-          teacher: "Mrs. Davis",
-          time: "12:00 - 13:30",
-          color: "#9C27B0",
-          topic: "Biology",
-        },
-        {
-          id: "th5",
-          subject: "Study Hall",
-          teacher: "Ms. Taylor",
-          time: "13:45 - 15:15",
-          color: "#3F51B5",
-        },
-      ],
-    },
-    {
-      day: "Friday",
-      periods: [
-        {
-          id: "f1",
-          subject: "Mathematics",
-          teacher: "Mrs. Smith",
-          time: "08:00 - 09:30",
-          color: "#4CAF50",
-          topic: "Statistics",
-        },
-        {
-          id: "f2",
-          subject: "Language",
-          teacher: "Ms. Rodriguez",
-          time: "09:45 - 11:15",
-          color: "#009688",
-          topic: "Spanish",
-        },
-        {
-          id: "f3",
-          subject: "Lunch Break",
-          teacher: "",
-          time: "11:15 - 12:00",
-          color: "#9E9E9E",
-        },
-        {
-          id: "f4",
-          subject: "Health",
-          teacher: "Mrs. White",
-          time: "12:00 - 13:30",
-          color: "#F44336",
-          topic: "Nutrition",
-        },
-        {
-          id: "f5",
-          subject: "Club Activities",
-          teacher: "Various",
-          time: "13:45 - 15:15",
-          color: "#CDDC39",
-        },
-      ],
-    },
-    {
-      day: "Saturday",
-      periods: [
-        {
-          id: "s1",
-          subject: "Extra Mathematics",
-          teacher: "Mrs. Smith",
-          time: "09:00 - 10:30",
-          color: "#4CAF50",
-          topic: "Advanced Algebra",
-        },
-        {
-          id: "s2",
-          subject: "Art Club",
-          teacher: "Ms. Garcia",
-          time: "10:45 - 12:15",
-          color: "#FF5722",
-          topic: "Sketching",
-        },
-      ],
-    },
-  ];
 
   const currentSchedule = timetableData.find(
     (item) => item.day === selectedDay
@@ -349,6 +134,13 @@ export default function ChildTimetable({ childId }: Props) {
           </TouchableOpacity>
           <Text style={styles.title}>School Timetable</Text>
         </View>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={fetchTimetable}
+          disabled={isLoading}
+        >
+          <MaterialCommunityIcons name="sync" size={18} color={primary} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.daysOuterContainer}>
@@ -384,54 +176,86 @@ export default function ChildTimetable({ childId }: Props) {
         style={styles.scheduleContainer}
         contentContainerStyle={styles.scheduleContentContainer}
       >
-        {currentSchedule?.periods.map((period) => {
-          const isExpanded = expandedPeriods.has(period.id);
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={primary} />
+            <Text style={styles.loadingText}>Loading timetable...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <MaterialCommunityIcons
+              name="alert-circle-outline"
+              size={50}
+              color="#F44336"
+            />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={fetchTimetable}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : currentSchedule?.periods && currentSchedule.periods.length > 0 ? (
+          currentSchedule.periods.map((period) => {
+            const isExpanded = expandedPeriods.has(period.id);
 
-          return (
-            <View key={period.id} style={styles.periodCard}>
-              <View
-                style={[styles.periodColor, { backgroundColor: period.color }]}
-              />
-              <View style={styles.periodTimeContainer}>
-                <Text style={styles.periodTime}>{period.time}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.periodDetails}
-                activeOpacity={0.7}
-                onPress={() => togglePeriodExpansion(period.id)}
-              >
-                <View style={styles.subjectContainer}>
-                  <Text style={styles.periodSubject}>{period.subject}</Text>
-                  <MaterialCommunityIcons
-                    name={isExpanded ? "chevron-up" : "chevron-down"}
-                    size={18}
-                    color="#666"
-                  />
+            return (
+              <View key={period.id} style={styles.periodCard}>
+                <View
+                  style={[
+                    styles.periodColor,
+                    { backgroundColor: period.color },
+                  ]}
+                />
+                <View style={styles.periodTimeContainer}>
+                  <Text style={styles.periodTime}>{period.time}</Text>
                 </View>
-
-                {period.teacher && (
-                  <Text style={styles.periodTeacher}>
+                <TouchableOpacity
+                  style={styles.periodDetails}
+                  activeOpacity={0.7}
+                  onPress={() => togglePeriodExpansion(period.id)}
+                >
+                  <View style={styles.subjectContainer}>
+                    <Text style={styles.periodSubject}>{period.subject}</Text>
                     <MaterialCommunityIcons
-                      name="account-outline"
-                      size={14}
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={18}
                       color="#666"
-                    />{" "}
-                    {period.teacher}
-                  </Text>
-                )}
-
-                {isExpanded && (
-                  <View style={styles.topicContainer}>
-                    <Text style={styles.topicLabel}>Topic:</Text>
-                    <Text style={styles.topicText}>
-                      {period.topic || "No topic specified for this period"}
-                    </Text>
+                    />
                   </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          );
-        })}
+
+                  {period.teacher && (
+                    <Text style={styles.periodTeacher}>
+                      <MaterialCommunityIcons
+                        name="account-outline"
+                        size={14}
+                        color="#666"
+                      />{" "}
+                      {period.teacher}
+                    </Text>
+                  )}
+
+                  {isExpanded && (
+                    <View style={styles.topicContainer}>
+                      <Text style={styles.topicLabel}>Topic:</Text>
+                      <Text style={styles.topicText}>
+                        {period.topic || "No topic specified for this period"}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        ) : (
+          <View style={styles.noScheduleContainer}>
+            <MaterialCommunityIcons name="timetable" size={50} color="#ddd" />
+            <Text style={styles.noScheduleText}>
+              No classes scheduled for {selectedDay}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -447,6 +271,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   titleContainer: {
     flexDirection: "row",
@@ -460,6 +287,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
+  },
+  refreshButton: {
+    padding: 8,
   },
   daysOuterContainer: {
     height: 60,
@@ -567,5 +397,54 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#333",
     lineHeight: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  errorText: {
+    marginVertical: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: primary,
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
+  },
+  noScheduleContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 50,
+  },
+  noScheduleText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#999",
   },
 });

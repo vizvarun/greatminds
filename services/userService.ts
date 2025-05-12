@@ -36,14 +36,27 @@ export const getStudentProfiles = async (
   studentIds: number[]
 ): Promise<StudentProfile[]> => {
   try {
+    if (!studentIds || studentIds.length === 0) {
+      return [];
+    }
+
     // Use Promise.all to fetch multiple student profiles in parallel
     const profilePromises = studentIds.map((studentId) =>
-      getStudentProfile(userId, studentId)
+      getStudentProfile(userId, studentId).catch((error) => {
+        console.error(
+          `Error fetching profile for student ${studentId}:`,
+          error
+        );
+        // Return a null value that can be filtered out
+        return null;
+      })
     );
 
-    return await Promise.all(profilePromises);
+    const profiles = await Promise.all(profilePromises);
+    // Filter out any null profiles from failed requests
+    return profiles.filter((profile) => profile !== null);
   } catch (error) {
-    console.error("Error fetching student profiles:", error);
+    console.error("Error fetching student profiles:", error, error?.response);
     throw error;
   }
 };
