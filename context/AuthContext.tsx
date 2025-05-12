@@ -40,7 +40,7 @@ type AuthContextType = {
   setUserRole: (role: UserRole) => Promise<void>;
   clearError: () => void;
   getUserProfileAndNavigationTarget: (userId: number) => Promise<string>;
-  refreshUserProfile: () => Promise<void>;
+  refreshUserProfile: () => Promise<UserProfile | null>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -60,8 +60,8 @@ const AuthContext = createContext<AuthContextType>({
   setPhoneNumber: () => {},
   setUserRole: async () => {},
   clearError: () => {},
-  getUserProfileAndNavigationTarget: async () => "role-select",
-  refreshUserProfile: async () => {},
+  getUserProfileAndNavigationTarget: async () => "",
+  refreshUserProfile: async () => null,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -283,7 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return "dev_" + Math.random().toString(36).substring(2, 15);
   };
 
-  const refreshUserProfile = async () => {
+  const refreshUserProfile = async (): Promise<UserProfile | null> => {
     try {
       const userData = await AsyncStorage.getItem("userData");
       if (userData) {
@@ -302,12 +302,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               setStudentProfiles(profiles);
             } catch (profileError: any) {
               console.error("Error fetching student profiles:", profileError);
+
+              const errorMessage =
+                profileError.errorDetail ||
+                profileError.response?.data?.detail ||
+                profileError.response?.data?.message ||
+                "Failed to load student profile data. Please try again later.";
+
               setCustomAlert({
                 visible: true,
                 title: "Student Profile Error",
-                message:
-                  profileError.response?.data?.message ||
-                  "Failed to load student profile data. Please try again later.",
+                message: errorMessage,
                 type: "error",
                 onConfirm: () => {
                   setCustomAlert(null);
@@ -334,6 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoading(false);
     }
+    return null;
   };
 
   const getUserProfileAndNavigationTarget = async (
@@ -365,12 +371,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           setStudentProfiles(profiles);
         } catch (profileError: any) {
           console.error("Error fetching student profiles:", profileError);
+
+          const errorMessage =
+            profileError.errorDetail ||
+            profileError.response?.data?.detail ||
+            profileError.response?.data?.message ||
+            "Failed to load student profile data. Please try again later.";
+
           setCustomAlert({
             visible: true,
             title: "Student Profile Error",
-            message:
-              profileError.response?.data?.message ||
-              "Failed to load student profile data. Please try again later.",
+            message: errorMessage,
             type: "error",
             onConfirm: () => {
               setCustomAlert(null);
