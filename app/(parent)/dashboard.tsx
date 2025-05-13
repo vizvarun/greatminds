@@ -197,7 +197,7 @@ export default function ParentDashboard() {
                     </View>
                   </View>
 
-                  <View style={styles.infoRow}>
+                  {/* <View style={styles.infoRow}>
                     <View
                       style={[
                         styles.infoTag,
@@ -241,7 +241,7 @@ export default function ParentDashboard() {
                         {isPresent ? "Present today" : "Absent today"}
                       </Text>
                     </View>
-                  </View>
+                  </View> */}
 
                   <View style={styles.actionGrid}>
                     <TouchableOpacity
