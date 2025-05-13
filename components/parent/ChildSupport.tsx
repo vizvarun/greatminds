@@ -20,6 +20,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import { router } from "expo-router";
+import { getSectionId } from "@/utils/sectionUtils";
 
 type Props = {
   childId: string;
@@ -490,6 +491,15 @@ export default function ChildSupport({ childId, showAlert }: Props) {
       return pastTickets;
     }
     return pastTickets.filter((ticket) => ticket.status === statusFilter);
+  };
+
+  const fetchChildSectionData = async () => {
+    try {
+      const sectionId = getSectionId(childSectionDetail);
+      // Use sectionId for API calls
+    } catch (error) {
+      console.error("Error fetching section data:", error);
+    }
   };
 
   return (

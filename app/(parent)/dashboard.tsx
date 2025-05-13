@@ -18,6 +18,7 @@ import {
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getSectionId } from "@/utils/sectionUtils";
 
 export default function ParentDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -29,16 +30,6 @@ export default function ParentDashboard() {
   });
 
   const { studentProfiles, refreshUserProfile, isLoading } = useAuth();
-
-  const getSectionId = useCallback((sectionDetail: any) => {
-    if (!sectionDetail) return "";
-    return (
-      sectionDetail.sectionid?.toString() ||
-      sectionDetail.id?.toString() ||
-      sectionDetail.section_id?.toString() ||
-      ""
-    );
-  }, []);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -187,7 +178,7 @@ export default function ParentDashboard() {
 
               return (
                 <View
-                  key={studentWithSection.uniqueId}
+                  key={getSectionId(studentWithSection.currentSectionDetail)}
                   style={styles.studentCard}
                 >
                   <View style={styles.cardHeader}>

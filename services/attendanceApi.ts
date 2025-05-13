@@ -242,3 +242,54 @@ export const updateSectionAttendance = async (
     throw error;
   }
 };
+
+// Define interface for attendance response
+interface StudentAttendanceResponse {
+  attendance: Array<{
+    id: number;
+    sectionid: number;
+    studentid: number;
+    attendance: string; // "PR", "AB", "LE", etc.
+    remarks: string;
+    date: string;
+    createdat: string;
+    updatedat: string | null;
+    deletedat: string | null;
+  }>;
+}
+
+/**
+ * Fetch attendance data for a specific student
+ * @param userId - User ID (parent/guardian)
+ * @param studentId - Student ID
+ * @param sectionId - Section ID
+ * @param month - Month (1-12)
+ * @param year - Year (e.g., 2025)
+ * @returns Array of attendance records
+ */
+export const fetchStudentAttendance = async (
+  userId: string | number,
+  studentId: string | number,
+  sectionId: string | number,
+  month: string | number,
+  year: string | number
+): Promise<StudentAttendanceResponse> => {
+  try {
+    const response = await api.get<StudentAttendanceResponse>(
+      "/students/attendance",
+      {
+        params: {
+          user_id: userId,
+          student_id: studentId,
+          section_id: sectionId,
+          month: month,
+          year: year,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching student attendance:", error);
+    throw error;
+  }
+};

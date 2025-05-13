@@ -17,6 +17,7 @@ import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import InitialsAvatar from "@/components/ui/InitialsAvatar";
 import CustomAlert from "@/components/ui/CustomAlert";
+import { getSectionId } from "@/utils/sectionUtils";
 
 export default function StudentDetailScreen() {
   // Get sectionId from URL params
@@ -41,10 +42,7 @@ export default function StudentDetailScreen() {
       // Find the specific section detail based on sectionId parameter
       if (foundStudent?.section_details && sectionId) {
         const matchingSectionDetail = foundStudent.section_details.find(
-          (detail: any) =>
-            detail.sectionid?.toString() === sectionId ||
-            detail.id?.toString() === sectionId ||
-            detail.section_id?.toString() === sectionId
+          (detail: any) => getSectionId(detail) === sectionId
         );
         setCurrentSectionDetail(
           matchingSectionDetail || foundStudent.section_details[0]
@@ -91,6 +89,13 @@ export default function StudentDetailScreen() {
 
   const hideAlert = () => {
     setAlert((prev) => ({ ...prev, visible: false }));
+  };
+
+  const navigateToAttendance = () => {
+    const correctSectionId = getSectionId(currentSectionDetail);
+    router.push(
+      `/(parent)/children/attendance/${id}?sectionId=${correctSectionId}`
+    );
   };
 
   if (loading) {
@@ -217,7 +222,7 @@ export default function StudentDetailScreen() {
           <View style={styles.quickActions}>
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => router.push(`/(parent)/children/attendance/${id}`)}
+              onPress={navigateToAttendance}
             >
               <MaterialCommunityIcons
                 name="clipboard-check"

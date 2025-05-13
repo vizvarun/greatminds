@@ -5,12 +5,15 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import { router, useLocalSearchParams } from "expo-router";
+import { fetchStudentAttendance } from "@/services/attendanceApi";
+import { useAuth } from "@/context/AuthContext";
 
 type Props = {
   childId: string;
@@ -23,8 +26,9 @@ type Props = {
 
 type AttendanceData = {
   [date: string]: {
-    status: "present" | "absent" | "late" | "leave" | "holiday";
+    status: "present" | "absent" | "leave" | "holiday";
     marked: boolean;
+    remarks?: string;
   };
 };
 
@@ -33,131 +37,92 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
     "calendar"
   );
   const params = useLocalSearchParams();
+  const { userProfile } = useAuth();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Define brighter color constants that are more visible while still somewhat subtle
   const statusColors = {
     present: "#4CAF50", // Brighter Green
     absent: "#FF5252", // Brighter Red
-    late: "#FF9800", // Orange
     leave: "#9C27B0", // Purple
     holiday: "#2196F3", // Blue
   };
 
-  const [attendanceData, setAttendanceData] = useState<AttendanceData>({
-    // Current month - Comprehensive dummy data
-    [normalizeDate(new Date())]: { status: "present", marked: true }, // Today
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 1)))]: {
-      status: "absent",
-      marked: true,
-    }, // Yesterday
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 2)))]: {
-      status: "late",
-      marked: true,
-    }, // Day before yesterday
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 3)))]: {
-      status: "leave",
-      marked: true,
-    }, // 3 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 4)))]: {
-      status: "holiday",
-      marked: true,
-    }, // 4 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 5)))]: {
-      status: "present",
-      marked: true,
-    }, // 5 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 6)))]: {
-      status: "present",
-      marked: true,
-    }, // 6 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 7)))]: {
-      status: "present",
-      marked: true,
-    }, // 7 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 8)))]: {
-      status: "absent",
-      marked: true,
-    }, // 8 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 9)))]: {
-      status: "present",
-      marked: true,
-    }, // 9 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 10)))]: {
-      status: "late",
-      marked: true,
-    }, // 10 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 11)))]: {
-      status: "present",
-      marked: true,
-    }, // 11 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 12)))]: {
-      status: "present",
-      marked: true,
-    }, // 12 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 13)))]: {
-      status: "leave",
-      marked: true,
-    }, // 13 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 14)))]: {
-      status: "leave",
-      marked: true,
-    }, // 14 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 15)))]: {
-      status: "present",
-      marked: true,
-    }, // 15 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 16)))]: {
-      status: "holiday",
-      marked: true,
-    }, // 16 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 17)))]: {
-      status: "present",
-      marked: true,
-    }, // 17 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 18)))]: {
-      status: "present",
-      marked: true,
-    }, // 18 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 19)))]: {
-      status: "absent",
-      marked: true,
-    }, // 19 days ago
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() - 20)))]: {
-      status: "present",
-      marked: true,
-    }, // 20 days ago
-
-    // Additional future planned absences/leaves
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 1)))]: {
-      status: "present",
-      marked: true,
-    },
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 2)))]: {
-      status: "absent",
-      marked: true,
-    },
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 3)))]: {
-      status: "late",
-      marked: true,
-    },
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 5)))]: {
-      status: "leave",
-      marked: true,
-    },
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 6)))]: {
-      status: "leave",
-      marked: true,
-    },
-    [normalizeDate(new Date(new Date().setDate(new Date().getDate() + 10)))]: {
-      status: "holiday",
-      marked: true,
-    },
-  });
+  const [attendanceData, setAttendanceData] = useState<AttendanceData>({});
 
   // Helper function to normalize date to YYYY-MM-DD format
   function normalizeDate(date: Date): string {
     return date.toISOString().split("T")[0];
   }
+
+  // Fetch attendance data
+  useEffect(() => {
+    const fetchAttendanceForCurrentMonth = async () => {
+      if (!childId) return;
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const currentDate = new Date();
+        const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+        const year = currentDate.getFullYear();
+
+        // Get section ID from student profile (or use params if available)
+        const sectionId = params.sectionId || "4"; // Default or get from context
+
+        // Get user ID from user profile or context
+        const userId = userProfile?.user?.id || "10"; // Default or get from context
+
+        const response = await fetchStudentAttendance(
+          userId,
+          childId,
+          sectionId,
+          month,
+          year
+        );
+
+        // Transform API response to the format needed by the calendar
+        const transformedData: AttendanceData = {};
+
+        response.attendance.forEach((record) => {
+          // Map API status codes to our UI status types
+          let status: "present" | "absent" | "leave" | "holiday";
+
+          switch (record.attendance) {
+            case "PR":
+              status = "present";
+              break;
+            case "AB":
+              status = "absent";
+              break;
+            case "LE":
+              status = "leave";
+              break;
+            default:
+              status = "present"; // Default fallback
+          }
+
+          transformedData[record.date] = {
+            status,
+            marked: true,
+            remarks: record.remarks,
+          };
+        });
+
+        setAttendanceData(transformedData);
+      } catch (err) {
+        console.error("Failed to fetch attendance data:", err);
+        setError("Failed to load attendance data. Please try again.");
+        showAlert("Error", "Failed to load attendance data", "error");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAttendanceForCurrentMonth();
+  }, [childId, params.sectionId, userProfile]);
 
   // Enhanced rendering for calendar days with brighter colors
   const renderDay = (day: any, item: any) => {
@@ -246,7 +211,6 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
     const counts = {
       present: 0,
       absent: 0,
-      late: 0,
       leave: 0,
       total: 0,
     };
@@ -263,8 +227,18 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
 
   const stats = getStatsCounts();
   const attendancePercentage = stats.total
-    ? Math.round(((stats.present + stats.late) / stats.total) * 100)
+    ? Math.round((stats.present / stats.total) * 100)
     : 0;
+
+  // Render loading state
+  if (isLoading && Object.keys(attendanceData).length === 0) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={primary} />
+        <Text style={styles.loadingText}>Loading attendance data...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -324,108 +298,116 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
 
       {activeView === "calendar" ? (
         <ScrollView>
-          <View style={styles.calendarContainer}>
-            <Calendar
-              markingType="custom"
-              markedDates={getMarkedDates()}
-              hideExtraDays={true}
-              enableSwipeMonths={true}
-              renderDay={renderDay}
-              theme={{
-                calendarBackground: "#fff",
-                todayTextColor: primary,
-                arrowColor: primary,
-                monthTextColor: "#333",
-                textDayFontFamily: Typography.fontFamily.primary,
-                textMonthFontFamily: Typography.fontWeight.semiBold.primary,
-                textDayHeaderFontFamily: Typography.fontWeight.medium.primary,
-                "stylesheet.day.basic": {
-                  base: {
-                    width: 40,
-                    height: 40,
-                    alignItems: "center",
-                    justifyContent: "center",
+          {error ? (
+            <View style={styles.errorContainer}>
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={50}
+                color="#F44336"
+              />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => fetchAttendanceForCurrentMonth()}
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.calendarContainer}>
+              <Calendar
+                markingType="custom"
+                markedDates={getMarkedDates()}
+                hideExtraDays={true}
+                enableSwipeMonths={true}
+                renderDay={renderDay}
+                theme={{
+                  calendarBackground: "#fff",
+                  todayTextColor: primary,
+                  arrowColor: primary,
+                  monthTextColor: "#333",
+                  textDayFontFamily: Typography.fontFamily.primary,
+                  textMonthFontFamily: Typography.fontWeight.semiBold.primary,
+                  textDayHeaderFontFamily: Typography.fontWeight.medium.primary,
+                  "stylesheet.day.basic": {
+                    base: {
+                      width: 40,
+                      height: 40,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    },
                   },
-                },
-              }}
-            />
+                }}
+              />
 
-            <View style={styles.legendContainer}>
-              <Text style={styles.legendTitle}>Legend:</Text>
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: statusColors.present },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>Present</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: statusColors.absent },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>Absent</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: statusColors.late },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>Late</Text>
+              <View style={styles.legendContainer}>
+                <Text style={styles.legendTitle}>Legend:</Text>
+                <View style={styles.legendRow}>
+                  <View style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: statusColors.present },
+                      ]}
+                    />
+                    <Text style={styles.legendText}>Present</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: statusColors.absent },
+                      ]}
+                    />
+                    <Text style={styles.legendText}>Absent</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: statusColors.leave },
+                      ]}
+                    />
+                    <Text style={styles.legendText}>Leave</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: statusColors.holiday },
+                      ]}
+                    />
+                    <Text style={styles.legendText}>Holiday</Text>
+                  </View>
+                  <View style={styles.legendItem} />
                 </View>
               </View>
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: statusColors.leave },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>Leave</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: statusColors.holiday },
-                    ]}
-                  />
-                  <Text style={styles.legendText}>Holiday</Text>
-                </View>
-                <View style={styles.legendItem} />
-              </View>
-            </View>
 
-            <View style={styles.summaryContainer}>
-              <Text style={styles.summaryTitle}>Monthly Summary:</Text>
-              <View style={styles.summaryStats}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{attendancePercentage}%</Text>
-                  <Text style={styles.statLabel}>Attendance</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.present}</Text>
-                  <Text style={styles.statLabel}>Present</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.absent}</Text>
-                  <Text style={styles.statLabel}>Absent</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.leave}</Text>
-                  <Text style={styles.statLabel}>Leave</Text>
+              <View style={styles.summaryContainer}>
+                <Text style={styles.summaryTitle}>Monthly Summary:</Text>
+                <View style={styles.summaryStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                      {attendancePercentage}%
+                    </Text>
+                    <Text style={styles.statLabel}>Attendance</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{stats.present}</Text>
+                    <Text style={styles.statLabel}>Present</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{stats.absent}</Text>
+                    <Text style={styles.statLabel}>Absent</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{stats.leave}</Text>
+                    <Text style={styles.statLabel}>Leave</Text>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          )}
         </ScrollView>
       ) : (
         <ScrollView>
@@ -490,6 +472,47 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
     </View>
   );
 }
+
+const additionalStyles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    marginTop: 40,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#F44336",
+    fontFamily: Typography.fontWeight.medium.primary,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -579,13 +602,13 @@ const styles = StyleSheet.create({
   },
   legendRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start", // Changed from space-between to flex-start
     marginVertical: 4,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
+    marginRight: 24, // Added margin between items
   },
   legendDot: {
     width: 12,
@@ -707,4 +730,5 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
   },
+  ...additionalStyles,
 });
