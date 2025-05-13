@@ -59,3 +59,45 @@ export const logout = async (): Promise<void> => {
   await AsyncStorage.removeItem("refreshToken");
   // We're not removing userRole to remember preference when logging back in
 };
+
+// Validate authentication token
+export const validateToken = async (token: string): Promise<AuthResponse> => {
+  try {
+    const response = await api.post("/auth/validate-token", null, {
+      params: {
+        token,
+      },
+    });
+
+    console.log("Token validation response:", response.data);
+
+    // Make sure we store the fact that onboarding is completed for authenticated users
+    await AsyncStorage.setItem("hasCompletedOnboarding", "true");
+
+    // Preserve the existing role if available
+    const existingRole = await AsyncStorage.getItem("userRole");
+
+    // Convert response to match exactly what verifyOtp returns
+    // This ensures we can use the same post-authentication flow
+    return {
+      token: response.data.token,
+      refreshToken: response.data.token, // Use the same token as refresh token if not provided
+      user: {
+        id: response.data.user.id.toString(),
+        phoneNumber: response.data.user.mobileNo,
+        name:
+          response.data.user.firstName +
+          (response.data.user.lastName
+            ? " " + response.data.user.lastName
+            : ""),
+        email: response.data.user.email || "",
+        role: (existingRole as UserRole) || undefined, // Preserve existing role if available
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  } catch (error) {
+    console.error("Token validation error:", error);
+    throw error;
+  }
+};

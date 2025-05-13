@@ -101,26 +101,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const storedDeviceId = await AsyncStorage.getItem("deviceId");
 
         setHasCompletedOnboarding(onboardingStatus === "true");
-        setIsAuthenticated(!!authToken);
 
-        if (savedPhoneNumber) {
-          setPhoneNumber(savedPhoneNumber);
+        // Setup device ID
+        const currentDeviceId = storedDeviceId || generateDeviceId();
+        if (!storedDeviceId) {
+          await AsyncStorage.setItem("deviceId", currentDeviceId);
         }
+        setDeviceId(currentDeviceId);
 
-        if (role) {
-          setUserRoleState(role as UserRole);
-        }
+        // If we have a token, validate it and process just like OTP verification
+        if (authToken) {
+          try {
+            console.log("Found auth token, validating...");
 
-        if (storedDeviceId) {
-          setDeviceId(storedDeviceId);
+            // Immediately mark onboarding as completed for authenticated users
+            // This prevents the onboarding screen from flashing
+            await AsyncStorage.setItem("hasCompletedOnboarding", "true");
+            setHasCompletedOnboarding(true);
+
+            const response = await authService.validateToken(authToken);
+
+            if (response && response.token) {
+              console.log("Token is valid, processing user data");
+
+              // Store the updated token
+              await AsyncStorage.setItem("authToken", response.token);
+
+              // If we have phone number, store it
+              if (response.user && response.user.phoneNumber) {
+                await AsyncStorage.setItem(
+                  "phoneNumber",
+                  response.user.phoneNumber
+                );
+                setPhoneNumber(response.user.phoneNumber);
+              } else if (savedPhoneNumber) {
+                setPhoneNumber(savedPhoneNumber);
+              }
+
+              // Store user data - same as in OTP verification flow
+              if (response.user) {
+                await AsyncStorage.setItem(
+                  "userData",
+                  JSON.stringify(response.user)
+                );
+                console.log("User data stored:", response.user);
+              }
+
+              // Set user role if available
+              if (response.user && response.user.role) {
+                await AsyncStorage.setItem("userRole", response.user.role);
+                setUserRoleState(response.user.role);
+              } else if (role) {
+                setUserRoleState(role as UserRole);
+              }
+
+              // Set authenticated state
+              setIsAuthenticated(true);
+
+              // If user has an ID, fetch their profile and navigate appropriately
+              if (response.user && response.user.id) {
+                console.log("User has ID, fetching profile...");
+                setTimeout(async () => {
+                  try {
+                    const navigationTarget =
+                      await getUserProfileAndNavigationTarget(
+                        parseInt(response.user.id)
+                      );
+                    console.log("Auto-navigation target:", navigationTarget);
+
+                    // No need to set hasCompletedOnboarding again here since we did it at the beginning
+
+                    // Actively navigate based on the target instead of waiting for router
+                    if (navigationTarget === "role-select") {
+                      router.replace("/(auth)/role-select");
+                    } else if (navigationTarget === "parent") {
+                      setUserRoleState("parent");
+                      router.replace("/(parent)/dashboard");
+                    } else if (navigationTarget === "teacher") {
+                      setUserRoleState("teacher");
+                      router.replace("/(teacher)/dashboard");
+                    }
+                  } catch (profileError) {
+                    console.error("Error fetching user profile:", profileError);
+                  } finally {
+                    // Only set loading to false after navigation is triggered
+                    setIsLoading(false);
+                  }
+                }, 100); // Small delay to ensure auth state is fully set
+
+                // Keep loading true while authentication process completes
+                return; // Exit early to prevent setting isLoading=false in the outer finally block
+              }
+            }
+          } catch (error) {
+            console.error("Token validation failed:", error);
+            setIsAuthenticated(false);
+            await AsyncStorage.removeItem("authToken");
+          }
         } else {
-          const newDeviceId = generateDeviceId();
-          await AsyncStorage.setItem("deviceId", newDeviceId);
-          setDeviceId(newDeviceId);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error("Failed to load auth state:", error);
       } finally {
+        // Only set isLoading to false if we didn't return early during token validation
         setIsLoading(false);
       }
     };
