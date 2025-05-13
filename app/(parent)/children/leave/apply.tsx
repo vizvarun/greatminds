@@ -1,9 +1,13 @@
 import { primary } from "@/constants/Colors";
 import { Typography } from "@/constants/Typography";
+import { useAuth } from "@/context/AuthContext";
+import { submitLeaveRequest } from "@/services/attendanceApi";
+import CustomAlert from "@/components/ui/CustomAlert";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   InputAccessoryView,
   Keyboard,
@@ -21,14 +25,29 @@ import { Calendar, DateData } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ApplyLeaveScreen() {
-  const { childId } = useLocalSearchParams<{ childId: string }>();
+  const { childId, sectionId } = useLocalSearchParams<{
+    childId: string;
+    sectionId: string;
+  }>();
+  const { userProfile } = useAuth();
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [leaveReason, setLeaveReason] = useState("");
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const inputAccessoryViewID = "leaveReasonInput";
+
+  const [alert, setAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info" as "success" | "error" | "info" | "warning",
+  });
+
+  // Get today's date in YYYY-MM-DD format for min date
+  const todayString = new Date().toISOString().split("T")[0];
 
   // Listen for keyboard events
   useEffect(() => {
@@ -91,6 +110,15 @@ export default function ApplyLeaveScreen() {
   }, [selectedDates]);
 
   const onDayPress = (day: DateData) => {
+    // Additional validation to prevent selecting past dates
+    const selectedDate = new Date(day.dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time part for accurate date comparison
+
+    if (selectedDate < today) {
+      return; // Ignore selection of past dates
+    }
+
     if (selectedDates.includes(day.dateString)) {
       setSelectedDates(selectedDates.filter((date) => date !== day.dateString));
     } else {
@@ -105,18 +133,65 @@ export default function ApplyLeaveScreen() {
     }
   };
 
-  const confirmAndSubmitLeave = () => {
-    // Close modal
-    setShowConfirmationModal(false);
-
-    // Navigate back to the previous screen
-    router.back();
-
-    // Show success alert (this needs to be handled by the parent component)
-    router.setParams({
-      leaveApplied: "true",
-      selectedDates: selectedDates.join(","),
+  const showAlert = (
+    title: string,
+    message: string,
+    type: "success" | "error" | "info" | "warning" = "info"
+  ) => {
+    setAlert({
+      visible: true,
+      title,
+      message,
+      type,
     });
+  };
+
+  const hideAlert = () => {
+    setAlert((prev) => ({ ...prev, visible: false }));
+  };
+
+  const confirmAndSubmitLeave = async () => {
+    try {
+      setIsSubmitting(true);
+
+      // Get necessary IDs
+      const userId = userProfile?.user?.id;
+
+      if (!userId || !childId || !sectionId) {
+        throw new Error("Missing required information");
+      }
+
+      // Submit the leave request
+      await submitLeaveRequest(
+        childId,
+        sectionId,
+        selectedDates,
+        leaveReason, // This can now be empty
+        userId
+      );
+
+      // Close modal and navigate back
+      setShowConfirmationModal(false);
+
+      // Navigate back showing success through URL params
+      router.back();
+
+      // Set params for the parent screen to show success message
+      router.setParams({
+        leaveApplied: "true",
+        selectedDates: selectedDates.join(","),
+      });
+    } catch (error) {
+      console.error("Failed to submit leave request:", error);
+      setShowConfirmationModal(false);
+      showAlert(
+        "Error",
+        "Failed to submit leave request. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -151,9 +226,12 @@ export default function ApplyLeaveScreen() {
           <Calendar
             onDayPress={onDayPress}
             markedDates={getMarkedDates()}
+            minDate={todayString} // Set minimum date to today
             theme={{
               selectedDayBackgroundColor: primary,
               todayTextColor: primary,
+              // Visually indicate past dates are disabled
+              textDisabledColor: "#d9e1e8",
             }}
           />
 
@@ -310,21 +388,39 @@ export default function ApplyLeaveScreen() {
                 <TouchableOpacity
                   style={styles.modalCancelButton}
                   onPress={() => setShowConfirmationModal(false)}
+                  disabled={isSubmitting}
                 >
                   <Text style={styles.modalCancelButtonText}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.modalConfirmButton}
+                  style={[
+                    styles.modalConfirmButton,
+                    isSubmitting && styles.disabledButton,
+                  ]}
                   onPress={confirmAndSubmitLeave}
+                  disabled={isSubmitting}
                 >
-                  <Text style={styles.modalConfirmButtonText}>Confirm</Text>
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.modalConfirmButtonText}>Confirm</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
       </KeyboardAvoidingView>
+
+      {/* Alert component */}
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        type={alert.type}
+        onConfirm={hideAlert}
+      />
     </SafeAreaView>
   );
 }
@@ -401,7 +497,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   disabledButton: {
-    backgroundColor: "#ccc",
+    opacity: 0.7,
   },
   applyButtonText: {
     color: "#fff",

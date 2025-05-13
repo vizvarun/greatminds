@@ -293,3 +293,34 @@ export const fetchStudentAttendance = async (
     throw error;
   }
 };
+
+/**
+ * Submit a leave request for a student
+ * @param studentId - The ID of the student
+ * @param sectionId - The ID of the section
+ * @param leaveDates - Array of dates for leave
+ * @param reason - Reason for the leave (can be empty)
+ * @param userId - The ID of the user submitting the request
+ * @returns The API response data
+ */
+export const submitLeaveRequest = async (
+  studentId: number | string,
+  sectionId: number | string,
+  leaveDates: string[],
+  reason: string,
+  userId: number | string
+): Promise<any> => {
+  try {
+    const response = await api.post(`/student/leave-req`, {
+      student_id: Number(studentId),
+      section_id: Number(sectionId),
+      leave_date_list: leaveDates,
+      reason: reason || "", // Ensure empty string is sent if reason is null/undefined
+      user_id: Number(userId),
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error submitting leave request:", error);
+    throw error;
+  }
+};

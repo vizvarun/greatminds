@@ -204,7 +204,10 @@ export default function ChildAttendance({ childId, showAlert }: Props) {
 
   // Navigate to leave application screen
   const handleApplyLeavePress = () => {
-    router.push(`/children/leave/apply?childId=${childId}`);
+    const sectionIdParam = params.sectionId || "";
+    router.push(
+      `/children/leave/apply?childId=${childId}&sectionId=${sectionIdParam}`
+    );
   };
 
   const getStatsCounts = () => {
