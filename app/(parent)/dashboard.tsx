@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ParentDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -28,6 +29,16 @@ export default function ParentDashboard() {
   });
 
   const { studentProfiles, refreshUserProfile, isLoading } = useAuth();
+
+  const getSectionId = useCallback((sectionDetail: any) => {
+    if (!sectionDetail) return "";
+    return (
+      sectionDetail.sectionid?.toString() ||
+      sectionDetail.id?.toString() ||
+      sectionDetail.section_id?.toString() ||
+      ""
+    );
+  }, []);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -53,17 +64,41 @@ export default function ParentDashboard() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
-  const navigateToAttendance = (childId: string) => {
-    router.push(`/(parent)/children/attendance/${childId}`);
-  };
+  const navigateToAttendance = useCallback(
+    (studentId: string, sectionId: string) => {
+      router.push(
+        `/(parent)/children/attendance/${studentId}?sectionId=${sectionId}`
+      );
+    },
+    []
+  );
 
-  const navigateToDiary = (childId: string) => {
-    router.push(`/(parent)/children/diary/${childId}`);
-  };
+  const navigateToDiary = useCallback(
+    (studentId: string, sectionId: string) => {
+      router.push(
+        `/(parent)/children/diary/${studentId}?sectionId=${sectionId}`
+      );
+    },
+    []
+  );
 
-  const navigateToTimetable = (childId: string) => {
-    router.push(`/(parent)/children/timetable/${childId}`);
-  };
+  const navigateToTimetable = useCallback(
+    (studentId: string, sectionId: string) => {
+      router.push(
+        `/(parent)/children/timetable/${studentId}?sectionId=${sectionId}`
+      );
+    },
+    []
+  );
+
+  const navigateToProfile = useCallback(
+    (studentId: string, sectionId: string) => {
+      router.push(
+        `/(parent)/children/details/${studentId}?sectionId=${sectionId}`
+      );
+    },
+    []
+  );
 
   const getAttendanceStatus = (student: any) => {
     return {
@@ -77,17 +112,43 @@ export default function ParentDashboard() {
     return [firstname, middlename, lastname].filter(Boolean).join(" ");
   };
 
-  const getSchoolClassInfo = (student: any) => {
-    if (!student?.section_details || student.section_details.length === 0) {
-      return "No school information";
+  const getSectionSchoolInfo = (studentWithSection: any) => {
+    if (!studentWithSection.currentSectionDetail) {
+      return "No section information available";
     }
 
-    const sectionDetails = student.section_details[0];
+    const sectionDetails = studentWithSection.currentSectionDetail;
     return `Grade ${sectionDetails.classname}-${sectionDetails.section} • ${sectionDetails.schoolname}`;
   };
 
+  const studentProfilesWithSections = React.useMemo(() => {
+    if (!studentProfiles || studentProfiles.length === 0) {
+      return [];
+    }
+
+    return studentProfiles.flatMap((student) => {
+      if (!student.section_details || student.section_details.length === 0) {
+        return [
+          {
+            ...student,
+            currentSectionDetail: null,
+            uniqueId: `${student.id}-null`,
+          },
+        ];
+      }
+
+      return student.section_details.map((sectionDetail) => ({
+        ...student,
+        currentSectionDetail: sectionDetail,
+        uniqueId: `${student.id}-${
+          sectionDetail.id || sectionDetail.section_id
+        }`,
+      }));
+    });
+  }, [studentProfiles]);
+
   return (
-    <View style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom"]}>
       <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.welcomeText}>Your Children</Text>
@@ -107,13 +168,15 @@ export default function ParentDashboard() {
             <ActivityIndicator size="large" color={primary} />
             <Text style={styles.loadingText}>Loading student profiles...</Text>
           </View>
-        ) : studentProfiles && studentProfiles.length > 0 ? (
+        ) : studentProfilesWithSections &&
+          studentProfilesWithSections.length > 0 ? (
           <View style={styles.cardsContainer}>
-            {studentProfiles.map((student) => {
-              console.log("Student Data: ", student);
-              const fullName = formatFullName(student);
-              const schoolInfo = getSchoolClassInfo(student);
-              const { isPresent, percentage } = getAttendanceStatus(student);
+            {studentProfilesWithSections.map((studentWithSection, index) => {
+              console.log("Student Section Data: ", studentWithSection);
+              const fullName = formatFullName(studentWithSection);
+              const schoolInfo = getSectionSchoolInfo(studentWithSection);
+              const { isPresent, percentage } =
+                getAttendanceStatus(studentWithSection);
 
               const attendanceColor =
                 percentage >= 90
@@ -123,12 +186,15 @@ export default function ParentDashboard() {
                   : "#F44336";
 
               return (
-                <View key={student.id} style={styles.studentCard}>
+                <View
+                  key={studentWithSection.uniqueId}
+                  style={styles.studentCard}
+                >
                   <View style={styles.cardHeader}>
                     <InitialsAvatar
                       name={fullName}
                       size={60}
-                      imageUri={student.student.profilePicUrl}
+                      imageUri={studentWithSection.student.profilePicUrl}
                       style={styles.avatar}
                     />
 
@@ -190,7 +256,10 @@ export default function ParentDashboard() {
                     <TouchableOpacity
                       style={styles.actionTile}
                       onPress={() =>
-                        router.push(`/(parent)/children/details/${student.id}`)
+                        navigateToProfile(
+                          studentWithSection.id.toString(),
+                          getSectionId(studentWithSection.currentSectionDetail)
+                        )
                       }
                     >
                       <View
@@ -211,7 +280,10 @@ export default function ParentDashboard() {
                     <TouchableOpacity
                       style={styles.actionTile}
                       onPress={() =>
-                        navigateToAttendance(student.id.toString())
+                        navigateToAttendance(
+                          studentWithSection.id.toString(),
+                          getSectionId(studentWithSection.currentSectionDetail)
+                        )
                       }
                     >
                       <View
@@ -231,7 +303,12 @@ export default function ParentDashboard() {
 
                     <TouchableOpacity
                       style={styles.actionTile}
-                      onPress={() => navigateToDiary(student.id.toString())}
+                      onPress={() =>
+                        navigateToDiary(
+                          studentWithSection.id.toString(),
+                          getSectionId(studentWithSection.currentSectionDetail)
+                        )
+                      }
                     >
                       <View
                         style={[
@@ -250,7 +327,12 @@ export default function ParentDashboard() {
 
                     <TouchableOpacity
                       style={styles.actionTile}
-                      onPress={() => navigateToTimetable(student.id.toString())}
+                      onPress={() =>
+                        navigateToTimetable(
+                          studentWithSection.id.toString(),
+                          getSectionId(studentWithSection.currentSectionDetail)
+                        )
+                      }
                     >
                       <View
                         style={[
@@ -270,7 +352,13 @@ export default function ParentDashboard() {
                     <TouchableOpacity
                       style={styles.actionTile}
                       onPress={() =>
-                        router.push(`/(parent)/children/fees/${student.id}`)
+                        router.push(
+                          `/(parent)/children/fees/${
+                            studentWithSection.id
+                          }?sectionId=${getSectionId(
+                            studentWithSection.currentSectionDetail
+                          )}`
+                        )
                       }
                     >
                       <View
@@ -291,7 +379,13 @@ export default function ParentDashboard() {
                     <TouchableOpacity
                       style={styles.actionTile}
                       onPress={() =>
-                        router.push(`/(parent)/children/support/${student.id}`)
+                        router.push(
+                          `/(parent)/children/support/${
+                            studentWithSection.id
+                          }?sectionId=${getSectionId(
+                            studentWithSection.currentSectionDetail
+                          )}`
+                        )
                       }
                     >
                       <View
@@ -335,7 +429,7 @@ export default function ParentDashboard() {
           onConfirm={hideAlert}
         />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

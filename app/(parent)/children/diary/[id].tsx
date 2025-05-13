@@ -3,27 +3,13 @@ import CustomAlert from "@/components/ui/CustomAlert";
 import { Typography } from "@/constants/Typography";
 import { useAuth } from "@/context/AuthContext";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ChildDiaryScreen() {
-  const { id } = useLocalSearchParams();
+  const { id, sectionId } = useLocalSearchParams();
   const { studentProfiles } = useAuth();
-  const [sectionId, setSectionId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (studentProfiles && studentProfiles.length > 0) {
-      const foundStudent = studentProfiles.find((s) => s.id.toString() === id);
-
-      if (
-        foundStudent?.section_details &&
-        foundStudent.section_details.length > 0
-      ) {
-        setSectionId(foundStudent.section_details[0].sectionid.toString());
-      }
-    }
-  }, [id, studentProfiles]);
 
   const [alert, setAlert] = useState({
     visible: false,

@@ -19,10 +19,13 @@ import InitialsAvatar from "@/components/ui/InitialsAvatar";
 import CustomAlert from "@/components/ui/CustomAlert";
 
 export default function StudentDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // Get sectionId from URL params
+  const { id, sectionId } = useLocalSearchParams();
+
   const { studentProfiles } = useAuth();
   const [loading, setLoading] = useState(true);
   const [student, setStudent] = useState<any>(null);
+  const [currentSectionDetail, setCurrentSectionDetail] = useState<any>(null);
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -34,9 +37,22 @@ export default function StudentDetailScreen() {
     if (studentProfiles && studentProfiles.length > 0) {
       const foundStudent = studentProfiles.find((s) => s.id.toString() === id);
       setStudent(foundStudent);
+
+      // Find the specific section detail based on sectionId parameter
+      if (foundStudent?.section_details && sectionId) {
+        const matchingSectionDetail = foundStudent.section_details.find(
+          (detail: any) =>
+            detail.sectionid?.toString() === sectionId ||
+            detail.id?.toString() === sectionId ||
+            detail.section_id?.toString() === sectionId
+        );
+        setCurrentSectionDetail(
+          matchingSectionDetail || foundStudent.section_details[0]
+        );
+      }
     }
     setLoading(false);
-  }, [id, studentProfiles]);
+  }, [id, sectionId, studentProfiles]);
 
   const formatFullName = (studentData: any) => {
     if (!studentData?.student) return "";
@@ -45,10 +61,7 @@ export default function StudentDetailScreen() {
   };
 
   const getSchoolClassInfo = (studentData: any) => {
-    if (
-      !studentData?.section_details ||
-      studentData.section_details.length === 0
-    ) {
+    if (!currentSectionDetail) {
       return {
         school: "Not available",
         class: "Not available",
@@ -56,11 +69,10 @@ export default function StudentDetailScreen() {
       };
     }
 
-    const sectionDetails = studentData.section_details[0];
     return {
-      school: sectionDetails.schoolname || "Not available",
-      class: sectionDetails.classname || "Not available",
-      section: sectionDetails.section || "Not available",
+      school: currentSectionDetail.schoolname || "Not available",
+      class: currentSectionDetail.classname || "Not available",
+      section: currentSectionDetail.section || "Not available",
     };
   };
 
