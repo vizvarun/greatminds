@@ -151,12 +151,7 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.welcomeText}>
           Welcome, {userProfile?.user?.firstName || "Teacher"}!
