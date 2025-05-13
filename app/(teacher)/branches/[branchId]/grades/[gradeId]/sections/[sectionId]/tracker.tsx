@@ -18,25 +18,12 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-
-// Student type
-type Student = {
-  id: string;
-  name: string;
-  rollNumber: string;
-  status: "present" | "absent" | "leave" | "untracked";
-  imageUri?: string; // Optional photo URL
-  details?: {
-    gender?: string;
-    dob?: string;
-    parentName?: string;
-    contactNumber?: string;
-    address?: string;
-    bloodGroup?: string;
-    allergies?: string;
-    medicalNotes?: string;
-  };
-};
+import {
+  fetchSectionAttendanceDetails,
+  updateSectionAttendance,
+  StudentAttendanceDetail,
+  getStatusCode,
+} from "@/services/attendanceApi";
 
 // Status colors and icons for consistency
 const STATUS_CONFIG = {
@@ -51,7 +38,7 @@ export default function AttendanceTrackerScreen() {
   const { branchId, gradeId, sectionId, filter } = useLocalSearchParams();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<StudentAttendanceDetail[]>([]);
   const [statusFilter, setStatusFilter] = useState<string | undefined>(
     filter as string | undefined
   );
@@ -68,32 +55,36 @@ export default function AttendanceTrackerScreen() {
     onCancel: () => {},
     showCancelButton: false,
   });
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] =
+    useState<StudentAttendanceDetail | null>(null);
   const [showStudentDetails, setShowStudentDetails] = useState(false);
 
-  // Initialize with dummy data
+  // Fetch student data from API instead of using dummy data
   useEffect(() => {
-    const dummyStudents: Student[] = Array.from({ length: 30 }, (_, i) => ({
-      id: `s${i + 1}`,
-      name: `Student ${i + 1}`,
-      rollNumber: `${i + 1}`.padStart(2, "0"),
-      status:
-        i < 22 ? "present" : i < 25 ? "absent" : i < 27 ? "leave" : "untracked",
-      imageUri:
-        i % 5 === 0 ? `https://i.pravatar.cc/150?img=${i + 10}` : undefined,
-      details: {
-        gender: i % 2 === 0 ? "Male" : "Female",
-        dob: "2010-05-15",
-        parentName: `Parent of Student ${i + 1}`,
-        contactNumber: "123-456-7890",
-        address: "123 School Lane, Education City",
-        bloodGroup: ["A+", "B+", "O+", "AB+"][i % 4],
-        allergies: i % 3 === 0 ? "None" : "Peanuts, Dust",
-        medicalNotes: i % 4 === 0 ? "Asthma" : "None",
-      },
-    }));
-    setStudents(dummyStudents);
-  }, []);
+    fetchStudents();
+  }, [sectionId]);
+
+  // Function to fetch students from API
+  const fetchStudents = async () => {
+    if (!sectionId) return;
+
+    try {
+      setRefreshing(true);
+      const studentsData = await fetchSectionAttendanceDetails(
+        sectionId as string
+      );
+      setStudents(studentsData);
+    } catch (error) {
+      console.error("Error fetching student attendance:", error);
+      showAlert(
+        "Error",
+        "Failed to load student attendance data. Please try again.",
+        "error"
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Reset selections on mode change
   useEffect(() => {
@@ -116,13 +107,11 @@ export default function AttendanceTrackerScreen() {
     );
   }, [filter]);
 
+  // Replace the existing onRefresh function
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
+    fetchStudents();
     setSearchQuery("");
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 800);
-  }, []);
+  }, [sectionId]);
 
   const showAlert = (
     title: string,
@@ -152,8 +141,113 @@ export default function AttendanceTrackerScreen() {
     }
   };
 
-  // Mark all untracked students as present
-  const handleMarkAllPresent = () => {
+  // Update the changeStudentStatus function to use the API
+  const changeStudentStatus = async (
+    studentId: number,
+    newStatus: "present" | "absent" | "leave" | "untracked"
+  ) => {
+    if (isBulkMode) {
+      toggleStudentSelection(studentId.toString());
+      return;
+    }
+
+    try {
+      // Find the student to get their data
+      const student = students.find((s) => s.studentId === studentId);
+      if (!student) return;
+
+      // Prepare update payload
+      const statusCode = getStatusCode(newStatus);
+      const updates = [
+        {
+          student_id: studentId,
+          status: statusCode,
+          date: student.date,
+          remarks: student.remarks || "",
+        },
+      ];
+
+      // Optimistically update UI
+      const updatedStudents = students.map((student) =>
+        student.studentId === studentId
+          ? { ...student, status: newStatus, statusCode }
+          : student
+      );
+      setStudents(updatedStudents);
+
+      // Make API call to update attendance
+      await updateSectionAttendance(sectionId as string, updates);
+    } catch (error) {
+      console.error("Error updating attendance status:", error);
+      showAlert(
+        "Error",
+        "Failed to update attendance. Please try again.",
+        "error"
+      );
+      // Revert back to original data if there's an error
+      fetchStudents();
+    }
+  };
+
+  // Update the applyBulkAction function to use the API
+  const applyBulkAction = async (
+    newStatus: "present" | "absent" | "leave" | "untracked"
+  ) => {
+    if (selectedStudents.size === 0) {
+      showAlert("No Selection", "Please select students first", "info");
+      return;
+    }
+
+    try {
+      // Prepare updates for selected students
+      const statusCode = getStatusCode(newStatus);
+      const updates = Array.from(selectedStudents)
+        .map((id) => {
+          const student = students.find((s) => s.id.toString() === id);
+          if (!student) return null;
+
+          return {
+            student_id: student.studentId,
+            status: statusCode,
+            date: student.date,
+            remarks: student.remarks || "",
+          };
+        })
+        .filter(Boolean);
+
+      // Optimistically update UI
+      const updatedStudents = students.map((student) =>
+        selectedStudents.has(student.id.toString())
+          ? { ...student, status: newStatus, statusCode }
+          : student
+      );
+      setStudents(updatedStudents);
+
+      // Make API call
+      await updateSectionAttendance(sectionId as string, updates);
+
+      showAlert(
+        "Status Updated",
+        `${selectedStudents.size} student(s) marked as ${newStatus}`,
+        "success"
+      );
+
+      setIsBulkMode(false);
+      setSelectedStudents(new Set());
+    } catch (error) {
+      console.error("Error updating bulk attendance:", error);
+      showAlert(
+        "Error",
+        "Failed to update attendance. Please try again.",
+        "error"
+      );
+      // Revert back to original data if there's an error
+      fetchStudents();
+    }
+  };
+
+  // Update handleMarkAllPresent function to use API
+  const handleMarkAllPresent = async () => {
     if (statusCounts.untracked === 0) {
       showAlert(
         "No Action Needed",
@@ -167,21 +261,95 @@ export default function AttendanceTrackerScreen() {
       "Mark All Present",
       `Do you want to mark all ${statusCounts.untracked} untracked students as present?`,
       "info",
-      () => {
-        const updatedStudents = students.map((student) => ({
-          ...student,
-          status: student.status === "untracked" ? "present" : student.status,
-        }));
-        setStudents(updatedStudents);
-        showAlert(
-          "Success",
-          "All untracked students have been marked as present.",
-          "success"
-        );
+      async () => {
+        try {
+          // Get all untracked students
+          const untrackedStudents = students.filter(
+            (student) => student.status === "untracked"
+          );
+
+          // Prepare updates
+          const updates = untrackedStudents.map((student) => ({
+            student_id: student.studentId,
+            status: "PR" as "PR" | "AB" | "LE" | "UT",
+            date: student.date,
+            remarks: student.remarks || "",
+          }));
+
+          // Optimistically update UI
+          const updatedStudents = students.map((student) =>
+            student.status === "untracked"
+              ? { ...student, status: "present", statusCode: "PR" }
+              : student
+          );
+          setStudents(updatedStudents);
+
+          // Make API call
+          await updateSectionAttendance(sectionId as string, updates);
+
+          showAlert(
+            "Success",
+            "All untracked students have been marked as present.",
+            "success"
+          );
+        } catch (error) {
+          console.error("Error marking all present:", error);
+          showAlert(
+            "Error",
+            "Failed to update attendance. Please try again.",
+            "error"
+          );
+          // Revert back to original data
+          fetchStudents();
+        }
       },
       true,
       () => {}
     );
+  };
+
+  // Add this new function for submitting attendance
+  const handleSubmitAttendance = () => {
+    // Check if there are any untracked students
+    if (statusCounts.untracked > 0) {
+      showAlert(
+        "Untracked Students",
+        `There are ${statusCounts.untracked} untracked students. Do you want to continue with submission?`,
+        "warning",
+        async () => {
+          await submitAttendance();
+        },
+        true,
+        () => {}
+      );
+    } else {
+      submitAttendance();
+    }
+  };
+
+  // Function to handle the actual submission
+  const submitAttendance = async () => {
+    try {
+      // Get all students data
+      const updates = students.map((student) => ({
+        student_id: student.studentId,
+        status: getStatusCode(student.status),
+        date: student.date,
+        remarks: student.remarks || "",
+      }));
+
+      // Make API call to update attendance
+      await updateSectionAttendance(sectionId as string, updates);
+
+      showAlert("Success", "Attendance submitted successfully.", "success");
+    } catch (error) {
+      console.error("Error submitting attendance:", error);
+      showAlert(
+        "Error",
+        "Failed to submit attendance. Please try again.",
+        "error"
+      );
+    }
   };
 
   // Toggle student selection in bulk mode
@@ -197,47 +365,6 @@ export default function AttendanceTrackerScreen() {
     setSelectedStudents(newSelection);
   };
 
-  // Apply bulk action to selected students
-  const applyBulkAction = (
-    newStatus: "present" | "absent" | "leave" | "untracked"
-  ) => {
-    if (selectedStudents.size === 0) {
-      showAlert("No Selection", "Please select students first", "info");
-      return;
-    }
-
-    const updatedStudents = students.map((student) =>
-      selectedStudents.has(student.id)
-        ? { ...student, status: newStatus }
-        : student
-    );
-
-    setStudents(updatedStudents);
-    showAlert(
-      "Status Updated",
-      `${selectedStudents.size} student(s) marked as ${newStatus}`,
-      "success"
-    );
-
-    setIsBulkMode(false);
-  };
-
-  // Change individual student status
-  const changeStudentStatus = (
-    studentId: string,
-    newStatus: "present" | "absent" | "leave" | "untracked"
-  ) => {
-    if (isBulkMode) {
-      toggleStudentSelection(studentId);
-      return;
-    }
-
-    const updatedStudents = students.map((student) =>
-      student.id === studentId ? { ...student, status: newStatus } : student
-    );
-    setStudents(updatedStudents);
-  };
-
   // Get filtered students based on search and status filter
   const getFilteredStudents = () => {
     let filteredList = students;
@@ -250,7 +377,7 @@ export default function AttendanceTrackerScreen() {
       const query = searchQuery.toLowerCase();
       filteredList = filteredList.filter(
         (s) =>
-          s.name.toLowerCase().includes(query) || s.rollNumber.includes(query)
+          s.name.toLowerCase().includes(query) || s.enrollmentNo.includes(query)
       );
     }
 
@@ -258,7 +385,7 @@ export default function AttendanceTrackerScreen() {
   };
 
   // Handle showing student details
-  const handleShowStudentDetails = (student: Student) => {
+  const handleShowStudentDetails = (student: StudentAttendanceDetail) => {
     setSelectedStudent(student);
     setShowStudentDetails(true);
   };
@@ -282,31 +409,31 @@ export default function AttendanceTrackerScreen() {
   };
 
   // Render a single student item
-  const renderStudentItem = ({ item }: { item: Student }) => {
-    const isSelected = selectedStudents.has(item.id);
+  const renderStudentItem = ({ item }: { item: StudentAttendanceDetail }) => {
+    const isSelected = selectedStudents.has(item.id.toString());
     const statusConfig = STATUS_CONFIG[item.status];
 
     return (
       <TouchableOpacity
         style={[
           styles.studentCard,
-          { backgroundColor: `${statusConfig.color}08` }, // Very light status color background
+          { backgroundColor: `${statusConfig.color}08` },
           isSelected && styles.selectedStudentCard,
         ]}
-        onPress={() => toggleStudentSelection(item.id)}
+        onPress={() => toggleStudentSelection(item.id.toString())}
         activeOpacity={isBulkMode ? 0.7 : 1}
       >
         <View style={styles.studentWithAvatar}>
           <InitialsAvatar
             name={item.name}
             size={40}
-            imageUri={item.imageUri}
+            imageUri={item.profilePic}
             style={styles.studentAvatar}
           />
 
           <View style={styles.studentInfo}>
             <Text style={styles.studentName}>{item.name}</Text>
-            <Text style={styles.studentRoll}>Roll No: {item.rollNumber}</Text>
+            <Text style={styles.studentRoll}>Enrollment No: {item.enrollmentNo}</Text>
 
             {!isBulkMode && (
               <View style={styles.statusIndicator}>
@@ -339,7 +466,7 @@ export default function AttendanceTrackerScreen() {
                   styles.actionButton,
                   { backgroundColor: "rgba(76, 175, 80, 0.1)" },
                 ]}
-                onPress={() => changeStudentStatus(item.id, "present")}
+                onPress={() => changeStudentStatus(item.studentId, "present")}
               >
                 <MaterialCommunityIcons
                   name="check"
@@ -353,7 +480,7 @@ export default function AttendanceTrackerScreen() {
                   styles.actionButton,
                   { backgroundColor: "rgba(244, 67, 54, 0.1)" },
                 ]}
-                onPress={() => changeStudentStatus(item.id, "absent")}
+                onPress={() => changeStudentStatus(item.studentId, "absent")}
               >
                 <MaterialCommunityIcons
                   name="close"
@@ -601,7 +728,7 @@ export default function AttendanceTrackerScreen() {
       <FlatList
         data={filteredStudents}
         renderItem={renderStudentItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={ListEmptyComponent}
@@ -610,7 +737,7 @@ export default function AttendanceTrackerScreen() {
         }
       />
 
-      {/* Footer with quick actions */}
+      {/* Footer with quick actions - Modified to include two buttons */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.markAllButton}
@@ -626,6 +753,20 @@ export default function AttendanceTrackerScreen() {
             </Text>
           </View>
         </TouchableOpacity>
+
+        {/* <TouchableOpacity
+          style={styles.submitButton}
+          onPress={handleSubmitAttendance}
+        >
+          <View style={styles.submitButtonContent}>
+            <MaterialCommunityIcons
+              name="cloud-upload"
+              size={22}
+              color="#fff"
+            />
+            <Text style={styles.submitButtonText}>Submit Attendance</Text>
+          </View>
+        </TouchableOpacity> */}
       </View>
 
       {/* Student Details Modal */}
@@ -656,7 +797,7 @@ export default function AttendanceTrackerScreen() {
                   <InitialsAvatar
                     name={selectedStudent.name}
                     size={70}
-                    imageUri={selectedStudent.imageUri}
+                    imageUri={selectedStudent.profilePic}
                   />
                   <View style={styles.studentDetailHeaderInfo}>
                     <Text style={styles.studentDetailName}>
@@ -665,7 +806,7 @@ export default function AttendanceTrackerScreen() {
                     <View style={styles.studentDetailBadgeRow}>
                       <View style={styles.studentDetailBadge}>
                         <Text style={styles.studentDetailBadgeText}>
-                          Roll No: {selectedStudent.rollNumber}
+                          Enrollment No: {selectedStudent.enrollmentNo}
                         </Text>
                       </View>
                       <View
@@ -696,74 +837,82 @@ export default function AttendanceTrackerScreen() {
                 </View>
 
                 <View style={styles.detailItemsContainer}>
-                  {selectedStudent.details?.gender && (
+                  {selectedStudent.gender && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Gender</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.gender}
+                        {selectedStudent.gender}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.dob && (
+                  {selectedStudent.dob && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Date of Birth</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.dob}
+                        {selectedStudent.dob}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.parentName && (
+                  {selectedStudent.parentName && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Parent/Guardian</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.parentName}
+                        {selectedStudent.parentName}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.contactNumber && (
+                  {selectedStudent.contactNumber && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Contact Number</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.contactNumber}
+                        {selectedStudent.contactNumber}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.address && (
+                  {selectedStudent.address && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Address</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.address}
+                        {selectedStudent.address.fullAddress ||
+                          [
+                            selectedStudent.address.addressLine1,
+                            selectedStudent.address.addressLine2,
+                            `${selectedStudent.address.city}, ${selectedStudent.address.state}`,
+                            selectedStudent.address.zipcode,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.bloodGroup && (
+                  {selectedStudent.bloodGroup && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Blood Group</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.bloodGroup}
+                        {selectedStudent.bloodGroup}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.allergies && (
+                  {selectedStudent.allergies && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Allergies</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.allergies}
+                        {selectedStudent.allergies}
                       </Text>
                     </View>
                   )}
 
-                  {selectedStudent.details?.medicalNotes && (
+                  {selectedStudent.medicalNotes && (
                     <View style={styles.detailItem}>
                       <Text style={styles.detailLabel}>Medical Notes</Text>
                       <Text style={styles.detailValue}>
-                        {selectedStudent.details.medicalNotes}
+                        {selectedStudent.medicalNotes}
                       </Text>
                     </View>
                   )}
@@ -1042,6 +1191,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#eee",
+    flexDirection: "row",
+    justifyContent: "space-between",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -1061,8 +1212,10 @@ const styles = StyleSheet.create({
     backgroundColor: primary,
     borderRadius: 8,
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     position: "relative",
+    flex: 1,
+    marginRight: 8,
   },
   markAllContent: {
     flexDirection: "row",
@@ -1093,6 +1246,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Typography.fontWeight.bold.primary,
     paddingHorizontal: 4,
+  },
+  submitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flex: 1,
+  },
+  submitButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submitButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: "#fff",
+    fontFamily: Typography.fontWeight.medium.primary,
   },
   modalOverlay: {
     flex: 1,
