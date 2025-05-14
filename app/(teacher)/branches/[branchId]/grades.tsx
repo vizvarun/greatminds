@@ -180,7 +180,7 @@ export default function GradesScreen() {
           <Text style={styles.statLabel}>Sections</Text>
         </View>
         <View style={styles.statDivider} />
-        {/* <View style={styles.statItem}>
+        <View style={styles.statItem}>
           <Text style={styles.statValue}>
             {grades.reduce(
               (sum, grade) =>
@@ -193,7 +193,7 @@ export default function GradesScreen() {
             )}
           </Text>
           <Text style={styles.statLabel}>Students</Text>
-        </View> */}
+        </View>
       </View>
 
       <ScrollView
@@ -258,6 +258,7 @@ export default function GradesScreen() {
                         )
                       }
                     >
+                      <>{console.log("section", section)}</>
                       <View style={styles.sectionContent}>
                         <View style={styles.sectionNameContainer}>
                           <MaterialCommunityIcons
@@ -268,16 +269,16 @@ export default function GradesScreen() {
                           />
                           <Text style={styles.sectionName}>{section.name}</Text>
                         </View>
-                        {/* <View style={styles.studentContainer}>
+                        <View style={styles.studentContainer}>
                           <MaterialCommunityIcons
                             name="account-group"
                             size={14}
                             color="#666"
                           />
                           <Text style={styles.studentCount}>
-                            {section.students}
+                            {section.totalStudents || 0}{" "}
                           </Text>
-                        </View> */}
+                        </View>
                       </View>
                       <MaterialCommunityIcons
                         name="chevron-right"

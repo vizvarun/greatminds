@@ -12,6 +12,7 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  SectionList,
 } from "react-native";
 import { router } from "expo-router";
 import { fetchSectionDiaryEntries } from "@/services/diaryApi";
@@ -49,7 +50,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     )}-${String(date.getDate()).padStart(2, "0")}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState(normalizeDate(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,7 +65,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     fetchDiaryEntries();
   }, [sectionId, selectedDate]);
 
-  const fetchDiaryEntries = async (date?: string) => {
+  const fetchDiaryEntries = async (date?: string | null) => {
     if (!sectionId) return;
 
     setError(null);
@@ -142,15 +143,10 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
       })
     ).start();
 
-    const today = new Date();
-    const todayString = normalizeDate(today);
-
-    setCurrentMonth(today.getMonth());
-    setCurrentYear(today.getFullYear());
-    setSelectedDate(todayString);
+    setSelectedDate(null);
     setShowDatePicker(false);
 
-    fetchDiaryEntries(todayString);
+    fetchDiaryEntries(null);
   }, [sectionId, syncIconRotation]);
 
   const spin = syncIconRotation.interpolate({
@@ -176,7 +172,9 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     return d.toLocaleDateString("en-US", options);
   };
 
-  const formatDisplayDate = (date: string) => {
+  const formatDisplayDate = (date: string | null) => {
+    if (!date) return "All Entries";
+
     const d = new Date(date);
     const options: Intl.DateTimeFormatOptions = {
       weekday: "short",
@@ -215,6 +213,11 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
 
     setCurrentMonth(newMonth);
     setCurrentYear(newYear);
+  };
+
+  const clearDateFilter = () => {
+    setSelectedDate(null);
+    setShowDatePicker(false);
   };
 
   const renderCalendar = () => {
@@ -331,9 +334,37 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     return <View style={styles.customCalendar}>{days}</View>;
   };
 
-  const entriesForSelectedDate = diaryEntries.filter(
-    (entry) => entry.date === selectedDate
-  );
+  const entriesForSelectedDate = selectedDate
+    ? diaryEntries.filter((entry) => entry.date === selectedDate)
+    : diaryEntries;
+
+  const groupEntriesByDate = (entries: DiaryEntry[]) => {
+    const grouped: { title: string; data: DiaryEntry[] }[] = [];
+    const dateMap = new Map<string, DiaryEntry[]>();
+
+    const sortedEntries = [...entries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    sortedEntries.forEach((entry) => {
+      const formattedDate = formatDate(entry.date);
+      if (!dateMap.has(formattedDate)) {
+        dateMap.set(formattedDate, []);
+      }
+      dateMap.get(formattedDate)?.push(entry);
+    });
+
+    dateMap.forEach((entries, date) => {
+      grouped.push({
+        title: date,
+        data: entries,
+      });
+    });
+
+    return grouped;
+  };
+
+  const groupedEntries = selectedDate ? [] : groupEntriesByDate(diaryEntries);
 
   const getIconForEntryType = (type: DiaryEntry["type"]) => {
     switch (type) {
@@ -355,6 +386,33 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
         return "information-outline";
     }
   };
+
+  const renderEntryItem = ({ item }: { item: DiaryEntry }) => (
+    <View style={styles.entryCard}>
+      <View
+        style={[
+          styles.entryIconContainer,
+          styles[`${item.type}Icon` as keyof typeof styles] || styles.noteIcon,
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={getIconForEntryType(item.type)}
+          size={24}
+          color="#fff"
+        />
+      </View>
+      <View style={styles.entryContent}>
+        <Text style={styles.entryTitle}>{item.title}</Text>
+        <Text style={styles.entryDescription}>{item.description}</Text>
+      </View>
+    </View>
+  );
+
+  const renderDateHeader = ({ section }: { section: { title: string } }) => (
+    <View style={styles.dateHeaderContainer}>
+      <Text style={styles.sectionDateHeader}>{section.title}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -398,13 +456,26 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
 
         {showDatePicker && renderCalendar()}
 
-        <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-          <Text style={styles.todayButtonText}>Today</Text>
-        </TouchableOpacity>
+        <View style={styles.calendarActions}>
+          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
+            <Text style={styles.todayButtonText}>Today</Text>
+          </TouchableOpacity>
+
+          {selectedDate && (
+            <TouchableOpacity
+              style={styles.allEntriesButton}
+              onPress={clearDateFilter}
+            >
+              <Text style={styles.allEntriesButtonText}>All Entries</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.entriesContainer}>
-        <Text style={styles.dateHeader}>{formatDate(selectedDate)}</Text>
+        <Text style={styles.dateHeader}>
+          {selectedDate ? formatDate(selectedDate) : "All Entries"}
+        </Text>
 
         {isLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
@@ -427,48 +498,29 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
             </TouchableOpacity>
           </View>
         ) : entriesForSelectedDate.length > 0 ? (
-          <FlatList
-            data={entriesForSelectedDate}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.entriesList}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            renderItem={({ item }) => (
-              <View style={styles.entryCard}>
-                <View
-                  style={[
-                    styles.entryIconContainer,
-                    item.type === "homework"
-                      ? styles.homeworkIcon
-                      : item.type === "test"
-                      ? styles.testIcon
-                      : item.type === "reminder"
-                      ? styles.reminderIcon
-                      : item.type === "classwork"
-                      ? styles.classworkIcon
-                      : item.type === "preparation"
-                      ? styles.preparationIcon
-                      : item.type === "research"
-                      ? styles.researchIcon
-                      : styles.noteIcon,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={getIconForEntryType(item.type)}
-                    size={24}
-                    color="#fff"
-                  />
-                </View>
-                <View style={styles.entryContent}>
-                  <Text style={styles.entryTitle}>{item.title}</Text>
-                  <Text style={styles.entryDescription}>
-                    {item.description}
-                  </Text>
-                </View>
-              </View>
-            )}
-          />
+          selectedDate ? (
+            <FlatList
+              data={entriesForSelectedDate}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.entriesList}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              renderItem={renderEntryItem}
+            />
+          ) : (
+            <SectionList
+              sections={groupedEntries}
+              keyExtractor={(item) => item.id}
+              renderItem={renderEntryItem}
+              renderSectionHeader={renderDateHeader}
+              contentContainerStyle={styles.entriesList}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              stickySectionHeadersEnabled={false}
+            />
+          )
         ) : (
           <View style={styles.noEntriesContainer}>
             <MaterialCommunityIcons
@@ -477,7 +529,9 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
               color="#ddd"
             />
             <Text style={styles.noEntriesText}>
-              No diary entries for this date
+              {selectedDate
+                ? "No diary entries for this date"
+                : "No diary entries found"}
             </Text>
           </View>
         )}
@@ -533,15 +587,31 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  todayButton: {
-    alignSelf: "center",
+  calendarActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
+    gap: 10,
+  },
+  todayButton: {
     paddingVertical: 6,
     paddingHorizontal: 16,
     backgroundColor: "rgba(11, 181, 191, 0.1)",
     borderRadius: 20,
   },
   todayButtonText: {
+    color: primary,
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
+  },
+  allEntriesButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(11, 181, 191, 0.1)",
+    borderRadius: 20,
+  },
+  allEntriesButtonText: {
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
     fontSize: 14,
@@ -754,5 +824,17 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#fff",
     fontFamily: Typography.fontWeight.medium.primary,
+  },
+  dateHeaderContainer: {
+    backgroundColor: "#f5f7fa",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  sectionDateHeader: {
+    fontSize: 15,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#555",
   },
 });

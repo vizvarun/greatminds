@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  SectionList,
 } from "react-native";
 
 type DiaryEntry = {
@@ -46,7 +47,7 @@ export default function SectionDiaryScreen() {
     )}-${String(date.getDate()).padStart(2, "0")}`;
   };
 
-  const [selectedDate, setSelectedDate] = useState(normalizeDate(new Date()));
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -188,9 +189,13 @@ export default function SectionDiaryScreen() {
       })
     ).start();
 
+    // Clear date filter and fetch all entries
+    setSelectedDate(null);
+    setShowDatePicker(false);
+
     // Refresh data
     fetchDiaryEntries();
-  }, [sectionId, selectedDate, syncIconRotation]);
+  }, [sectionId, syncIconRotation]);
 
   // Create an interpolation for rotation
   const spin = syncIconRotation.interpolate({
@@ -216,7 +221,9 @@ export default function SectionDiaryScreen() {
     return d.toLocaleDateString("en-US", options);
   };
 
-  const formatDisplayDate = (date: string) => {
+  const formatDisplayDate = (date: string | null) => {
+    if (!date) return "All Entries";
+
     const d = new Date(date);
     const options: Intl.DateTimeFormatOptions = {
       weekday: "short",
@@ -255,6 +262,11 @@ export default function SectionDiaryScreen() {
 
     setCurrentMonth(newMonth);
     setCurrentYear(newYear);
+  };
+
+  const clearDateFilter = () => {
+    setSelectedDate(null);
+    setShowDatePicker(false);
   };
 
   const renderCalendar = () => {
@@ -418,9 +430,40 @@ export default function SectionDiaryScreen() {
     );
   };
 
-  const entriesForSelectedDate = diaryEntries.filter(
-    (entry) => entry.date === selectedDate
-  );
+  const groupEntriesByDate = (entries: DiaryEntry[]) => {
+    const grouped: { title: string; data: DiaryEntry[] }[] = [];
+    const dateMap = new Map<string, DiaryEntry[]>();
+
+    // Sort entries by date (newest first)
+    const sortedEntries = [...entries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    // Group entries by formatted date
+    sortedEntries.forEach((entry) => {
+      const formattedDate = formatDate(entry.date);
+      if (!dateMap.has(formattedDate)) {
+        dateMap.set(formattedDate, []);
+      }
+      dateMap.get(formattedDate)?.push(entry);
+    });
+
+    // Convert map to array for SectionList
+    dateMap.forEach((entries, date) => {
+      grouped.push({
+        title: date,
+        data: entries,
+      });
+    });
+
+    return grouped;
+  };
+
+  const entriesForSelectedDate = selectedDate
+    ? diaryEntries.filter((entry) => entry.date === selectedDate)
+    : diaryEntries;
+
+  const groupedEntries = selectedDate ? [] : groupEntriesByDate(diaryEntries);
 
   const getIconForEntryType = (type: DiaryEntry["type"]) => {
     switch (type) {
@@ -442,6 +485,59 @@ export default function SectionDiaryScreen() {
         return "information-outline";
     }
   };
+
+  const renderEntryItem = ({ item }: { item: DiaryEntry }) => (
+    <View style={styles.entryCard}>
+      <View
+        style={[
+          styles.entryIconContainer,
+          item.type === "homework"
+            ? styles.homeworkIcon
+            : item.type === "classwork"
+            ? styles.classworkIcon
+            : item.type === "preparation"
+            ? styles.preparationIcon
+            : item.type === "research"
+            ? styles.researchIcon
+            : item.type === "test"
+            ? styles.testIcon
+            : item.type === "reminder"
+            ? styles.reminderIcon
+            : styles.noteIcon,
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={getIconForEntryType(item.type)}
+          size={24}
+          color="#fff"
+        />
+      </View>
+      <View style={styles.entryContent}>
+        <Text style={styles.entryTitle}>{item.title}</Text>
+        <Text style={styles.entryDescription}>{item.description}</Text>
+      </View>
+      <View style={styles.entryActions}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleEditEntry(item)}
+        >
+          <MaterialCommunityIcons name="pencil" size={20} color="#666" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleDeleteEntry(item.id)}
+        >
+          <MaterialCommunityIcons name="delete" size={20} color="#F44336" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderDateHeader = ({ section }: { section: { title: string } }) => (
+    <View style={styles.dateHeaderContainer}>
+      <Text style={styles.sectionDateHeader}>{section.title}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -492,13 +588,26 @@ export default function SectionDiaryScreen() {
 
         {showDatePicker && renderCalendar()}
 
-        <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-          <Text style={styles.todayButtonText}>Today</Text>
-        </TouchableOpacity>
+        <View style={styles.calendarActions}>
+          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
+            <Text style={styles.todayButtonText}>Today</Text>
+          </TouchableOpacity>
+
+          {selectedDate && (
+            <TouchableOpacity
+              style={styles.allEntriesButton}
+              onPress={clearDateFilter}
+            >
+              <Text style={styles.allEntriesButtonText}>All Entries</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.entriesContainer}>
-        <Text style={styles.dateHeader}>{formatDate(selectedDate)}</Text>
+        <Text style={styles.dateHeader}>
+          {selectedDate ? formatDate(selectedDate) : "All Entries"}
+        </Text>
 
         {isLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
@@ -521,70 +630,31 @@ export default function SectionDiaryScreen() {
             </TouchableOpacity>
           </View>
         ) : entriesForSelectedDate.length > 0 ? (
-          <FlatList
-            data={entriesForSelectedDate}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.entriesList}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            renderItem={({ item }) => (
-              <View style={styles.entryCard}>
-                <View
-                  style={[
-                    styles.entryIconContainer,
-                    item.type === "homework"
-                      ? styles.homeworkIcon
-                      : item.type === "classwork"
-                      ? styles.classworkIcon
-                      : item.type === "preparation"
-                      ? styles.preparationIcon
-                      : item.type === "research"
-                      ? styles.researchIcon
-                      : item.type === "test"
-                      ? styles.testIcon
-                      : item.type === "reminder"
-                      ? styles.reminderIcon
-                      : styles.noteIcon,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={getIconForEntryType(item.type)}
-                    size={24}
-                    color="#fff"
-                  />
-                </View>
-                <View style={styles.entryContent}>
-                  <Text style={styles.entryTitle}>{item.title}</Text>
-                  <Text style={styles.entryDescription}>
-                    {item.description}
-                  </Text>
-                </View>
-                <View style={styles.entryActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleEditEntry(item)}
-                  >
-                    <MaterialCommunityIcons
-                      name="pencil"
-                      size={20}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleDeleteEntry(item.id)}
-                  >
-                    <MaterialCommunityIcons
-                      name="delete"
-                      size={20}
-                      color="#F44336"
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          />
+          selectedDate ? (
+            // Regular FlatList for single date view
+            <FlatList
+              data={entriesForSelectedDate}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.entriesList}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              renderItem={renderEntryItem}
+            />
+          ) : (
+            // SectionList for grouped date view
+            <SectionList
+              sections={groupedEntries}
+              keyExtractor={(item) => item.id}
+              renderItem={renderEntryItem}
+              renderSectionHeader={renderDateHeader}
+              contentContainerStyle={styles.entriesList}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+              stickySectionHeadersEnabled={false}
+            />
+          )
         ) : (
           <View style={styles.noEntriesContainer}>
             <MaterialCommunityIcons
@@ -593,7 +663,9 @@ export default function SectionDiaryScreen() {
               color="#ddd"
             />
             <Text style={styles.noEntriesText}>
-              No diary entries for this date
+              {selectedDate
+                ? "No diary entries for this date"
+                : "No diary entries found"}
             </Text>
             <TouchableOpacity
               style={styles.emptyAddButton}
@@ -685,15 +757,31 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  todayButton: {
-    alignSelf: "center",
+  calendarActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
+    gap: 10,
+  },
+  todayButton: {
     paddingVertical: 6,
     paddingHorizontal: 16,
     backgroundColor: "rgba(11, 181, 191, 0.1)",
     borderRadius: 20,
   },
   todayButtonText: {
+    color: primary,
+    fontFamily: Typography.fontWeight.medium.primary,
+    fontSize: 14,
+  },
+  allEntriesButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(11, 181, 191, 0.1)",
+    borderRadius: 20,
+  },
+  allEntriesButtonText: {
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
     fontSize: 14,
@@ -914,5 +1002,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
+  },
+  dateHeaderContainer: {
+    backgroundColor: "#f5f7fa",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 8,
+  },
+  sectionDateHeader: {
+    fontSize: 15,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#555",
   },
 });

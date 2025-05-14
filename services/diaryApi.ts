@@ -47,19 +47,25 @@ const getTodayDate = (): string => {
 /**
  * Fetch section diary entries
  * @param sectionId - The ID of the section to fetch diary entries for
- * @param effectiveDate - The effective date for the diary entries (YYYY-MM-DD format)
+ * @param effectiveDate - Optional effective date for the diary entries (YYYY-MM-DD format)
  * @returns The diary entries data
  */
 export const fetchSectionDiaryEntries = async (
   sectionId: string,
-  effectiveDate: string = getTodayDate()
+  effectiveDate?: string | null
 ): Promise<DiaryEntries> => {
   try {
+    const params: Record<string, any> = {
+      sectionid: sectionId,
+    };
+
+    // Only add effectiveDate parameter if a specific date is provided
+    if (effectiveDate) {
+      params.effectiveDate = effectiveDate;
+    }
+
     const response = await api.get<DiaryAPIResponse>("/diary/list", {
-      params: {
-        sectionid: sectionId,
-        effectiveDate,
-      },
+      params,
     });
 
     return response.data;
