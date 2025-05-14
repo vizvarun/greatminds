@@ -83,8 +83,11 @@ export default function GradesScreen() {
       const classInfo = classData[0];
       const sections = classData[1]?.sections || [];
 
-      // Calculate total students based on sections (estimated 25 per section)
-      const totalStudents = sections.length * 25;
+      // Calculate total students using actual studentCount from API
+      const totalStudents = sections.reduce(
+        (sum, section) => sum + (section.studentCount || 0),
+        0
+      );
 
       // Use color from palette based on index
       const colorIndex = index % gradeColors.length;
@@ -97,8 +100,9 @@ export default function GradesScreen() {
         sections: sections.map((section) => ({
           id: section.sectionId.toString(),
           name: section.sectionName,
-          students: 25, // Assuming average of 25 students per section
+          students: section.studentCount || 0, // Use actual student count from API
         })),
+        totalStudents, // Add total students for the grade
       };
     });
   }, [userProfile, branchId, gradeColors]);
@@ -182,15 +186,7 @@ export default function GradesScreen() {
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
-            {grades.reduce(
-              (sum, grade) =>
-                sum +
-                grade.sections.reduce(
-                  (secSum, section) => secSum + section.students,
-                  0
-                ),
-              0
-            )}
+            {grades.reduce((sum, grade) => sum + (grade.totalStudents || 0), 0)}
           </Text>
           <Text style={styles.statLabel}>Students</Text>
         </View>
@@ -246,19 +242,26 @@ export default function GradesScreen() {
                     <TouchableOpacity
                       key={section.id}
                       style={styles.sectionItem}
-                      onPress={() =>
-                        router.push(
-                          `/(teacher)/branches/${branchId}/grades/${
-                            grade.id
-                          }/sections/${
-                            section.id
-                          }?sectionName=${encodeURIComponent(
-                            section.name
-                          )}&gradeName=${encodeURIComponent(grade.name)}`
-                        )
-                      }
+                      onPress={() => {
+                        if (section.students === 0) {
+                          showAlert(
+                            "No Students",
+                            "There are no students assigned to this section. Please contact the school administrator.",
+                            "info"
+                          );
+                        } else {
+                          router.push(
+                            `/(teacher)/branches/${branchId}/grades/${
+                              grade.id
+                            }/sections/${
+                              section.id
+                            }?sectionName=${encodeURIComponent(
+                              section.name
+                            )}&gradeName=${encodeURIComponent(grade.name)}`
+                          );
+                        }
+                      }}
                     >
-                      <>{console.log("section", section)}</>
                       <View style={styles.sectionContent}>
                         <View style={styles.sectionNameContainer}>
                           <MaterialCommunityIcons
@@ -276,7 +279,8 @@ export default function GradesScreen() {
                             color="#666"
                           />
                           <Text style={styles.studentCount}>
-                            {section.totalStudents || 0}{" "}
+                            {section.students}{" "}
+                            {section.students === 1 ? "Student" : "Students"}
                           </Text>
                         </View>
                       </View>
