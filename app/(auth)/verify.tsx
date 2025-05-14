@@ -30,7 +30,7 @@ export default function Verify() {
     clearError,
     getUserProfileAndNavigationTarget,
   } = useAuth();
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otpValue, setOtpValue] = useState("");
   const [timer, setTimer] = useState(30);
   const [resendLoading, setResendLoading] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -41,14 +41,14 @@ export default function Verify() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const inputRef = useRef<TextInput>(null);
   const inputAccessoryViewID = "otpInput";
 
   useEffect(() => {
-    // Auto focus the first input with a longer delay to prevent flashing
+    // Ensure the input is focused when the component mounts
     const focusTimer = setTimeout(() => {
-      if (inputRefs.current[0]) {
-        inputRefs.current[0].focus();
+      if (inputRef.current) {
+        inputRef.current.focus();
       }
     }, 500);
 
@@ -109,47 +109,14 @@ export default function Verify() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
-  const handleOtpChange = (text: string, index: number) => {
-    // Only accept digits and prevent re-renders if value is the same
-    if (!/^\d*$/.test(text) || (text.length === 1 && otp[index] === text))
-      return;
-
-    // Update OTP state
-    const newOtp = [...otp];
-    newOtp[index] = text;
-    setOtp(newOtp);
-
-    // Auto move to next input - but only on Android if we have a full digit
-    if (text.length === 1 && index < 5) {
-      // Use a more reliable approach for focus management
-      if (Platform.OS === "android") {
-        // Wait for the current render to complete
-        requestAnimationFrame(() => {
-          inputRefs.current[index + 1]?.focus();
-        });
-      } else {
-        // iOS is more stable with immediate focus changes
-        inputRefs.current[index + 1]?.focus();
-      }
-    }
-  };
-
-  const handleKeyPress = (e: any, index: number) => {
-    // Handle backspace - but avoid unnecessary re-renders and focus changes
-    if (e.nativeEvent.key === "Backspace" && index > 0 && otp[index] === "") {
-      if (Platform.OS === "android") {
-        requestAnimationFrame(() => {
-          inputRefs.current[index - 1]?.focus();
-        });
-      } else {
-        inputRefs.current[index - 1]?.focus();
-      }
-    }
+  const handleOtpChange = (text: string) => {
+    // Only allow digits and limit to 6 characters
+    const formattedText = text.replace(/[^0-9]/g, "").slice(0, 6);
+    setOtpValue(formattedText);
   };
 
   const handleVerify = async () => {
-    const otpString = otp.join("");
-    if (otpString.length !== 6) {
+    if (otpValue.length !== 6) {
       showAlert(
         "Invalid OTP",
         "Please enter the complete 6-digit OTP",
@@ -159,7 +126,7 @@ export default function Verify() {
     }
 
     try {
-      const isVerified = await verifyOtp(otpString);
+      const isVerified = await verifyOtp(otpValue);
       console.log("OTP verification result:", isVerified);
       if (isVerified) {
         const userDataString = await AsyncStorage.getItem("userData");
@@ -211,12 +178,7 @@ export default function Verify() {
 
       if (result.success) {
         setTimer(30);
-        setOtp(["", "", "", "", "", ""]);
-
-        if (inputRefs.current[0]) {
-          inputRefs.current[0].focus();
-        }
-
+        setOtpValue("");
         showAlert(
           "OTP Resent",
           "A new OTP has been sent to your phone number.",
@@ -237,11 +199,17 @@ export default function Verify() {
     router.back();
   };
 
+  const focusInput = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
       >
         {Platform.OS === "android" && keyboardVisible && (
@@ -278,40 +246,43 @@ export default function Verify() {
           </Text>
 
           <View style={styles.otpContainer}>
-            {otp.map((digit, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => (inputRefs.current[index] = ref)}
-                style={[
-                  styles.otpInput,
-                  Platform.OS === "android" && styles.otpInputAndroid,
-                ]}
-                keyboardType="number-pad"
-                keyboardAppearance="light"
-                maxLength={1}
-                value={digit}
-                onChangeText={(text) => handleOtpChange(text, index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-                inputAccessoryViewID={
-                  Platform.OS === "ios" ? inputAccessoryViewID : undefined
-                }
-                autoFocus={false}
-                caretHidden={Platform.OS === "android"}
-                contextMenuHidden={true}
-                selectTextOnFocus={true}
-                editable={!isLoading}
-              />
-            ))}
+            {/* Single text input that spans across all boxes */}
+            <TextInput
+              ref={inputRef}
+              style={styles.hiddenTextInput}
+              value={otpValue}
+              onChangeText={handleOtpChange}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus={false} // Let our useEffect handle focus
+              caretHidden={true}
+            />
+
+            {/* Visual representation of 6 boxes */}
+            <TouchableWithoutFeedback onPress={focusInput}>
+              <View style={styles.otpBoxesContainer}>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.otpBox,
+                      otpValue.length === index && styles.otpBoxFocused,
+                    ]}
+                  >
+                    <Text style={styles.otpDigit}>{otpValue[index] || ""}</Text>
+                  </View>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
           </View>
 
           <TouchableOpacity
             style={[
               styles.button,
-              (otp.some((digit) => digit === "") || isLoading) &&
-                styles.buttonDisabled,
+              (otpValue.length !== 6 || isLoading) && styles.buttonDisabled,
             ]}
             onPress={handleVerify}
-            disabled={otp.some((digit) => digit === "") || isLoading}
+            disabled={otpValue.length !== 6 || isLoading}
           >
             {isLoading ? (
               <View style={styles.loadingContainer}>
@@ -398,26 +369,40 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   otpContainer: {
+    position: "relative",
+    height: 60,
+    marginBottom: 30,
+    width: "100%",
+  },
+  hiddenTextInput: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    opacity: 0,
+    zIndex: 1,
+  },
+  otpBoxesContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 30,
+    height: "100%",
   },
-  otpInput: {
+  otpBox: {
     width: 45,
     height: 50,
     borderWidth: 1,
     borderColor: "#ccc",
     borderRadius: 8,
-    textAlign: "center",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  otpBoxFocused: {
+    borderColor: primary,
+    borderWidth: 2,
+  },
+  otpDigit: {
     fontSize: 20,
     fontFamily: Typography.fontWeight.medium.primary,
-  },
-  otpInputAndroid: {
-    padding: 0,
-    textAlign: "center",
-    includeFontPadding: false, // Prevents vertical padding inconsistencies
-    height: 50,
-    lineHeight: 50, // Match the height to ensure vertical centering
+    color: "#333",
   },
   button: {
     backgroundColor: primary,
