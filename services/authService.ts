@@ -16,7 +16,7 @@ export const sendOtp = async (
     params: {
       mobile_number: phoneNumber,
       device_id: deviceId,
-      bypass_otp: true,
+      bypass_otp: false,
     },
   });
 
@@ -39,9 +39,6 @@ export const verifyOtp = async (
   });
 
   console.log("Response from verifyOtp:", response.data);
-
-  // Return data directly without storing tokens here
-  // Let AuthContext handle token storage to avoid duplication
   return response.data;
 };
 
@@ -70,15 +67,8 @@ export const validateToken = async (token: string): Promise<AuthResponse> => {
     });
 
     console.log("Token validation response:", response.data);
-
-    // Make sure we store the fact that onboarding is completed for authenticated users
     await AsyncStorage.setItem("hasCompletedOnboarding", "true");
-
-    // Preserve the existing role if available
     const existingRole = await AsyncStorage.getItem("userRole");
-
-    // Convert response to match exactly what verifyOtp returns
-    // This ensures we can use the same post-authentication flow
     return {
       token: response.data.token,
       refreshToken: response.data.token, // Use the same token as refresh token if not provided

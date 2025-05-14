@@ -37,6 +37,29 @@ export default function AddDiaryEntryScreen() {
   const isEditMode = edit === "true";
   const { userProfile } = useAuth();
 
+  // Add a helper function to safely parse dates
+  const getSafeDate = (dateString?: string | string[]): Date => {
+    try {
+      if (!dateString) return new Date();
+
+      const dateValue = Array.isArray(dateString) ? dateString[0] : dateString;
+      const parsedDate = new Date(dateValue);
+
+      // Check if date is valid
+      if (isNaN(parsedDate.getTime())) {
+        console.warn(
+          `Invalid date string: ${dateValue}, using current date instead`
+        );
+        return new Date();
+      }
+
+      return parsedDate;
+    } catch (error) {
+      console.error("Error parsing date:", error);
+      return new Date(); // Always return today's date as fallback
+    }
+  };
+
   const [subjects, setSubjects] = useState<{ id: string; label: string }[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(true);
   const [subjectError, setSubjectError] = useState<string | null>(null);
@@ -45,7 +68,7 @@ export default function AddDiaryEntryScreen() {
     title: "",
     description: "",
     type: "homework", // homework, classwork, preparation, research, other
-    effectiveDate: date ? new Date(date as string) : new Date(),
+    effectiveDate: getSafeDate(date), // Use the safe date helper function
     dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 1 week later
     subject: "",
     isUrgent: false, // New field for urgent toggle
@@ -237,13 +260,28 @@ export default function AddDiaryEntryScreen() {
   };
 
   const formatDate = (date: Date) => {
-    // Format date as "Wed, May 28" with comma between day and date
-    const options: Intl.DateTimeFormatOptions = {
-      weekday: "short",
-      month: "long",
-      day: "numeric",
-    };
-    return date.toLocaleDateString("en-US", options);
+    try {
+      // Validate date before formatting
+      if (!date || isNaN(date.getTime())) {
+        console.warn("Invalid date provided to formatDate, using current date");
+        date = new Date(); // Fallback to current date
+      }
+
+      // Format date as "Wed, May 28" with comma between day and date
+      const options: Intl.DateTimeFormatOptions = {
+        weekday: "short",
+        month: "long",
+        day: "numeric",
+      };
+      return date.toLocaleDateString("en-US", options);
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return new Date().toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "long",
+        day: "numeric",
+      });
+    }
   };
 
   const handleEffectiveDatePress = () => {

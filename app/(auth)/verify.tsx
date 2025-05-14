@@ -162,14 +162,12 @@ export default function Verify() {
       const isVerified = await verifyOtp(otpString);
       console.log("OTP verification result:", isVerified);
       if (isVerified) {
-        // Get the stored user data
         const userDataString = await AsyncStorage.getItem("userData");
         console.log("User data string:", userDataString);
         if (userDataString) {
           const userData = JSON.parse(userDataString);
 
           if (userData && userData.id) {
-            // Determine where to navigate based on user profile
             const navigationTarget = await getUserProfileAndNavigationTarget(
               userData.id
             );
@@ -182,15 +180,12 @@ export default function Verify() {
               router.replace("/(teacher)/dashboard");
             }
           } else {
-            // Fallback if no user id
             router.replace("/(auth)/role-select");
           }
         } else {
-          // Fallback if no user data
           router.replace("/(auth)/role-select");
         }
       } else {
-        // Only show an error if not already displayed from the auth context
         if (!authError) {
           showAlert(
             "Verification Failed",
@@ -215,11 +210,9 @@ export default function Verify() {
       const result = await login(phoneNumber);
 
       if (result.success) {
-        // Reset timer and OTP fields
         setTimer(30);
         setOtp(["", "", "", "", "", ""]);
 
-        // Focus on first input
         if (inputRefs.current[0]) {
           inputRefs.current[0].focus();
         }
@@ -231,7 +224,6 @@ export default function Verify() {
         );
       }
     } catch (error) {
-      // Error is already handled in auth context
     } finally {
       setResendLoading(false);
     }

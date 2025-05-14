@@ -381,6 +381,27 @@ export default function AttendanceTrackerScreen() {
       );
     }
 
+    // Sort students first by status priority, then alphabetically by name within each status
+    filteredList = [...filteredList].sort((a, b) => {
+      const statusPriority = {
+        absent: 1,
+        leave: 2,
+        untracked: 3,
+        present: 4,
+      };
+
+      const statusDiff =
+        (statusPriority[a.status] || 10) - (statusPriority[b.status] || 10);
+
+      // If status is the same, sort alphabetically by name
+      if (statusDiff === 0) {
+        return a.name.localeCompare(b.name);
+      }
+
+      // Otherwise, sort by status priority
+      return statusDiff;
+    });
+
     return filteredList;
   };
 
@@ -433,7 +454,9 @@ export default function AttendanceTrackerScreen() {
 
           <View style={styles.studentInfo}>
             <Text style={styles.studentName}>{item.name}</Text>
-            <Text style={styles.studentRoll}>Enrollment No: {item.enrollmentNo}</Text>
+            <Text style={styles.studentRoll}>
+              Enrollment No: {item.enrollmentNo}
+            </Text>
 
             {!isBulkMode && (
               <View style={styles.statusIndicator}>
@@ -509,10 +532,11 @@ export default function AttendanceTrackerScreen() {
     );
   };
 
-  // List header component with filters
+  // List header component with filters - in order: All, Absent, Leave, Untracked, Present
   const ListHeaderComponent = () => (
     <View style={styles.listHeader}>
       <View style={styles.filterChips}>
+        {/* 1. All filter */}
         <TouchableOpacity
           style={[
             styles.filterChip,
@@ -532,28 +556,7 @@ export default function AttendanceTrackerScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            statusFilter === "present" && styles.activeFilterChip,
-            statusFilter === "present" && {
-              borderColor: STATUS_CONFIG.present.color,
-            },
-          ]}
-          onPress={() => setStatusFilter("present")}
-        >
-          <Text
-            style={[
-              styles.filterChipText,
-              statusFilter === "present" && {
-                color: STATUS_CONFIG.present.color,
-              },
-            ]}
-          >
-            Present ({statusCounts.present})
-          </Text>
-        </TouchableOpacity>
-
+        {/* 2. Absent filter */}
         <TouchableOpacity
           style={[
             styles.filterChip,
@@ -576,6 +579,7 @@ export default function AttendanceTrackerScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* 3. Leave filter */}
         <TouchableOpacity
           style={[
             styles.filterChip,
@@ -596,6 +600,7 @@ export default function AttendanceTrackerScreen() {
           </Text>
         </TouchableOpacity>
 
+        {/* 4. Untracked filter */}
         <TouchableOpacity
           style={[
             styles.filterChip,
@@ -615,6 +620,29 @@ export default function AttendanceTrackerScreen() {
             ]}
           >
             Untracked ({statusCounts.untracked})
+          </Text>
+        </TouchableOpacity>
+
+        {/* 5. Present filter */}
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            statusFilter === "present" && styles.activeFilterChip,
+            statusFilter === "present" && {
+              borderColor: STATUS_CONFIG.present.color,
+            },
+          ]}
+          onPress={() => setStatusFilter("present")}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              statusFilter === "present" && {
+                color: STATUS_CONFIG.present.color,
+              },
+            ]}
+          >
+            Present ({statusCounts.present})
           </Text>
         </TouchableOpacity>
       </View>
@@ -682,6 +710,7 @@ export default function AttendanceTrackerScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder="Search students..."
+            placeholderTextColor="#999"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -768,8 +797,6 @@ export default function AttendanceTrackerScreen() {
           </View>
         </TouchableOpacity> */}
       </View>
-
-      {/* Student Details Modal */}
       <Modal
         visible={showStudentDetails}
         animationType="slide"
@@ -995,7 +1022,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
-    color: "#333",
   },
   modeButton: {
     width: 40,
@@ -1021,6 +1047,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     marginBottom: 8,
+    justifyContent: "flex-start",
   },
   filterChip: {
     paddingHorizontal: 12,
@@ -1064,11 +1091,19 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 8,
     borderRadius: 10,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    borderWidth: Platform.OS === "android" ? 1 : 0,
+    borderColor: "#eee",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 0, // Remove elevation entirely
+      },
+    }),
   },
   selectedStudentCard: {
     backgroundColor: "rgba(11, 181, 191, 0.05)",
@@ -1126,6 +1161,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 8,
+    borderWidth: Platform.OS === "android" ? 0 : 0,
+    ...Platform.select({
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   emptyContainer: {
     alignItems: "center",
@@ -1170,11 +1211,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     marginHorizontal: 4,
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    borderWidth: Platform.OS === "android" ? 0 : 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
   bulkActionText: {
     fontSize: 14,
@@ -1201,7 +1249,7 @@ const styles = StyleSheet.create({
         shadowRadius: 3,
       },
       android: {
-        elevation: 4,
+        elevation: 0,
       },
     }),
   },
@@ -1280,6 +1328,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
+    borderWidth: Platform.OS === "android" ? 1 : 0,
+    borderColor: "#eee",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -1288,7 +1338,7 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
       },
       android: {
-        elevation: 5,
+        elevation: 0,
       },
     }),
   },
