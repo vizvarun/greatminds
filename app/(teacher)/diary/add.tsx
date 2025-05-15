@@ -37,26 +37,23 @@ export default function AddDiaryEntryScreen() {
   const isEditMode = edit === "true";
   const { userProfile } = useAuth();
 
-  // Add a helper function to safely parse dates
-  const getSafeDate = (dateString?: string | string[]): Date => {
+  // Fix the date parsing to ensure a valid effective date
+  const getInitialEffectiveDate = () => {
+    if (!date) return new Date(); // Default to today
+
     try {
-      if (!dateString) return new Date();
+      // Try parsing the date param - handle both YYYY-MM-DD format and ISO string
+      const parsedDate = new Date(date as string);
 
-      const dateValue = Array.isArray(dateString) ? dateString[0] : dateString;
-      const parsedDate = new Date(dateValue);
-
-      // Check if date is valid
+      // Check if the date is valid
       if (isNaN(parsedDate.getTime())) {
-        console.warn(
-          `Invalid date string: ${dateValue}, using current date instead`
-        );
-        return new Date();
+        console.log("Invalid date from params:", date);
+        return new Date(); // Default to today if invalid
       }
-
       return parsedDate;
     } catch (error) {
       console.error("Error parsing date:", error);
-      return new Date(); // Always return today's date as fallback
+      return new Date(); // Default to today if there's an error
     }
   };
 
@@ -68,7 +65,7 @@ export default function AddDiaryEntryScreen() {
     title: "",
     description: "",
     type: "homework", // homework, classwork, preparation, research, other
-    effectiveDate: getSafeDate(date), // Use the safe date helper function
+    effectiveDate: getInitialEffectiveDate(), // Use the safer method
     dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 1 week later
     subject: "",
     isUrgent: false, // New field for urgent toggle
@@ -259,12 +256,13 @@ export default function AddDiaryEntryScreen() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
+  // Update formatDate to include error handling
   const formatDate = (date: Date) => {
     try {
-      // Validate date before formatting
+      // Ensure we have a valid date
       if (!date || isNaN(date.getTime())) {
-        console.warn("Invalid date provided to formatDate, using current date");
-        date = new Date(); // Fallback to current date
+        console.warn("Invalid date provided to formatDate:", date);
+        return formatDate(new Date()); // Fallback to today
       }
 
       // Format date as "Wed, May 28" with comma between day and date
@@ -276,21 +274,22 @@ export default function AddDiaryEntryScreen() {
       return date.toLocaleDateString("en-US", options);
     } catch (error) {
       console.error("Error formatting date:", error);
-      return new Date().toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "long",
-        day: "numeric",
-      });
+      return "Invalid Date"; // Return a clear error message
     }
   };
 
   const handleEffectiveDatePress = () => {
     setShowDueDatePicker(false);
-    setTempEffectiveDate(formData.effectiveDate);
+    // Ensure we're working with a valid date
+    const safeEffectiveDate = isNaN(formData.effectiveDate.getTime())
+      ? new Date()
+      : formData.effectiveDate;
+
+    setTempEffectiveDate(safeEffectiveDate);
 
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({
-        value: formData.effectiveDate,
+        value: safeEffectiveDate, // Use the validated date
         mode: "date",
         onChange: (event, selectedDate) => {
           if (event.type === "set" && selectedDate) {
@@ -495,8 +494,12 @@ export default function AddDiaryEntryScreen() {
           }
         }
 
+        // For "Other" type, use the subject as title
+        const title =
+          entryType === "other" ? entryData.subject : entryData.notetype || "";
+
         setFormData({
-          title: entryData.notetype || "",
+          title: title,
           description: entryData.description || "",
           type: entryType,
           subject: subjectId, // This will be re-populated in the useEffect if needed
@@ -537,22 +540,33 @@ export default function AddDiaryEntryScreen() {
       return "research";
     } else if (normalizedType.includes("test")) {
       return "test";
+    } else if (normalizedType === "other" || noteType === "Other") {
+      return "other";
     } else {
       return "other";
     }
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
+    // Common validation - description is always required
     if (!formData.description) {
-      showAlert("Error", "Please fill all required fields", "error");
+      showAlert("Error", "Please enter a description", "error");
       return;
     }
 
-    // Validate subject selection
-    if (!formData.subject && subjects.length > 0) {
-      showAlert("Error", "Please select a subject", "error");
-      return;
+    // Type-specific validation
+    if (formData.type === "other") {
+      // For "Other" type, title is required
+      if (!formData.title) {
+        showAlert("Error", "Please enter a title", "error");
+        return;
+      }
+    } else {
+      // For standard types, subject is required if we have subjects
+      if (!formData.subject && subjects.length > 0) {
+        showAlert("Error", "Please select a subject", "error");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -563,21 +577,46 @@ export default function AddDiaryEntryScreen() {
         return date.toISOString().split("T")[0];
       };
 
-      // Prepare data for API
-      const apiData = {
-        sectionid: Number(sectionId),
-        noteType:
-          formData.type === "other"
-            ? formData.title
-            : getNoteTypeFromType(formData.type),
-        effectiveDate: formatDateForApi(formData.effectiveDate),
-        dueDate: ["homework", "research", "preparation"].includes(formData.type)
-          ? formatDateForApi(formData.dueDate)
-          : formatDateForApi(formData.effectiveDate),
-        subject: getSubjectLabelFromId(formData.subject),
-        description: formData.description,
-        isUrgent: formData.isUrgent,
-      };
+      // Prepare API data based on entry type
+      let apiData;
+
+      if (formData.type === "other") {
+        // IMPORTANT: For "Other" type:
+        // - noteType must be exactly "Other" (fixed string)
+        // - subject should be the value from the title input field
+        apiData = {
+          sectionid: Number(sectionId),
+          noteType: "Other", // Fixed as "Other"
+          effectiveDate: formatDateForApi(formData.effectiveDate),
+          dueDate: formatDateForApi(formData.effectiveDate),
+          subject: formData.title, // This is the key part - use title as subject
+          description: formData.description,
+          isUrgent: formData.isUrgent,
+        };
+      } else {
+        // For standard entry types (homework, classwork, etc.)
+        apiData = {
+          sectionid: Number(sectionId),
+          noteType: getNoteTypeFromType(formData.type),
+          effectiveDate: formatDateForApi(formData.effectiveDate),
+          dueDate: ["homework", "research", "preparation"].includes(
+            formData.type
+          )
+            ? formatDateForApi(formData.dueDate)
+            : formatDateForApi(formData.effectiveDate),
+          subject: getSubjectLabelFromId(formData.subject),
+          description: formData.description,
+          isUrgent: formData.isUrgent,
+        };
+      }
+
+      // Add detailed console logging for debugging
+      console.log("Form data at submission:", {
+        type: formData.type,
+        title: formData.title,
+        subject: formData.subject,
+      });
+      console.log("Final API payload:", apiData);
 
       // Call the appropriate API based on mode
       if (isEditMode && entryId) {

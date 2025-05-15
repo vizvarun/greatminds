@@ -387,6 +387,26 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     }
   };
 
+  const getIconColor = (type: DiaryEntry["type"]) => {
+    switch (type) {
+      case "homework":
+        return "#4CAF50"; // Green for homework
+      case "classwork":
+        return "#00BCD4"; // Cyan for classwork
+      case "preparation":
+        return "#F44336"; // Red for preparation
+      case "research":
+        return "#673AB7"; // Purple for research
+      case "test":
+        return "#F44336"; // Red for tests
+      case "reminder":
+        return "#FF9800"; // Orange for reminders
+      case "note":
+      default:
+        return "#2196F3"; // Blue for general notes
+    }
+  };
+
   const renderEntryItem = ({ item }: { item: DiaryEntry }) => (
     <View style={styles.entryCard}>
       <View
@@ -659,7 +679,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF9800",
   },
   noteIcon: {
-    backgroundColor: "#2196F3",
+    backgroundColor: "#607D8B",
   },
   classworkIcon: {
     backgroundColor: "#00BCD4",

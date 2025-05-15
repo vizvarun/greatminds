@@ -37,6 +37,52 @@ type DiaryEntry = {
     | "test";
 };
 
+// Standardize color usage for entry types
+const entryTypes = [
+  {
+    id: "homework",
+    name: "Homework",
+    icon: "book-open-variant",
+    color: "#4CAF50", // Green for homework
+  },
+  {
+    id: "classwork",
+    name: "Classwork",
+    icon: "pencil-outline",
+    color: "#00BCD4", // Cyan for classwork
+  },
+  {
+    id: "preparation",
+    name: "Preparation",
+    icon: "clipboard-outline",
+    color: "#F44336", // Red for preparation
+  },
+  {
+    id: "research",
+    name: "Research",
+    icon: "magnify",
+    color: "#673AB7", // Purple for research
+  },
+  {
+    id: "test",
+    name: "Test",
+    icon: "file-document-outline",
+    color: "#F44336", // Red for tests
+  },
+  {
+    id: "reminder",
+    name: "Reminder",
+    icon: "bell-outline",
+    color: "#FF9800", // Orange for reminders
+  },
+  {
+    id: "note",
+    name: "Note",
+    icon: "note-outline",
+    color: "#200F13", // Blue for general notes
+  },
+];
+
 export default function SectionDiaryScreen() {
   const { branchId, gradeId, sectionId } = useLocalSearchParams();
 
@@ -466,24 +512,8 @@ export default function SectionDiaryScreen() {
   const groupedEntries = selectedDate ? [] : groupEntriesByDate(diaryEntries);
 
   const getIconForEntryType = (type: DiaryEntry["type"]) => {
-    switch (type) {
-      case "homework":
-        return "book-open-variant";
-      case "classwork":
-        return "pencil-outline";
-      case "preparation":
-        return "clipboard-outline";
-      case "research":
-        return "magnify";
-      case "test":
-        return "file-document-outline";
-      case "reminder":
-        return "bell-outline";
-      case "note":
-        return "note-outline";
-      default:
-        return "information-outline";
-    }
+    const entryType = entryTypes.find((et) => et.id === type);
+    return entryType ? entryType.icon : "information-outline";
   };
 
   const renderEntryItem = ({ item }: { item: DiaryEntry }) => (
@@ -820,25 +850,25 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   homeworkIcon: {
-    backgroundColor: "#4CAF50", // Green
+    backgroundColor: "#4CAF50", // Keep consistent with entryTypes
   },
   classworkIcon: {
-    backgroundColor: "#00BCD4", // Cyan
+    backgroundColor: "#00BCD4", // Keep consistent with entryTypes
   },
   preparationIcon: {
-    backgroundColor: "#F44336", // Indigo
+    backgroundColor: "#F44336", // Keep consistent with entryTypes
   },
   researchIcon: {
-    backgroundColor: "#673AB7", // Deep Purple
+    backgroundColor: "#673AB7", // Keep consistent with entryTypes
   },
   testIcon: {
-    backgroundColor: "#F44336", // Red
+    backgroundColor: "#F44336", // Keep consistent with entryTypes
   },
   reminderIcon: {
-    backgroundColor: "#FF9800", // Orange
+    backgroundColor: "#FF9800", // Keep consistent with entryTypes
   },
   noteIcon: {
-    backgroundColor: "#2196F3", // Blue
+    backgroundColor: "#607D8B", // Keep consistent with entryTypes
   },
   entryContent: {
     flex: 1,

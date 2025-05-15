@@ -91,6 +91,10 @@ export const createDiaryEntry = async (
       }
     }
 
+    console.log(
+      "Creating diary entry with payload:",
+      JSON.stringify(entry, null, 2)
+    );
     const response = await api.post("/diary/create", entry);
     return response.data;
   } catch (error) {
@@ -116,6 +120,10 @@ export const updateDiaryEntry = async (
       }
     }
 
+    console.log(
+      `Updating diary entry ${diaryId} with payload:`,
+      JSON.stringify(entry, null, 2)
+    );
     const response = await api.put("/diary/update", entry, {
       params: {
         diary_id: diaryId,
