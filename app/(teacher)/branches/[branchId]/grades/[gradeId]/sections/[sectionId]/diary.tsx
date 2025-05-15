@@ -27,6 +27,7 @@ type DiaryEntry = {
   formattedDate: string;
   title: string;
   description: string;
+  isUrgent: boolean;
   type:
     | "homework"
     | "classwork"
@@ -37,49 +38,48 @@ type DiaryEntry = {
     | "test";
 };
 
-// Standardize color usage for entry types
 const entryTypes = [
   {
     id: "homework",
     name: "Homework",
     icon: "book-open-variant",
-    color: "#4CAF50", // Green for homework
+    color: "#4CAF50",
   },
   {
     id: "classwork",
     name: "Classwork",
     icon: "pencil-outline",
-    color: "#00BCD4", // Cyan for classwork
+    color: "#00BCD4",
   },
   {
     id: "preparation",
     name: "Preparation",
     icon: "clipboard-outline",
-    color: "#F44336", // Red for preparation
+    color: "#F44336",
   },
   {
     id: "research",
     name: "Research",
     icon: "magnify",
-    color: "#673AB7", // Purple for research
+    color: "#673AB7",
   },
   {
     id: "test",
     name: "Test",
     icon: "file-document-outline",
-    color: "#F44336", // Red for tests
+    color: "#F44336",
   },
   {
     id: "reminder",
     name: "Reminder",
     icon: "bell-outline",
-    color: "#FF9800", // Orange for reminders
+    color: "#FF9800",
   },
   {
     id: "note",
     name: "Note",
     icon: "note-outline",
-    color: "#200F13", // Blue for general notes
+    color: "#200F13",
   },
 ];
 
@@ -110,15 +110,52 @@ export default function SectionDiaryScreen() {
     onCancel: () => {},
   });
 
-  // Add rotation animation value
   const syncIconRotation = useRef(new Animated.Value(0)).current;
 
-  // Fetch diary entries when component mounts or dependencies change
+  const [dateRange, setDateRange] = useState<Date[]>([]);
+  const dateScrollRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const generateDateRange = () => {
+      const today = new Date();
+      const dates: Date[] = [];
+
+      for (let i = -14; i <= 14; i++) {
+        const date = new Date();
+        date.setDate(today.getDate() + i);
+        dates.push(date);
+      }
+
+      setDateRange(dates);
+    };
+
+    generateDateRange();
+  }, []);
+
+  useEffect(() => {
+    if (dateRange.length > 0 && dateScrollRef.current) {
+      const todayIndex = dateRange.findIndex(
+        (date) => normalizeDate(date) === normalizeDate(new Date())
+      );
+
+      const selectedIndex = selectedDate
+        ? dateRange.findIndex((date) => normalizeDate(date) === selectedDate)
+        : todayIndex;
+
+      if (selectedIndex !== -1) {
+        dateScrollRef.current.scrollToIndex({
+          index: selectedIndex,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      }
+    }
+  }, [dateRange, selectedDate]);
+
   useEffect(() => {
     fetchDiaryEntries();
   }, [sectionId, selectedDate]);
 
-  // Function to fetch diary entries from API
   const fetchDiaryEntries = async () => {
     if (!sectionId) return;
 
@@ -131,11 +168,8 @@ export default function SectionDiaryScreen() {
         selectedDate
       );
 
-      // Check if response has items array
       if (Array.isArray(response.items)) {
-        // Transform API response to match component's expected format
         const transformedEntries: DiaryEntry[] = response.items.map((entry) => {
-          // Determine entry type based on the notetype field
           let type: DiaryEntry["type"] = "note";
           const noteType = entry.notetype?.toLowerCase() || "";
 
@@ -153,12 +187,10 @@ export default function SectionDiaryScreen() {
             type = "reminder";
           }
 
-          // Use subject as part of the title if available
           const title = entry.subject
             ? `${entry.notetype}: ${entry.subject}`
             : entry.notetype;
 
-          // Parse the date correctly
           const entryDate = new Date(entry.effectivedate);
 
           return {
@@ -171,13 +203,13 @@ export default function SectionDiaryScreen() {
             }),
             title: title,
             description: entry.description,
+            isUrgent: entry.isurgent || false,
             type,
           };
         });
 
         setDiaryEntries(transformedEntries);
       } else {
-        // Handle unexpected response format
         console.warn("Unexpected API response format:", response);
         setDiaryEntries([]);
       }
@@ -188,7 +220,6 @@ export default function SectionDiaryScreen() {
     } finally {
       setIsLoading(false);
       setRefreshing(false);
-      // Stop rotation animation if it was started
       syncIconRotation.setValue(0);
       Animated.timing(syncIconRotation).stop();
     }
@@ -225,7 +256,6 @@ export default function SectionDiaryScreen() {
   const onRefresh = useCallback(() => {
     setRefreshing(true);
 
-    // Start rotation animation
     Animated.loop(
       Animated.timing(syncIconRotation, {
         toValue: 1,
@@ -235,15 +265,12 @@ export default function SectionDiaryScreen() {
       })
     ).start();
 
-    // Clear date filter and fetch all entries
     setSelectedDate(null);
     setShowDatePicker(false);
 
-    // Refresh data
     fetchDiaryEntries();
   }, [sectionId, syncIconRotation]);
 
-  // Create an interpolation for rotation
   const spin = syncIconRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
@@ -336,7 +363,6 @@ export default function SectionDiaryScreen() {
     ];
     const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-    // Add header with month and year
     days.push(
       <View key="header" style={styles.calendarHeader}>
         <TouchableOpacity onPress={() => changeMonth(-1)}>
@@ -351,7 +377,6 @@ export default function SectionDiaryScreen() {
       </View>
     );
 
-    // Add day names row
     days.push(
       <View key="daynames" style={styles.dayNamesRow}>
         {dayNames.map((day) => (
@@ -362,7 +387,6 @@ export default function SectionDiaryScreen() {
       </View>
     );
 
-    // Add empty cells for days before the first day of the month
     const rows = [];
     let cells = [];
 
@@ -370,7 +394,6 @@ export default function SectionDiaryScreen() {
       cells.push(<View key={`empty-${i}`} style={styles.emptyDay} />);
     }
 
-    // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const cellDate = new Date(currentYear, currentMonth, day);
       const dateString = normalizeDate(cellDate);
@@ -405,7 +428,6 @@ export default function SectionDiaryScreen() {
         </TouchableOpacity>
       );
 
-      // If we've reached the end of a week, start a new row
       if ((firstDay + day) % 7 === 0) {
         rows.push(
           <View key={`row-${day}`} style={styles.calendarRow}>
@@ -416,7 +438,6 @@ export default function SectionDiaryScreen() {
       }
     }
 
-    // Add any remaining days to a final row
     if (cells.length > 0) {
       while (cells.length < 7) {
         cells.push(
@@ -455,10 +476,8 @@ export default function SectionDiaryScreen() {
       async () => {
         try {
           setIsLoading(true);
-          // Call the API to delete the entry
           await deleteDiaryEntry(entryId);
 
-          // Remove the entry from the local state
           setDiaryEntries(diaryEntries.filter((entry) => entry.id !== entryId));
 
           showAlert("Success", "Entry deleted successfully", "success");
@@ -480,12 +499,10 @@ export default function SectionDiaryScreen() {
     const grouped: { title: string; data: DiaryEntry[] }[] = [];
     const dateMap = new Map<string, DiaryEntry[]>();
 
-    // Sort entries by date (newest first)
     const sortedEntries = [...entries].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
-    // Group entries by formatted date
     sortedEntries.forEach((entry) => {
       const formattedDate = formatDate(entry.date);
       if (!dateMap.has(formattedDate)) {
@@ -494,7 +511,6 @@ export default function SectionDiaryScreen() {
       dateMap.get(formattedDate)?.push(entry);
     });
 
-    // Convert map to array for SectionList
     dateMap.forEach((entries, date) => {
       grouped.push({
         title: date,
@@ -511,63 +527,150 @@ export default function SectionDiaryScreen() {
 
   const groupedEntries = selectedDate ? [] : groupEntriesByDate(diaryEntries);
 
-  const getIconForEntryType = (type: DiaryEntry["type"]) => {
-    const entryType = entryTypes.find((et) => et.id === type);
-    return entryType ? entryType.icon : "information-outline";
-  };
+  const renderEntryItem = ({ item }: { item: DiaryEntry }) => {
+    const entryType =
+      entryTypes.find((et) => et.id === item.type) || entryTypes[6];
 
-  const renderEntryItem = ({ item }: { item: DiaryEntry }) => (
-    <View style={styles.entryCard}>
-      <View
-        style={[
-          styles.entryIconContainer,
-          item.type === "homework"
-            ? styles.homeworkIcon
-            : item.type === "classwork"
-            ? styles.classworkIcon
-            : item.type === "preparation"
-            ? styles.preparationIcon
-            : item.type === "research"
-            ? styles.researchIcon
-            : item.type === "test"
-            ? styles.testIcon
-            : item.type === "reminder"
-            ? styles.reminderIcon
-            : styles.noteIcon,
-        ]}
-      >
-        <MaterialCommunityIcons
-          name={getIconForEntryType(item.type)}
-          size={24}
-          color="#fff"
+    return (
+      <View style={styles.entryCard}>
+        <View
+          style={[styles.entryAccent, { backgroundColor: entryType.color }]}
         />
+
+        <View style={styles.entryContent}>
+          <View style={styles.entryHeader}>
+            <View style={styles.entryTypeContainer}>
+              <MaterialCommunityIcons
+                name={entryType.icon}
+                size={15}
+                color={entryType.color}
+                style={styles.entryTypeIcon}
+              />
+              <Text style={[styles.entryTypeLabel, { color: entryType.color }]}>
+                {entryType.name}
+              </Text>
+              {item.isUrgent && (
+                <View style={styles.urgentPill}>
+                  <Text style={styles.urgentText}>URGENT</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.entryActions}>
+              <TouchableOpacity
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                onPress={() => handleEditEntry(item)}
+              >
+                <MaterialCommunityIcons name="pencil" size={18} color="#888" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={styles.deleteButton}
+                onPress={() => handleDeleteEntry(item.id)}
+              >
+                <MaterialCommunityIcons
+                  name="delete-outline"
+                  size={18}
+                  color="#F44336"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <Text style={styles.entryTitle}>{item.title}</Text>
+
+          <Text style={styles.entryDescription}>{item.description}</Text>
+        </View>
       </View>
-      <View style={styles.entryContent}>
-        <Text style={styles.entryTitle}>{item.title}</Text>
-        <Text style={styles.entryDescription}>{item.description}</Text>
-      </View>
-      <View style={styles.entryActions}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleEditEntry(item)}
-        >
-          <MaterialCommunityIcons name="pencil" size={20} color="#666" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => handleDeleteEntry(item.id)}
-        >
-          <MaterialCommunityIcons name="delete" size={20} color="#F44336" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderDateHeader = ({ section }: { section: { title: string } }) => (
     <View style={styles.dateHeaderContainer}>
       <Text style={styles.sectionDateHeader}>{section.title}</Text>
     </View>
   );
+
+  const formatScrollerDate = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    if (normalizeDate(date) === normalizeDate(today)) {
+      return "Today";
+    } else if (normalizeDate(date) === normalizeDate(tomorrow)) {
+      return "Tomorrow";
+    } else if (normalizeDate(date) === normalizeDate(yesterday)) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
+    }
+  };
+
+  const renderDateItem = ({ item }: { item: Date }) => {
+    const isSelected = normalizeDate(item) === selectedDate;
+    const isToday = normalizeDate(item) === normalizeDate(new Date());
+    const hasEntries = diaryEntries.some(
+      (entry) => entry.date === normalizeDate(item)
+    );
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.dateItem,
+          isSelected && styles.dateItemSelected,
+          isToday && !isSelected && styles.dateItemToday,
+        ]}
+        onPress={() => setSelectedDate(normalizeDate(item))}
+      >
+        <Text
+          style={[
+            styles.dateDay,
+            isSelected && styles.dateTextSelected,
+            isToday && !isSelected && styles.dateTodayText,
+          ]}
+        >
+          {item.getDate()}
+        </Text>
+        <Text
+          style={[
+            styles.dateMonth,
+            isSelected && styles.dateTextSelected,
+            isToday && !isSelected && styles.dateTodayText,
+          ]}
+        >
+          {item.toLocaleDateString("en-US", { month: "short" })}
+        </Text>
+        <Text
+          style={[
+            styles.dateWeekday,
+            isSelected && styles.dateTextSelected,
+            isToday && !isSelected && styles.dateTodayText,
+          ]}
+        >
+          {formatScrollerDate(item).includes("day")
+            ? formatScrollerDate(item)
+            : item.toLocaleDateString("en-US", { weekday: "short" })}
+        </Text>
+        {/* {hasEntries && (
+          <View
+            style={[
+              styles.dateEntryDot,
+              isSelected && { backgroundColor: "#fff" },
+              isToday && !isSelected && { backgroundColor: primary, opacity: 0.9 },
+            ]}
+          />
+        )} */}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -581,64 +684,104 @@ export default function SectionDiaryScreen() {
           </TouchableOpacity>
           <Text style={styles.title}>Class Diary</Text>
         </View>
+
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.addButton} onPress={handleAddEntry}>
+          <TouchableOpacity
+            style={[styles.headerActionButton, styles.addEntryHeaderButton]}
+            onPress={handleAddEntry}
+          >
             <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-            <Text style={styles.addButtonText}>Add Entry</Text>
+            <Text style={styles.addEntryHeaderText}>Add Entry</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.refreshButton}
+            style={styles.headerActionButton}
             onPress={onRefresh}
             disabled={refreshing}
           >
             <Animated.View style={{ transform: [{ rotate: spin }] }}>
-              <MaterialCommunityIcons name="sync" size={20} color={primary} />
+              <MaterialCommunityIcons name="sync" size={20} color="#555" />
             </Animated.View>
-            <Text style={styles.refreshButtonText}>Sync</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.calendarContainer}>
+      <View style={styles.dateNavigationContainer}>
         <TouchableOpacity
-          style={styles.dateSelector}
+          style={[
+            styles.dateNavButton,
+            !selectedDate && styles.dateNavButtonActive,
+          ]}
+          onPress={clearDateFilter}
+        >
+          <Text
+            style={[
+              styles.dateNavText,
+              !selectedDate && styles.dateNavTextActive,
+            ]}
+          >
+            All
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.dateNavButton,
+            selectedDate === normalizeDate(new Date()) &&
+              styles.dateNavButtonActive,
+          ]}
+          onPress={goToToday}
+        >
+          <Text
+            style={[
+              styles.dateNavText,
+              selectedDate === normalizeDate(new Date()) &&
+                styles.dateNavTextActive,
+            ]}
+          >
+            Today
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.calendarButton}
           onPress={() => setShowDatePicker(!showDatePicker)}
         >
-          <MaterialCommunityIcons name="calendar" size={20} color={primary} />
-          <Text style={styles.dateSelectorText}>
-            {formatDisplayDate(selectedDate)}
-          </Text>
           <MaterialCommunityIcons
-            name={showDatePicker ? "chevron-up" : "chevron-down"}
-            size={20}
+            name={showDatePicker ? "calendar-remove" : "calendar"}
+            size={18}
             color={primary}
           />
         </TouchableOpacity>
-
-        {showDatePicker && renderCalendar()}
-
-        <View style={styles.calendarActions}>
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <Text style={styles.todayButtonText}>Today</Text>
-          </TouchableOpacity>
-
-          {selectedDate && (
-            <TouchableOpacity
-              style={styles.allEntriesButton}
-              onPress={clearDateFilter}
-            >
-              <Text style={styles.allEntriesButtonText}>All Entries</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
 
-      <View style={styles.entriesContainer}>
-        <Text style={styles.dateHeader}>
-          {selectedDate ? formatDate(selectedDate) : "All Entries"}
-        </Text>
+      <View style={styles.dateScrollerContainer}>
+        <FlatList
+          ref={dateScrollRef}
+          data={dateRange}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          renderItem={renderDateItem}
+          keyExtractor={(item) => normalizeDate(item)}
+          contentContainerStyle={styles.dateScrollerContent}
+          onScrollToIndexFailed={(info) => {
+            const wait = new Promise((resolve) => setTimeout(resolve, 500));
+            wait.then(() => {
+              dateScrollRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            });
+          }}
+        />
+      </View>
 
+      {showDatePicker && (
+        <View style={styles.calendarWrapper}>{renderCalendar()}</View>
+      )}
+
+      <View style={styles.entriesContainer}>
         {isLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={primary} />
@@ -661,7 +804,6 @@ export default function SectionDiaryScreen() {
           </View>
         ) : entriesForSelectedDate.length > 0 ? (
           selectedDate ? (
-            // Regular FlatList for single date view
             <FlatList
               data={entriesForSelectedDate}
               keyExtractor={(item) => item.id}
@@ -672,7 +814,6 @@ export default function SectionDiaryScreen() {
               renderItem={renderEntryItem}
             />
           ) : (
-            // SectionList for grouped date view
             <SectionList
               sections={groupedEntries}
               keyExtractor={(item) => item.id}
@@ -682,7 +823,7 @@ export default function SectionDiaryScreen() {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }
-              stickySectionHeadersEnabled={false}
+              stickySectionHeadersEnabled={true}
             />
           )
         ) : (
@@ -723,14 +864,14 @@ export default function SectionDiaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f7fa",
+    backgroundColor: "#f8f9fa",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
@@ -742,156 +883,268 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: 10,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   title: {
     fontSize: 18,
     fontFamily: Typography.fontWeight.semiBold.primary,
     color: "#333",
   },
-  refreshButton: {
+  headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 10,
   },
-  refreshButtonText: {
-    marginLeft: 4,
-    color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
+  headerActionButton: {
+    padding: 8,
+    marginLeft: 12,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
   },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
+  addEntryHeaderButton: {
     backgroundColor: primary,
-    borderRadius: 6,
-    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    marginRight: 10,
   },
-  addButtonText: {
+  addEntryHeaderText: {
     color: "#fff",
     marginLeft: 4,
-    fontFamily: Typography.fontWeight.medium.primary,
     fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
   },
-  calendarContainer: {
-    backgroundColor: "#fff",
-    padding: 16,
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  calendarActions: {
+  dateBanner: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  dateInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  currentDate: {
+    fontSize: 15,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+  },
+  dateNavigationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  dateNavButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  dateNavButtonActive: {
+    backgroundColor: primary,
+  },
+  dateNavText: {
+    fontSize: 13,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+  },
+  dateNavTextActive: {
+    color: "#fff",
+  },
+  calendarButton: {
+    padding: 6,
+    borderRadius: 16,
+    marginLeft: "auto",
+    borderWidth: 1,
+    borderColor: primary + "50",
+  },
+  dateScrollerContainer: {
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  dateScrollerContent: {
+    paddingHorizontal: 8,
+  },
+  dateItem: {
+    width: 64,
+    height: 80,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
-    gap: 10,
+    marginHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: "#f5f5f5",
+    position: "relative",
+    paddingVertical: 8,
   },
-  todayButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
-    borderRadius: 20,
+  dateItemSelected: {
+    backgroundColor: primary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  todayButtonText: {
-    color: primary,
+  dateItemToday: {
+    backgroundColor: "#f0f7f8",
+    borderWidth: 1.5,
+    borderColor: primary,
+  },
+  dateDay: {
+    fontSize: 22,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginBottom: 2,
+  },
+  dateMonth: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.regular.primary,
+    color: "#666",
+    marginBottom: 1,
+  },
+  dateWeekday: {
+    fontSize: 11,
     fontFamily: Typography.fontWeight.medium.primary,
-    fontSize: 14,
+    color: "#888",
   },
-  allEntriesButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
-    borderRadius: 20,
+  dateTextSelected: {
+    color: "#fff",
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
-  allEntriesButtonText: {
+  dateTodayText: {
     color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
-    fontSize: 14,
+    fontWeight: "700",
+  },
+  dateEntryDot: {
+    position: "absolute",
+    bottom: 14,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#666",
+  },
+  calendarWrapper: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#eee",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+    marginHorizontal: 12,
   },
   entriesContainer: {
     flex: 1,
-    padding: 16,
-  },
-  dateHeader: {
-    fontSize: 16,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-    marginBottom: 12,
   },
   entriesList: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
     paddingBottom: 20,
   },
+  dateHeaderContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#f8f9fa",
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 4,
+  },
+  sectionDateHeader: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+  },
   entryCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
     flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    overflow: "hidden",
   },
-  entryIconContainer: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  homeworkIcon: {
-    backgroundColor: "#4CAF50", // Keep consistent with entryTypes
-  },
-  classworkIcon: {
-    backgroundColor: "#00BCD4", // Keep consistent with entryTypes
-  },
-  preparationIcon: {
-    backgroundColor: "#F44336", // Keep consistent with entryTypes
-  },
-  researchIcon: {
-    backgroundColor: "#673AB7", // Keep consistent with entryTypes
-  },
-  testIcon: {
-    backgroundColor: "#F44336", // Keep consistent with entryTypes
-  },
-  reminderIcon: {
-    backgroundColor: "#FF9800", // Keep consistent with entryTypes
-  },
-  noteIcon: {
-    backgroundColor: "#607D8B", // Keep consistent with entryTypes
+  entryAccent: {
+    width: 4,
+    height: "100%",
   },
   entryContent: {
     flex: 1,
+    padding: 14,
+  },
+  entryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
+  entryTypeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  entryTypeIcon: {
+    marginRight: 4,
+  },
+  entryTypeLabel: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  urgentPill: {
+    marginLeft: 8,
+    backgroundColor: "#FFE0E0",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  urgentText: {
+    color: "#F44336",
+    fontSize: 10,
+    fontFamily: Typography.fontWeight.medium.primary,
   },
   entryTitle: {
-    fontSize: 16,
-    fontFamily: Typography.fontWeight.semiBold.primary,
+    fontSize: 15,
+    fontFamily: Typography.fontWeight.medium.primary,
     color: "#333",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   entryDescription: {
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
-    marginBottom: 8,
+    lineHeight: 20,
   },
   entryActions: {
     flexDirection: "row",
     alignItems: "center",
   },
-  actionButton: {
-    padding: 6,
-    marginLeft: 5,
+  deleteButton: {
+    marginLeft: 12,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
   },
   noEntriesContainer: {
     flex: 1,
@@ -916,28 +1169,8 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontFamily: Typography.fontWeight.medium.primary,
   },
-  dateSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(11, 181, 191, 0.05)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  dateSelectorText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 15,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#333",
-  },
   customCalendar: {
-    marginTop: 12,
     backgroundColor: "#fff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#eee",
-    overflow: "hidden",
   },
   calendarHeader: {
     flexDirection: "row",
@@ -945,14 +1178,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: "#f9f9f9",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-  },
-  calendarTitle: {
-    fontSize: 16,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#333",
   },
   dayNamesRow: {
     flexDirection: "row",
@@ -982,7 +1209,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   todayCell: {
-    backgroundColor: "rgba(11, 181, 191, 0.05)",
+    backgroundColor: "rgba(11, 181, 191, 0.08)",
   },
   emptyDay: {
     flex: 1,
@@ -993,57 +1220,40 @@ const styles = StyleSheet.create({
   },
   todayText: {
     color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
+    fontFamily: Typography.fontWeight.bold.primary,
   },
   selectedDay: {
     backgroundColor: primary,
     borderRadius: 20,
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     justifyContent: "center",
     alignItems: "center",
     display: "flex",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   selectedDayText: {
     color: "#fff",
-    fontFamily: Typography.fontWeight.medium.primary,
+    fontFamily: Typography.fontWeight.bold.primary,
+    fontSize: 15,
+    textShadowColor: "rgba(0, 0, 0, 0.15)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   entryIndicator: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    top: 1,
+    right: 1,
     width: 0,
     height: 0,
     backgroundColor: "transparent",
     borderStyle: "solid",
-    borderRightWidth: 8,
-    borderTopWidth: 8,
+    borderRightWidth: 7,
+    borderTopWidth: 7,
     borderRightColor: "transparent",
     borderTopColor: primary,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-  },
-  dateHeaderContainer: {
-    backgroundColor: "#f5f7fa",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 8,
-    borderRadius: 8,
-  },
-  sectionDateHeader: {
-    fontSize: 15,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#555",
   },
 });

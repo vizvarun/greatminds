@@ -1219,8 +1219,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Typography.fontFamily.primary,
     color: "#F44336",
-    marginTop: 8,
-    fontStyle: "italic",
+    marginTop: 4,
+    opacity: 0.8, // Make it more subtle
   },
   disabledButton: {
     opacity: 0.7,

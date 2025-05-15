@@ -32,6 +32,7 @@ type DiaryEntry = {
   formattedDate: string;
   title: string;
   description: string;
+  isUrgent: boolean;
   type:
     | "homework"
     | "note"
@@ -41,6 +42,51 @@ type DiaryEntry = {
     | "preparation"
     | "research";
 };
+
+const entryTypes = [
+  {
+    id: "homework",
+    name: "Homework",
+    icon: "book-open-variant",
+    color: "#4CAF50",
+  },
+  {
+    id: "classwork",
+    name: "Classwork",
+    icon: "pencil-outline",
+    color: "#00BCD4",
+  },
+  {
+    id: "preparation",
+    name: "Preparation",
+    icon: "clipboard-outline",
+    color: "#F44336",
+  },
+  {
+    id: "research",
+    name: "Research",
+    icon: "magnify",
+    color: "#673AB7",
+  },
+  {
+    id: "test",
+    name: "Test",
+    icon: "file-document-outline",
+    color: "#F44336",
+  },
+  {
+    id: "reminder",
+    name: "Reminder",
+    icon: "bell-outline",
+    color: "#FF9800",
+  },
+  {
+    id: "note",
+    name: "Note",
+    icon: "note-outline",
+    color: "#200F13",
+  },
+];
 
 export default function ChildDiary({ sectionId, showAlert }: Props) {
   const normalizeDate = (date: Date): string => {
@@ -61,19 +107,61 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
 
   const syncIconRotation = useRef(new Animated.Value(0)).current;
 
+  const [dateRange, setDateRange] = useState<Date[]>([]);
+  const dateScrollRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const generateDateRange = () => {
+      const today = new Date();
+      const dates: Date[] = [];
+
+      for (let i = -14; i <= 14; i++) {
+        const date = new Date();
+        date.setDate(today.getDate() + i);
+        dates.push(date);
+      }
+
+      setDateRange(dates);
+    };
+
+    generateDateRange();
+  }, []);
+
+  useEffect(() => {
+    if (dateRange.length > 0 && dateScrollRef.current) {
+      const todayIndex = dateRange.findIndex(
+        (date) => normalizeDate(date) === normalizeDate(new Date())
+      );
+
+      const selectedIndex = selectedDate
+        ? dateRange.findIndex((date) => normalizeDate(date) === selectedDate)
+        : todayIndex;
+
+      if (selectedIndex !== -1) {
+        dateScrollRef.current.scrollToIndex({
+          index: selectedIndex,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      }
+    }
+  }, [dateRange, selectedDate]);
+
   useEffect(() => {
     fetchDiaryEntries();
   }, [sectionId, selectedDate]);
 
-  const fetchDiaryEntries = async (date?: string | null) => {
+  const fetchDiaryEntries = async () => {
     if (!sectionId) return;
 
     setError(null);
     if (!refreshing) setIsLoading(true);
 
     try {
-      const dateToFetch = date || selectedDate;
-      const response = await fetchSectionDiaryEntries(sectionId, dateToFetch);
+      const response = await fetchSectionDiaryEntries(
+        sectionId as string,
+        selectedDate
+      );
 
       if (Array.isArray(response.items)) {
         const transformedEntries: DiaryEntry[] = response.items.map((entry) => {
@@ -110,6 +198,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
             }),
             title: title,
             description: entry.description,
+            isUrgent: entry.isurgent || false,
             type,
           };
         });
@@ -146,7 +235,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     setSelectedDate(null);
     setShowDatePicker(false);
 
-    fetchDiaryEntries(null);
+    fetchDiaryEntries();
   }, [sectionId, syncIconRotation]);
 
   const spin = syncIconRotation.interpolate({
@@ -366,67 +455,116 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
 
   const groupedEntries = selectedDate ? [] : groupEntriesByDate(diaryEntries);
 
-  const getIconForEntryType = (type: DiaryEntry["type"]) => {
-    switch (type) {
-      case "homework":
-        return "book-open-variant";
-      case "test":
-        return "file-document-outline";
-      case "reminder":
-        return "bell-outline";
-      case "note":
-        return "note-outline";
-      case "classwork":
-        return "pencil-outline";
-      case "preparation":
-        return "clipboard-outline";
-      case "research":
-        return "magnify";
-      default:
-        return "information-outline";
+  const formatScrollerDate = (date: Date) => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    if (normalizeDate(date) === normalizeDate(today)) {
+      return "Today";
+    } else if (normalizeDate(date) === normalizeDate(tomorrow)) {
+      return "Tomorrow";
+    } else if (normalizeDate(date) === normalizeDate(yesterday)) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      });
     }
   };
 
-  const getIconColor = (type: DiaryEntry["type"]) => {
-    switch (type) {
-      case "homework":
-        return "#4CAF50"; // Green for homework
-      case "classwork":
-        return "#00BCD4"; // Cyan for classwork
-      case "preparation":
-        return "#F44336"; // Red for preparation
-      case "research":
-        return "#673AB7"; // Purple for research
-      case "test":
-        return "#F44336"; // Red for tests
-      case "reminder":
-        return "#FF9800"; // Orange for reminders
-      case "note":
-      default:
-        return "#2196F3"; // Blue for general notes
-    }
-  };
+  const renderDateItem = ({ item }: { item: Date }) => {
+    const isSelected = normalizeDate(item) === selectedDate;
+    const isToday = normalizeDate(item) === normalizeDate(new Date());
+    const hasEntries = diaryEntries.some(
+      (entry) => entry.date === normalizeDate(item)
+    );
 
-  const renderEntryItem = ({ item }: { item: DiaryEntry }) => (
-    <View style={styles.entryCard}>
-      <View
+    return (
+      <TouchableOpacity
         style={[
-          styles.entryIconContainer,
-          styles[`${item.type}Icon` as keyof typeof styles] || styles.noteIcon,
+          styles.dateItem,
+          isSelected && styles.dateItemSelected,
+          isToday && !isSelected && styles.dateItemToday,
         ]}
+        onPress={() => setSelectedDate(normalizeDate(item))}
       >
-        <MaterialCommunityIcons
-          name={getIconForEntryType(item.type)}
-          size={24}
-          color="#fff"
+        <Text
+          style={[
+            styles.dateDay,
+            isSelected && styles.dateTextSelected,
+            isToday && !isSelected && styles.dateTodayText,
+          ]}
+        >
+          {item.getDate()}
+        </Text>
+        <Text
+          style={[
+            styles.dateMonth,
+            isSelected && styles.dateTextSelected,
+            isToday && !isSelected && styles.dateTodayText,
+          ]}
+        >
+          {item.toLocaleDateString("en-US", { month: "short" })}
+        </Text>
+        <Text
+          style={[
+            styles.dateWeekday,
+            isSelected && styles.dateTextSelected,
+            isToday && !isSelected && styles.dateTodayText,
+          ]}
+        >
+          {formatScrollerDate(item).includes("day")
+            ? formatScrollerDate(item)
+            : item.toLocaleDateString("en-US", { weekday: "short" })}
+        </Text>
+        {/* {hasEntries && <View style={styles.dateEntryDot} />} */}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEntryItem = ({ item }: { item: DiaryEntry }) => {
+    const entryType =
+      entryTypes.find((et) => et.id === item.type) || entryTypes[6];
+
+    return (
+      <View style={styles.entryCard}>
+        <View
+          style={[styles.entryAccent, { backgroundColor: entryType.color }]}
         />
+
+        <View style={styles.entryContent}>
+          <View style={styles.entryHeader}>
+            <View style={styles.entryTypeContainer}>
+              <MaterialCommunityIcons
+                name={entryType.icon}
+                size={15}
+                color={entryType.color}
+                style={styles.entryTypeIcon}
+              />
+              <Text style={[styles.entryTypeLabel, { color: entryType.color }]}>
+                {entryType.name}
+              </Text>
+              {item.isUrgent && (
+                <View style={styles.urgentPill}>
+                  <Text style={styles.urgentText}>URGENT</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <Text style={styles.entryTitle}>{item.title}</Text>
+
+          <Text style={styles.entryDescription}>{item.description}</Text>
+        </View>
       </View>
-      <View style={styles.entryContent}>
-        <Text style={styles.entryTitle}>{item.title}</Text>
-        <Text style={styles.entryDescription}>{item.description}</Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderDateHeader = ({ section }: { section: { title: string } }) => (
     <View style={styles.dateHeaderContainer}>
@@ -437,7 +575,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.titleContainer}>
+        <View style={styles.headerLeft}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -458,45 +596,82 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.calendarContainer}>
+      <View style={styles.dateNavigationContainer}>
         <TouchableOpacity
-          style={styles.dateSelector}
+          style={[
+            styles.dateNavButton,
+            !selectedDate && styles.dateNavButtonActive,
+          ]}
+          onPress={clearDateFilter}
+        >
+          <Text
+            style={[
+              styles.dateNavText,
+              !selectedDate && styles.dateNavTextActive,
+            ]}
+          >
+            All
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.dateNavButton,
+            selectedDate === normalizeDate(new Date()) &&
+              styles.dateNavButtonActive,
+          ]}
+          onPress={goToToday}
+        >
+          <Text
+            style={[
+              styles.dateNavText,
+              selectedDate === normalizeDate(new Date()) &&
+                styles.dateNavTextActive,
+            ]}
+          >
+            Today
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.calendarButton}
           onPress={() => setShowDatePicker(!showDatePicker)}
         >
-          <MaterialCommunityIcons name="calendar" size={20} color={primary} />
-          <Text style={styles.dateSelectorText}>
-            {formatDisplayDate(selectedDate)}
-          </Text>
           <MaterialCommunityIcons
-            name={showDatePicker ? "chevron-up" : "chevron-down"}
-            size={20}
+            name={showDatePicker ? "calendar-remove" : "calendar"}
+            size={18}
             color={primary}
           />
         </TouchableOpacity>
-
-        {showDatePicker && renderCalendar()}
-
-        <View style={styles.calendarActions}>
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <Text style={styles.todayButtonText}>Today</Text>
-          </TouchableOpacity>
-
-          {selectedDate && (
-            <TouchableOpacity
-              style={styles.allEntriesButton}
-              onPress={clearDateFilter}
-            >
-              <Text style={styles.allEntriesButtonText}>All Entries</Text>
-            </TouchableOpacity>
-          )}
-        </View>
       </View>
 
-      <View style={styles.entriesContainer}>
-        <Text style={styles.dateHeader}>
-          {selectedDate ? formatDate(selectedDate) : "All Entries"}
-        </Text>
+      <View style={styles.dateScrollerContainer}>
+        <FlatList
+          ref={dateScrollRef}
+          data={dateRange}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          renderItem={renderDateItem}
+          keyExtractor={(item) => normalizeDate(item)}
+          contentContainerStyle={styles.dateScrollerContent}
+          onScrollToIndexFailed={(info) => {
+            const wait = new Promise((resolve) => setTimeout(resolve, 500));
+            wait.then(() => {
+              dateScrollRef.current?.scrollToIndex({
+                index: info.index,
+                animated: true,
+                viewPosition: 0.5,
+              });
+            });
+          }}
+        />
+      </View>
 
+      {showDatePicker && (
+        <View style={styles.calendarWrapper}>{renderCalendar()}</View>
+      )}
+
+      <View style={styles.entriesContainer}>
         {isLoading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={primary} />
@@ -538,7 +713,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }
-              stickySectionHeadersEnabled={false}
+              stickySectionHeadersEnabled={true}
             />
           )
         ) : (
@@ -563,24 +738,24 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f7fa",
+    backgroundColor: "#f8f9fa",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  titleContainer: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
   },
   backButton: {
-    padding: 4,
-    marginRight: 8,
+    marginRight: 10,
   },
   title: {
     fontSize: 18,
@@ -596,6 +771,189 @@ const styles = StyleSheet.create({
     color: primary,
     fontFamily: Typography.fontWeight.medium.primary,
   },
+  dateNavigationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  dateNavButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  dateNavButtonActive: {
+    backgroundColor: primary,
+  },
+  dateNavText: {
+    fontSize: 13,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+  },
+  dateNavTextActive: {
+    color: "#fff",
+  },
+  calendarButton: {
+    padding: 6,
+    borderRadius: 16,
+    marginLeft: "auto",
+    borderWidth: 1,
+    borderColor: primary + "50",
+  },
+  dateScrollerContainer: {
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  dateScrollerContent: {
+    paddingHorizontal: 8,
+  },
+  dateItem: {
+    width: 64,
+    height: 80,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: "#f5f5f5",
+    position: "relative",
+    paddingVertical: 8,
+  },
+  dateItemSelected: {
+    backgroundColor: primary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  dateItemToday: {
+    backgroundColor: "#f0f7f8",
+    borderWidth: 1.5,
+    borderColor: primary,
+  },
+  dateDay: {
+    fontSize: 22,
+    fontFamily: Typography.fontWeight.semiBold.primary,
+    color: "#333",
+    marginBottom: 2,
+  },
+  dateMonth: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.regular.primary,
+    color: "#666",
+    marginBottom: 1,
+  },
+  dateWeekday: {
+    fontSize: 11,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#888",
+  },
+  dateTextSelected: {
+    color: "#fff",
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  dateTodayText: {
+    color: primary,
+    fontWeight: "700",
+  },
+  dateEntryDot: {
+    position: "absolute",
+    bottom: 14,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#666",
+  },
+  entriesContainer: {
+    flex: 1,
+  },
+  entriesList: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  dateHeaderContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    backgroundColor: "#f8f9fa",
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 4,
+  },
+  sectionDateHeader: {
+    fontSize: 14,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#666",
+  },
+  entryCard: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+    overflow: "hidden",
+  },
+  entryAccent: {
+    width: 4,
+    height: "100%",
+  },
+  entryContent: {
+    flex: 1,
+    padding: 14,
+  },
+  entryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 6,
+  },
+  entryTypeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  entryTypeIcon: {
+    marginRight: 4,
+  },
+  entryTypeLabel: {
+    fontSize: 12,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  urgentPill: {
+    marginLeft: 8,
+    backgroundColor: "#FFE0E0",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  urgentText: {
+    color: "#F44336",
+    fontSize: 10,
+    fontFamily: Typography.fontWeight.medium.primary,
+  },
+  entryTitle: {
+    fontSize: 15,
+    fontFamily: Typography.fontWeight.medium.primary,
+    color: "#333",
+    marginBottom: 6,
+  },
+  entryDescription: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    lineHeight: 20,
+  },
   calendarContainer: {
     backgroundColor: "#fff",
     padding: 16,
@@ -607,150 +965,21 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  calendarActions: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    gap: 10,
-  },
-  todayButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
-    borderRadius: 20,
-  },
-  todayButtonText: {
-    color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
-    fontSize: 14,
-  },
-  allEntriesButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(11, 181, 191, 0.1)",
-    borderRadius: 20,
-  },
-  allEntriesButtonText: {
-    color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
-    fontSize: 14,
-  },
-  entriesContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  dateHeader: {
-    fontSize: 16,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-    marginBottom: 12,
-  },
-  entriesList: {
-    paddingBottom: 20,
-  },
-  entryCard: {
+  calendarWrapper: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  entryIconContainer: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  homeworkIcon: {
-    backgroundColor: "#4CAF50",
-  },
-  testIcon: {
-    backgroundColor: "#F44336",
-  },
-  reminderIcon: {
-    backgroundColor: "#FF9800",
-  },
-  noteIcon: {
-    backgroundColor: "#607D8B",
-  },
-  classworkIcon: {
-    backgroundColor: "#00BCD4",
-  },
-  preparationIcon: {
-    backgroundColor: "#F44336",
-  },
-  researchIcon: {
-    backgroundColor: "#673AB7",
-  },
-  entryContent: {
-    flex: 1,
-  },
-  entryTitle: {
-    fontSize: 16,
-    fontFamily: Typography.fontWeight.semiBold.primary,
-    color: "#333",
-    marginBottom: 4,
-  },
-  entryDescription: {
-    fontSize: 14,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-    marginBottom: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#666",
-  },
-  noEntriesContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  noEntriesText: {
-    marginTop: 10,
-    fontSize: 16,
-    fontFamily: Typography.fontFamily.primary,
-    color: "#999",
-  },
-  dateSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(11, 181, 191, 0.05)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  dateSelectorText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 15,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#333",
-  },
-  customCalendar: {
-    marginTop: 12,
-    backgroundColor: "#fff",
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#eee",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+    marginHorizontal: 12,
+  },
+  customCalendar: {
+    backgroundColor: "#fff",
   },
   calendarHeader: {
     flexDirection: "row",
@@ -758,7 +987,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: "#f9f9f9",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
@@ -795,7 +1023,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   todayCell: {
-    backgroundColor: "rgba(11, 181, 191, 0.05)",
+    backgroundColor: "rgba(11, 181, 191, 0.08)",
   },
   emptyDay: {
     flex: 1,
@@ -806,33 +1034,65 @@ const styles = StyleSheet.create({
   },
   todayText: {
     color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
+    fontFamily: Typography.fontWeight.bold.primary,
   },
   selectedDay: {
     backgroundColor: primary,
     borderRadius: 20,
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     justifyContent: "center",
     alignItems: "center",
     display: "flex",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
   selectedDayText: {
     color: "#fff",
-    fontFamily: Typography.fontWeight.medium.primary,
+    fontFamily: Typography.fontWeight.bold.primary,
+    fontSize: 15,
+    textShadowColor: "rgba(0, 0, 0, 0.15)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   entryIndicator: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    top: 1,
+    right: 1,
     width: 0,
     height: 0,
     backgroundColor: "transparent",
     borderStyle: "solid",
-    borderRightWidth: 8,
-    borderTopWidth: 8,
+    borderRightWidth: 7,
+    borderTopWidth: 7,
     borderRightColor: "transparent",
     borderTopColor: primary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+  },
+  noEntriesContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  noEntriesText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#999",
   },
   retryButton: {
     marginTop: 16,
@@ -844,17 +1104,5 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#fff",
     fontFamily: Typography.fontWeight.medium.primary,
-  },
-  dateHeaderContainer: {
-    backgroundColor: "#f5f7fa",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  sectionDateHeader: {
-    fontSize: 15,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#555",
   },
 });
