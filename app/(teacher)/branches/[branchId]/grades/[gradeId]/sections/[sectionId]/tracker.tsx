@@ -671,7 +671,7 @@ export default function AttendanceTrackerScreen() {
         {searchQuery
           ? "No students match your search"
           : statusFilter && statusFilter !== "all"
-          ? `No ${statusFilter} students found`
+          ? `No students found`
           : "No students available"}
       </Text>
     </View>

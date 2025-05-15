@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { primary } from "@/constants/Colors";
@@ -24,6 +25,7 @@ export default function TeacherDashboard() {
     type: "info" as "success" | "error" | "info" | "warning",
   });
   const { userProfile, isLoading, authError, refreshUserProfile } = useAuth();
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
 
   console.log("userProfile", userProfile);
 
@@ -101,6 +103,7 @@ export default function TeacherDashboard() {
         classes: classesData.length,
         color: getSchoolColor(index),
         icon: getSchoolIcon(schoolDetails.schoolName),
+        logo: schoolDetails.logo || null, // Include logo if available
       };
     });
   }, [userProfile]);
@@ -151,34 +154,20 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <View style={styles.header}>
+        {/* Check if logo exists and display it, otherwise show the default icon */}
+
         <Text style={styles.welcomeText}>
           Welcome, {userProfile?.user?.firstName || "Teacher"}!
         </Text>
         <Text style={styles.subtitle}>Manage your classes and students</Text>
       </View>
-
-      {/* <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Overview</Text>
-        <View style={styles.statsGrid}>
-          {stats.map((stat) => (
-            <View key={stat.id} style={styles.statCardWrapper}>
-              <View
-                style={[
-                  styles.statCard,
-                  { backgroundColor: `${stat.color}10` },
-                ]}
-              >
-                <Text style={[styles.statNumber, { color: stat.color }]}>
-                  {stat.value}
-                </Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View> */}
 
       <View style={styles.branchesSection}>
         <View style={styles.sectionHeader}>
@@ -203,18 +192,39 @@ export default function TeacherDashboard() {
                 router.push(`/(teacher)/branches/${school.id}/grades`)
               }
             >
-              <View
-                style={[
-                  styles.branchIconContainer,
-                  { backgroundColor: `${school.color}20` },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={school.icon}
-                  size={24}
-                  color={school.color}
+              {school.logo ? (
+                <Image
+                  source={{ uri: school.logo }}
+                  style={styles.branchIconContainer}
+                  onError={() => (
+                    <View
+                      style={[
+                        styles.branchIconContainer,
+                        { backgroundColor: `${school.color}20` },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={school.icon}
+                        size={24}
+                        color={school.color}
+                      />
+                    </View>
+                  )}
                 />
-              </View>
+              ) : (
+                <View
+                  style={[
+                    styles.branchIconContainer,
+                    { backgroundColor: `${school.color}20` },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name={school.icon}
+                    size={24}
+                    color={school.color}
+                  />
+                </View>
+              )}
               <View style={styles.branchDetails}>
                 <Text style={styles.branchName}>{school.name}</Text>
                 <Text style={styles.branchAddress}>
@@ -277,6 +287,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  schoolLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 10,
+  },
+  fallbackLogoContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
   },
   welcomeText: {
     fontSize: 22,
@@ -357,6 +378,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
+    overflow: "hidden",
+    backgroundColor: "#f5f5f5",
   },
   branchDetails: {
     flex: 1,
