@@ -7,6 +7,7 @@ export default function AuthLayout() {
     <View style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <Stack>
+        <Stack.Screen name="validate-token" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false }} />

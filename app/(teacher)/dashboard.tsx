@@ -154,12 +154,7 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
         {/* Check if logo exists and display it, otherwise show the default icon */}
 

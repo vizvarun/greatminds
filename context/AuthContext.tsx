@@ -29,7 +29,8 @@ type AuthContextType = {
   authError: string | null;
   hasBothRoles: boolean;
   userProfile: UserProfile | null;
-  studentProfiles: StudentProfile[] | null; // Add studentProfiles to context type
+  studentProfiles: StudentProfile[] | null;
+  isValidatingToken: boolean; // Add new state for token validation
   completeOnboarding: () => Promise<void>;
   login: (
     phoneNumber: string
@@ -52,7 +53,8 @@ const AuthContext = createContext<AuthContextType>({
   authError: null,
   hasBothRoles: false,
   userProfile: null,
-  studentProfiles: null, // Add default value
+  studentProfiles: null,
+  isValidatingToken: false, // Default value for new state
   completeOnboarding: async () => {},
   login: async () => ({ success: false }),
   verifyOtp: async () => false,
@@ -80,6 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [studentProfiles, setStudentProfiles] = useState<
     StudentProfile[] | null
   >(null);
+  const [isValidatingToken, setIsValidatingToken] = useState(true); // Add state for token validation
 
   const [customAlert, setCustomAlert] = useState<{
     visible: boolean;
@@ -92,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const loadAuthState = async () => {
       try {
+        setIsValidatingToken(true); // Start token validation
         const authToken = await AsyncStorage.getItem("authToken");
         const onboardingStatus = await AsyncStorage.getItem(
           "hasCompletedOnboarding"
@@ -185,6 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                     console.error("Error fetching user profile:", profileError);
                   } finally {
                     // Only set loading to false after navigation is triggered
+                    setIsValidatingToken(false); // End token validation regardless of result
                     setIsLoading(false);
                   }
                 }, 100); // Small delay to ensure auth state is fully set
@@ -205,6 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error("Failed to load auth state:", error);
       } finally {
         // Only set isLoading to false if we didn't return early during token validation
+        setIsValidatingToken(false); // End token validation
         setIsLoading(false);
       }
     };
@@ -529,6 +535,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         hasBothRoles,
         userProfile,
         studentProfiles,
+        isValidatingToken, // Expose new state
         completeOnboarding,
         login,
         verifyOtp,

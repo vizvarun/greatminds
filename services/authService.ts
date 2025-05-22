@@ -16,7 +16,7 @@ export const sendOtp = async (
     params: {
       mobile_number: phoneNumber,
       device_id: deviceId,
-      bypass_otp: false,
+      bypass_otp: true,
     },
   });
 

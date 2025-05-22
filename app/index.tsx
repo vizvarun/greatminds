@@ -2,9 +2,19 @@ import { useAuth } from "@/context/AuthContext";
 import { Redirect } from "expo-router";
 
 export default function Index() {
-  const { isAuthenticated, hasCompletedOnboarding, userRole } = useAuth();
+  const {
+    isAuthenticated,
+    hasCompletedOnboarding,
+    userRole,
+    isValidatingToken, // Add the new state
+  } = useAuth();
 
-  // Redirect based on authentication and onboarding status
+  // First, check if we're validating the token
+  if (isValidatingToken) {
+    return <Redirect href="/(auth)/validate-token" />;
+  }
+
+  // Then follow the existing flow
   if (!hasCompletedOnboarding) {
     return <Redirect href="/(auth)/onboarding" />;
   }
