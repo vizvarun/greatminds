@@ -49,6 +49,24 @@ export default function ApplyLeaveScreen() {
   // Get today's date in YYYY-MM-DD format for min date
   const todayString = new Date().toISOString().split("T")[0];
 
+  // Function to scroll to the input with appropriate offset
+  const scrollToInput = useCallback(() => {
+    // Improved offset calculation based on screen height
+    const screenHeight = Dimensions.get("window").height;
+    const keyboardOffset = screenHeight * 0.35; // More dynamic offset based on screen size
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+      // Additional scroll to ensure the input is visible above the keyboard
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: keyboardOffset,
+          animated: true,
+        });
+      }, 100);
+    }, 150);
+  }, []);
+
   // Listen for keyboard events
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -56,11 +74,9 @@ export default function ApplyLeaveScreen() {
       () => {
         setKeyboardVisible(true);
         // Give the keyboard time to fully appear before scrolling
-        setTimeout(() => {
-          if (inputRef.current?.isFocused()) {
-            scrollToInput();
-          }
-        }, 100);
+        if (inputRef.current?.isFocused()) {
+          scrollToInput();
+        }
       }
     );
     const keyboardDidHideListener = Keyboard.addListener(
@@ -74,18 +90,34 @@ export default function ApplyLeaveScreen() {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
     };
-  }, []);
+  }, [scrollToInput]);
 
-  // Function to scroll to the input with appropriate offset
-  const scrollToInput = () => {
-    // Adjust the gap by slightly increasing the multiplier from 0.15 to 0.18
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        y: Dimensions.get("window").height * 0.18,
-        animated: true,
-      });
-    }, 50);
-  };
+  // Add a fix for Android keyboard accessory positioning
+  useEffect(() => {
+    if (Platform.OS === "android") {
+      // On Android, we need to ensure the keyboard accessory is visible
+      const keyboardDidShowListener = Keyboard.addListener(
+        "keyboardDidShow",
+        (event) => {
+          setKeyboardVisible(true);
+          // Calculate keyboard height for better positioning
+          const keyboardHeight = event.endCoordinates.height;
+
+          // Store the keyboard height if needed for positioning
+          if (scrollViewRef.current) {
+            // Wait for layout to settle, then scroll
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 100);
+          }
+        }
+      );
+
+      return () => {
+        keyboardDidShowListener.remove();
+      };
+    }
+  }, []);
 
   const statusColors = {
     present: "#4CAF50", // Green
@@ -209,14 +241,16 @@ export default function ApplyLeaveScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
+        behavior={Platform.OS === "ios" ? "padding" : undefined} // Changed to undefined for Android
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // No offset needed for Android
+        contentContainerStyle={{ flex: 1 }}
       >
         <ScrollView
           ref={scrollViewRef}
           style={styles.content}
           keyboardShouldPersistTaps="handled"
           contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={styles.scrollContentContainer} // Added style
         >
           <Text style={styles.inputLabel}>Select Dates:</Text>
           <Text style={styles.dateSelectionHelp}>
@@ -248,10 +282,7 @@ export default function ApplyLeaveScreen() {
             placeholder="Enter reason for leave"
             placeholderTextColor="#999"
             multiline
-            onFocus={() => {
-              // Directly scroll to the end when focused
-              scrollToInput();
-            }}
+            onFocus={scrollToInput} // Direct call to scrollToInput
             inputAccessoryViewID={
               Platform.OS === "ios" ? inputAccessoryViewID : undefined
             }
@@ -270,8 +301,8 @@ export default function ApplyLeaveScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Reduced padding - just enough for button visibility */}
-          <View style={{ height: 40 }} />
+          {/* Increased bottom padding to ensure enough space below input */}
+          <View style={{ height: 120 }} />
         </ScrollView>
 
         {/* Add keyboard accessory view for iOS */}
@@ -288,15 +319,17 @@ export default function ApplyLeaveScreen() {
           </InputAccessoryView>
         )}
 
-        {/* Add a custom keyboard accessory for Android that appears when keyboard is visible */}
+        {/* Android keyboard accessory with improved positioning and styling */}
         {Platform.OS === "android" && keyboardVisible && (
-          <View style={styles.androidKeyboardAccessory}>
-            <TouchableOpacity
-              style={styles.keyboardDoneButton}
-              onPress={() => Keyboard.dismiss()}
-            >
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
+          <View style={styles.androidKeyboardAccessoryWrapper}>
+            <View style={styles.androidKeyboardAccessory}>
+              <TouchableOpacity
+                style={styles.keyboardDoneButton}
+                onPress={() => Keyboard.dismiss()}
+              >
+                <Text style={styles.doneButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
@@ -455,6 +488,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
+  scrollContentContainer: {
+    paddingBottom: 120, // Increased padding at bottom
+  },
   inputLabel: {
     fontSize: 14,
     fontFamily: Typography.fontWeight.medium.primary,
@@ -485,7 +521,8 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     marginBottom: 20,
     backgroundColor: "#fff",
-    color: "#333", // Ensure text is visible
+    color: "#333",
+    fontSize: 16, // Increased font size for better visibility
   },
   buttonContainer: {
     marginVertical: 20,
@@ -513,25 +550,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
   },
+  androidKeyboardAccessoryWrapper: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999, // Ensure it's above everything else
+    elevation: 10, // Android elevation for shadow and stacking
+  },
   androidKeyboardAccessory: {
     backgroundColor: "#f1f1f1",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12, // Increased padding
+    paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: "#ddd",
+    borderTopColor: "#ccc", // Darker border for better visibility
     flexDirection: "row",
     justifyContent: "flex-end",
+    shadowColor: "#000", // Add shadow for better visibility
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 4, // Android shadow
   },
   keyboardDoneButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8, // Increased touch target size
+    paddingHorizontal: 16, // Wider button
+    backgroundColor: "#fff", // Add background for better visibility
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#ddd",
   },
   doneButtonText: {
     color: primary,
-    fontFamily: Typography.fontWeight.medium.primary,
+    fontFamily: Typography.fontWeight.semiBold.primary, // Made font weight bolder
     fontSize: 16,
   },
-  // Modal styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
