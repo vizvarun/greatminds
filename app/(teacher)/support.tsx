@@ -20,14 +20,20 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-// Import notification utilities
 import {
   configureNotifications,
   requestNotificationPermissions,
   sendLocalNotification,
 } from "@/utils/notifications";
+import {
+  fetchTeacherSupportTickets,
+  replySupportTicket,
+  updateTicketStatus,
+  SupportTicket as ApiSupportTicket,
+  SupportTicketStatus,
+} from "@/services/supportApi";
+import { useAuth } from "@/context/AuthContext";
 
-// Types for support tickets
 type SupportTicket = {
   id: string;
   category: string;
@@ -52,7 +58,6 @@ type SupportTicket = {
   }[];
 };
 
-// Types for FAQs
 type FAQ = {
   id: string;
   question: string;
@@ -62,7 +67,6 @@ type FAQ = {
   isEditable?: boolean;
 };
 
-// Enhance the color and text properties for better placeholder visibility
 const searchPlaceholderText = "#777";
 const inputPlaceholderText = "#777";
 const inputTextColor = "#333";
@@ -89,6 +93,13 @@ export default function SupportScreen() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
+
+  const { userProfile } = useAuth();
+  const userId = userProfile?.user?.id;
+
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showKeyboardBar, setShowKeyboardBar] = useState(false);
   const [modalKeyboardVisible, setModalKeyboardVisible] = useState(false);
@@ -107,10 +118,8 @@ export default function SupportScreen() {
   const [isInitialRender, setIsInitialRender] = useState(true);
   const lastTextChangeTime = useRef(0);
 
-  // Flag to determine if we're coming from an internal screen
   const isFromInternal = from === "section" && gradeId;
 
-  // Mock data for grades
   const grades = [
     { id: "all", name: "All Grades" },
     { id: "1", name: "Grade 1" },
@@ -120,12 +129,10 @@ export default function SupportScreen() {
     { id: "5", name: "Grade 5" },
   ];
 
-  // Get current grade name for display when coming from internal screen
   const currentGradeName = isFromInternal
     ? grades.find((g) => g.id === gradeId)?.name || `Grade ${gradeId}`
     : null;
 
-  // Mock section name for display when coming from internal screen
   const currentSectionName = isFromInternal
     ? sectionId === "5a"
       ? "Section A"
@@ -138,112 +145,6 @@ export default function SupportScreen() {
       : `Section ${sectionId}`
     : null;
 
-  // Mock data for support tickets
-  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([
-    {
-      id: "1",
-      category: "academic",
-      subject: "Extra study material request",
-      message:
-        "I would like to request additional study materials for the upcoming science test.",
-      date: "2023-05-15T10:30:00",
-      gradeId: "5",
-      gradeName: "Grade 5",
-      sectionId: "5a",
-      sectionName: "Section A",
-      studentId: "s123",
-      studentName: "Alice Johnson",
-      status: "new",
-      parentId: "p456",
-      parentName: "Robert Johnson",
-      priority: "medium",
-      replies: [],
-    },
-    {
-      id: "2",
-      category: "attendance",
-      subject: "Absence notification",
-      message: "My child will be absent next week due to a medical procedure.",
-      date: "2023-05-14T14:45:00",
-      gradeId: "5",
-      gradeName: "Grade 5",
-      sectionId: "5b",
-      sectionName: "Section B",
-      studentId: "s124",
-      studentName: "Sam Wilson",
-      status: "replied",
-      parentId: "p457",
-      parentName: "Mary Wilson",
-      priority: "low",
-      replies: [
-        {
-          id: "r1",
-          message: "Thank you for informing us. I've marked it in our records.",
-          date: "2023-05-14T16:30:00",
-          isTeacher: true,
-        },
-      ],
-    },
-    {
-      id: "3",
-      category: "behavior",
-      subject: "Classroom behavior concern",
-      message: "I'd like to discuss my child's recent behavior report.",
-      date: "2023-05-10T09:15:00",
-      gradeId: "3",
-      gradeName: "Grade 3",
-      sectionId: "3a",
-      sectionName: "Section A",
-      studentId: "s125",
-      studentName: "David Brown",
-      status: "closed",
-      parentId: "p458",
-      parentName: "Susan Brown",
-      priority: "high",
-      replies: [
-        {
-          id: "r2",
-          message:
-            "I'd be happy to discuss this with you. When would be a good time for a meeting?",
-          date: "2023-05-10T11:20:00",
-          isTeacher: true,
-        },
-        {
-          id: "r3",
-          message: "Thank you. How about Wednesday at 4 PM?",
-          date: "2023-05-10T13:45:00",
-          isTeacher: false,
-        },
-        {
-          id: "r4",
-          message: "Wednesday at 4 PM works for me. I'll see you then.",
-          date: "2023-05-10T14:10:00",
-          isTeacher: true,
-        },
-      ],
-    },
-    {
-      id: "4",
-      category: "academic",
-      subject: "Homework clarification",
-      message:
-        "Could you please clarify the math homework instructions from today?",
-      date: "2023-05-13T16:20:00",
-      gradeId: "4",
-      gradeName: "Grade 4",
-      sectionId: "4b",
-      sectionName: "Section B",
-      studentId: "s126",
-      studentName: "Emma Davis",
-      status: "new",
-      parentId: "p459",
-      parentName: "Jennifer Davis",
-      priority: "medium",
-      replies: [],
-    },
-  ]);
-
-  // Mock data for FAQs
   const [faqs, setFaqs] = useState<FAQ[]>([
     {
       id: "1",
@@ -279,22 +180,18 @@ export default function SupportScreen() {
     },
   ]);
 
-  // If coming from a specific section, pre-filter the data
   useEffect(() => {
     if (from === "section" && gradeId) {
       setSelectedGrade(gradeId as string);
     }
   }, [from, gradeId]);
 
-  // Initialize notifications when component mounts
   useEffect(() => {
     configureNotifications();
     requestNotificationPermissions();
   }, []);
 
-  // Debounced scroll function to prevent excessive scrolling
   const scrollToActiveInput = () => {
-    // Skip scrolling on initial render or if scrolled recently
     if (isInitialRender || Date.now() - lastTextChangeTime.current < 300) {
       return;
     }
@@ -324,9 +221,7 @@ export default function SupportScreen() {
     }
   };
 
-  // Keyboard listeners
   useEffect(() => {
-    // Set initial render to false after component mounts
     setIsInitialRender(false);
 
     const keyboardDidShowListener = Keyboard.addListener(
@@ -334,7 +229,6 @@ export default function SupportScreen() {
       (event) => {
         setKeyboardVisible(true);
         setShowKeyboardBar(true);
-        // Only scroll on keyboard show, not for every text change
         setTimeout(() => scrollToActiveInput(), 300);
       }
     );
@@ -352,7 +246,6 @@ export default function SupportScreen() {
     };
   }, [expandedTicket]);
 
-  // Add keyboard listeners for modal - improve this for better handling
   useEffect(() => {
     if (modalVisible) {
       const keyboardDidShowListener = Keyboard.addListener(
@@ -373,8 +266,6 @@ export default function SupportScreen() {
         keyboardDidHideListener.remove();
       };
     }
-    // Don't reset modalKeyboardVisible when closing modal during keyboard visibility
-    // as it causes layout jumps. Let the keyboard hide event handle this.
   }, [modalVisible]);
 
   const showAlert = (
@@ -440,15 +331,84 @@ export default function SupportScreen() {
     setReplyText("");
   };
 
-  const handleReplySubmit = (ticketId: string) => {
-    if (!replyText.trim()) {
-      showAlert("Error", "Please enter a reply message", "error");
+  useEffect(() => {
+    const fetchTickets = async () => {
+      if (!userId || !sectionId) return;
+
+      setIsLoadingTickets(true);
+      setTicketsError(null);
+
+      try {
+        const response = await fetchTeacherSupportTickets(
+          sectionId as string,
+          userId.toString()
+        );
+
+        const transformedTickets: SupportTicket[] = response.tickets.map(
+          (ticket) => ({
+            id: ticket.id.toString(),
+            category: ticket.category.toLowerCase(),
+            subject: ticket.subject,
+            message: ticket.message,
+            date: ticket.createdat, // Using lowercase API field
+            gradeId: selectedGrade || "",
+            gradeName: currentGradeName || "",
+            sectionId: sectionId as string,
+            sectionName: currentSectionName || "",
+            studentId: ticket.studentid.toString(),
+            studentName: "",
+            status: ticket.status.toLowerCase() as "new" | "replied" | "closed",
+            parentId: ticket.sentby.toString(),
+            parentName: `${ticket.firstname} ${ticket.lastname}`,
+            priority: "medium",
+            replies:
+              ticket.messages?.map((msg) => ({
+                id: msg.id.toString(),
+                message: msg.message,
+                date: msg.createdat, // Using lowercase API field
+                isTeacher: msg.sentby === userId, // Compare sentby with current userId
+              })) || [],
+          })
+        );
+
+        setSupportTickets(transformedTickets);
+      } catch (error) {
+        console.error("Failed to fetch support tickets:", error);
+        setTicketsError("Failed to load support tickets. Please try again.");
+        showAlert("Error", "Failed to load support tickets", "error");
+      } finally {
+        setIsLoadingTickets(false);
+      }
+    };
+
+    if (sectionId && userId) {
+      fetchTickets();
+    }
+  }, [userId, sectionId, selectedGrade, currentGradeName, currentSectionName]);
+
+  const handleReplySubmit = async (ticketId: string) => {
+    if (!replyText.trim() || !userId) {
+      showAlert("Error", "Reply text cannot be empty", "error");
       return;
     }
 
     setIsReplying(true);
 
-    setTimeout(() => {
+    try {
+      await replySupportTicket(
+        parseInt(ticketId),
+        userId.toString(),
+        replyText
+      );
+
+      const ticket = supportTickets.find((t) => t.id === ticketId);
+      if (ticket && ticket.status === "new") {
+        await updateTicketStatus(
+          parseInt(ticketId),
+          "Replied" as SupportTicketStatus
+        );
+      }
+
       const updatedTickets = supportTickets.map((ticket) => {
         if (ticket.id === ticketId) {
           const updatedReplies = [
@@ -474,38 +434,43 @@ export default function SupportScreen() {
       setReplyText("");
       setIsReplying(false);
       showAlert("Success", "Your reply has been sent", "success");
-    }, 1000);
+    } catch (error) {
+      console.error("Failed to send reply:", error);
+      showAlert(
+        "Error",
+        "Failed to send your reply. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsReplying(false);
+    }
   };
 
-  const handleCloseTicket = (ticketId: string) => {
+  const handleCloseTicket = async (ticketId: string) => {
     showAlert(
       "Close Ticket",
       "Are you sure you want to close this ticket? This will mark the issue as resolved.",
       "warning",
       async () => {
-        const ticket = supportTickets.find((t) => t.id === ticketId);
-        const updatedTickets = supportTickets.map((ticket) =>
-          ticket.id === ticketId ? { ...ticket, status: "closed" } : ticket
-        );
-        setSupportTickets(updatedTickets);
-        showAlert("Success", "The ticket has been closed", "success");
+        try {
+          await updateTicketStatus(
+            parseInt(ticketId),
+            "Closed" as SupportTicketStatus
+          );
 
-        // Send a notification
-        if (ticket) {
-          try {
-            await sendLocalNotification(
-              "Ticket Closed",
-              `Support ticket regarding "${ticket.subject}" has been closed successfully.`,
-              {
-                ticketId,
-                category: ticket.category,
-                parentName: ticket.parentName,
-                studentName: ticket.studentName,
-              }
-            );
-          } catch (error) {
-            console.error("Failed to send notification:", error);
-          }
+          const updatedTickets = supportTickets.map((ticket) =>
+            ticket.id === ticketId ? { ...ticket, status: "closed" } : ticket
+          );
+
+          setSupportTickets(updatedTickets);
+          showAlert("Success", "The ticket has been closed", "success");
+        } catch (error) {
+          console.error("Failed to close ticket:", error);
+          showAlert(
+            "Error",
+            "Failed to close the ticket. Please try again.",
+            "error"
+          );
         }
       }
     );
@@ -517,7 +482,6 @@ export default function SupportScreen() {
   };
 
   const handleAddNewFAQ = () => {
-    // Reset state
     setEditingFAQ(null);
     setNewFAQ({
       question: "",
@@ -525,14 +489,12 @@ export default function SupportScreen() {
       category: "general",
     });
 
-    // Show modal with slight delay
     setTimeout(() => {
       setModalVisible(true);
     }, 50);
   };
 
   const handleSaveFAQ = () => {
-    // Just dismiss keyboard and close modal
     Keyboard.dismiss();
     setModalVisible(false);
   };
@@ -639,7 +601,7 @@ export default function SupportScreen() {
             {ticket.replies && ticket.replies.length > 0 && (
               <View style={styles.repliesContainer}>
                 <Text style={styles.repliesLabel}>Conversation:</Text>
-                {ticket.replies.map((reply, index) => (
+                {ticket.replies.map((reply) => (
                   <View
                     key={reply.id}
                     style={[
@@ -673,7 +635,6 @@ export default function SupportScreen() {
                   value={replyText}
                   onChangeText={(text) => {
                     setReplyText(text);
-                    // Don't trigger scrolling on every text change
                   }}
                   multiline
                   textAlignVertical="top"
@@ -682,7 +643,6 @@ export default function SupportScreen() {
                   }
                   onFocus={() => {
                     setShowKeyboardBar(true);
-                    // Scroll to input when focused with a delay
                     setTimeout(scrollToActiveInput, 300);
                   }}
                 />
@@ -1015,7 +975,6 @@ export default function SupportScreen() {
                 <TouchableOpacity
                   onPress={() => {
                     Keyboard.dismiss();
-                    // Use longer timeout to ensure keyboard is fully dismissed first
                     setTimeout(() => setModalVisible(false), 200);
                   }}
                   style={styles.modalCloseButton}
@@ -1143,7 +1102,6 @@ export default function SupportScreen() {
                     isLoading && styles.disabledButton,
                   ]}
                   onPress={() => {
-                    // Dismiss keyboard first before saving
                     Keyboard.dismiss();
                     setTimeout(() => handleSaveFAQ(), 50);
                   }}
@@ -1415,7 +1373,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     marginBottom: 10,
-    width: "75%", // Set fixed width for all reply bubbles
+    width: "75%",
   },
   teacherReply: {
     backgroundColor: "rgba(11, 181, 191, 0.08)",
@@ -1441,13 +1399,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Typography.fontWeight.medium.primary,
     color: "#555",
-    flex: 1, // Take available space
+    flex: 1,
   },
   replyDate: {
     fontSize: 11,
     fontFamily: Typography.fontFamily.primary,
     color: "#888",
-    textAlign: "right", // Align text to the right
+    textAlign: "right",
   },
   replyInputContainer: {
     backgroundColor: "#f9f9f9",
@@ -1614,7 +1572,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "90%",
-    maxHeight: "85%", // Increased from 80% to give more room for keyboard
+    maxHeight: "85%",
     backgroundColor: "#fff",
     borderRadius: 12,
     overflow: "hidden",
@@ -1637,7 +1595,7 @@ const styles = StyleSheet.create({
   },
   modalFormContainer: {
     padding: 16,
-    maxHeight: Platform.OS === "ios" ? 420 : 380, // Set explicit max height
+    maxHeight: Platform.OS === "ios" ? 420 : 380,
   },
   formField: {
     marginBottom: 16,

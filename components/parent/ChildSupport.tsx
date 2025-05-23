@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   View,
@@ -21,6 +21,14 @@ import { Typography } from "@/constants/Typography";
 import { primary } from "@/constants/Colors";
 import { router } from "expo-router";
 import { getSectionId } from "@/utils/sectionUtils";
+import {
+  fetchParentSupportTickets,
+  createSupportTicket,
+  replySupportTicket,
+  SupportTicket as ApiSupportTicket,
+  SupportTicketCategory,
+} from "@/services/supportApi";
+import { useAuth } from "@/context/AuthContext";
 
 type Props = {
   childId: string;
@@ -29,9 +37,12 @@ type Props = {
     message: string,
     type: "success" | "error" | "info" | "warning"
   ) => void;
+  sectionId?: string;
 };
 
 type SupportCategory = "teacher" | "academic" | "fees" | "technical" | "other";
+
+type SupportTicketStatus = "new" | "replied" | "closed";
 
 type FAQItem = {
   id: string;
@@ -45,7 +56,9 @@ type SupportTicket = {
   subject: string;
   message: string;
   date: string;
-  status: "open" | "in-progress" | "resolved" | "closed";
+  status: SupportTicketStatus;
+  parentId: string;
+  parentName: string;
   replies?: {
     id: string;
     message: string;
@@ -54,7 +67,11 @@ type SupportTicket = {
   }[];
 };
 
-export default function ChildSupport({ childId, showAlert }: Props) {
+export default function ChildSupport({
+  childId,
+  showAlert,
+  sectionId = "4",
+}: Props) {
   const [activeTab, setActiveTab] = useState<"new" | "faq" | "history">("new");
   const [selectedCategory, setSelectedCategory] =
     useState<SupportCategory>("academic");
@@ -67,9 +84,13 @@ export default function ChildSupport({ childId, showAlert }: Props) {
   const [isReplying, setIsReplying] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "open" | "in-progress" | "resolved" | "closed"
-  >("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
+
+  const { userProfile } = useAuth();
+  const userId = userProfile?.user?.id;
 
   const scrollViewRef = useRef<ScrollView>(null);
   const historyScrollViewRef = useRef<ScrollView>(null);
@@ -137,177 +158,36 @@ export default function ChildSupport({ childId, showAlert }: Props) {
     },
   ];
 
-  const pastTickets: SupportTicket[] = [
+  const statusFilters = [
+    { id: "all", label: "All", count: supportTickets.length || 0 },
     {
-      id: "1",
-      category: "academic",
-      subject: "Extra study material request",
-      message:
-        "I would like to request additional study materials for the upcoming science test.",
-      date: "2023-05-15",
-      status: "resolved",
-      replies: [
-        {
-          id: "r1",
-          message:
-            "Thank you for your request. I'll prepare some additional practice questions and explanations for the key topics that will be covered in the test.",
-          date: "2023-05-15T16:30:00",
-          isParent: false,
-        },
-        {
-          id: "r2",
-          message: "Thank you! When can I expect to receive these materials?",
-          date: "2023-05-16T09:20:00",
-          isParent: true,
-        },
-        {
-          id: "r3",
-          message:
-            "I've shared them on the student portal. Your child can access them now. Let me know if you have any questions about the content.",
-          date: "2023-05-16T14:15:00",
-          isParent: false,
-        },
-        {
-          id: "r4",
-          message:
-            "Got it. The materials are very helpful. Thank you for your prompt response.",
-          date: "2023-05-16T18:40:00",
-          isParent: true,
-        },
-      ],
+      id: "new",
+      label: "New",
+      count:
+        supportTickets.filter((ticket) => ticket.status === "new").length || 0,
+      color: "#2196F3", // Blue for new
+      icon: "message-text-outline",
+      bgColor: "#E3F2FD", // Light blue background
     },
     {
-      id: "2",
-      category: "fees",
-      subject: "Fee receipt issue",
-      message:
-        "I haven't received the receipt for the last fee payment made on April 10th.",
-      date: "2023-04-12",
-      status: "closed",
-      replies: [
-        {
-          id: "r1",
-          message:
-            "I apologize for the inconvenience. Let me check this with our accounts department.",
-          date: "2023-04-12T14:30:00",
-          isParent: false,
-        },
-        {
-          id: "r2",
-          message:
-            "We've located your payment record. The receipt will be emailed to you within the next hour.",
-          date: "2023-04-12T16:45:00",
-          isParent: false,
-        },
-        {
-          id: "r3",
-          message: "Thank you, I've received the receipt now.",
-          date: "2023-04-13T09:10:00",
-          isParent: true,
-        },
-      ],
+      id: "replied",
+      label: "Replied",
+      count:
+        supportTickets.filter((ticket) => ticket.status === "replied").length ||
+        0,
+      color: "#FF9800", // Orange for replied
+      icon: "message-reply-text-outline",
+      bgColor: "#FFF3E0", // Light orange background
     },
     {
-      id: "3",
-      category: "technical",
-      subject: "Unable to view attendance",
-      message:
-        "I'm facing issues viewing my child's attendance for March. The page shows an error.",
-      date: "2023-03-25",
-      status: "in-progress",
-      replies: [
-        {
-          id: "r1",
-          message:
-            "Thank you for reporting this issue. Our technical team is looking into it.",
-          date: "2023-03-25T16:30:00",
-          isParent: false,
-        },
-        {
-          id: "r2",
-          message:
-            "Could you please provide more details about the error message you're seeing?",
-          date: "2023-03-26T10:15:00",
-          isParent: false,
-        },
-        {
-          id: "r3",
-          message:
-            "It says 'Error loading data: Server timeout'. I've tried on both my phone and laptop.",
-          date: "2023-03-26T14:20:00",
-          isParent: true,
-        },
-      ],
-    },
-    {
-      id: "4",
-      category: "teacher",
-      subject: "Parent-teacher meeting schedule",
-      message:
-        "I would like to schedule a meeting with my child's math teacher to discuss recent progress.",
-      date: "2023-06-05",
-      status: "open",
-      replies: [],
-    },
-    {
-      id: "5",
-      category: "academic",
-      subject: "Homework clarification",
-      message:
-        "My child is having difficulty understanding yesterday's homework assignment. Could you provide additional guidance?",
-      date: "2023-06-10",
-      status: "in-progress",
-      replies: [
-        {
-          id: "r1",
-          message:
-            "I understand. I'll ask the subject teacher to provide additional instructions.",
-          date: "2023-06-10T13:40:00",
-          isParent: false,
-        },
-      ],
-    },
-    {
-      id: "6",
-      category: "other",
-      subject: "School event participation",
-      message:
-        "My child would like to participate in the upcoming science fair. What are the requirements and deadlines?",
-      date: "2023-05-28",
-      status: "resolved",
-      replies: [
-        {
-          id: "r1",
-          message:
-            "The science fair registration deadline is June 15th. Each participant needs to prepare a project on environmental sustainability.",
-          date: "2023-05-28T16:30:00",
-          isParent: false,
-        },
-        {
-          id: "r2",
-          message:
-            "Thank you. Where can I find the detailed guidelines for the project?",
-          date: "2023-05-29T09:20:00",
-          isParent: true,
-        },
-        {
-          id: "r3",
-          message:
-            "The guidelines have been posted on the school website under 'Events'. I'll also send a copy directly to your email.",
-          date: "2023-05-29T14:15:00",
-          isParent: false,
-        },
-      ],
-    },
-    {
-      id: "7",
-      category: "fees",
-      subject: "Payment plan inquiry",
-      message:
-        "I'm interested in setting up a monthly payment plan for next term's fees. Could you provide details on available options?",
-      date: "2023-06-15",
-      status: "open",
-      replies: [],
+      id: "closed",
+      label: "Closed",
+      count:
+        supportTickets.filter((ticket) => ticket.status === "closed").length ||
+        0,
+      color: "#4CAF50", // Green for closed
+      icon: "check-circle-outline",
+      bgColor: "#E8F5E9", // Light green background
     },
   ];
 
@@ -328,19 +208,14 @@ export default function ChildSupport({ childId, showAlert }: Props) {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "open":
-        return "#FF9800";
-      case "in-progress":
-        return "#2196F3";
-      case "resolved":
-        return "#4CAF50";
-      case "closed":
-        return "#9E9E9E";
-      default:
-        return "#666";
-    }
+  const getStatusInfo = (status: SupportTicketStatus) => {
+    return (
+      statusFilters.find((filter) => filter.id === status) || {
+        color: "#757575",
+        icon: "help-circle-outline",
+        bgColor: "#EEEEEE",
+      }
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -400,70 +275,129 @@ export default function ChildSupport({ childId, showAlert }: Props) {
     }
   };
 
-  const handleSubmitTicket = () => {
-    if (!ticketSubject.trim()) {
-      showAlert("Error", "Please enter a subject for your inquiry", "error");
+  useEffect(() => {
+    const fetchTickets = async () => {
+      if (!userId || !sectionId) return;
+
+      setIsLoadingTickets(true);
+      setTicketsError(null);
+
+      try {
+        const response = await fetchParentSupportTickets(
+          sectionId,
+          userId.toString()
+        );
+
+        const transformedTickets: SupportTicket[] = response.tickets.map(
+          (ticket) => ({
+            id: ticket.id.toString(),
+            category: ticket.category.toLowerCase() as SupportCategory,
+            subject: ticket.subject,
+            message: ticket.message,
+            date: ticket.createdat, // Using lowercase API field
+            status: ticket.status.toLowerCase() as SupportTicketStatus,
+            parentId: ticket.sentby.toString(),
+            parentName: `${ticket.firstname} ${ticket.lastname}`,
+            replies:
+              ticket.messages?.map((msg) => ({
+                id: msg.id.toString(),
+                message: msg.message,
+                date: msg.createdat, // Using lowercase API field
+                isParent: msg.sentby === userId, // Compare sentby with current userId
+              })) || [],
+          })
+        );
+
+        setSupportTickets(transformedTickets);
+      } catch (error) {
+        console.error("Failed to fetch support tickets:", error);
+        setTicketsError("Failed to load support tickets. Please try again.");
+        showAlert("Error", "Failed to load support tickets", "error");
+      } finally {
+        setIsLoadingTickets(false);
+      }
+    };
+
+    fetchTickets();
+  }, [userId, sectionId, showAlert]);
+
+  const handleSubmitTicket = async () => {
+    if (!ticketSubject.trim() || !ticketMessage.trim()) {
+      showAlert(
+        "Incomplete Information",
+        "Please fill in all fields",
+        "warning"
+      );
       return;
     }
 
-    if (!ticketMessage.trim()) {
-      showAlert("Error", "Please enter a message for your inquiry", "error");
+    if (!userId || !sectionId || !childId) {
+      showAlert("Error", "Missing required information", "error");
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      showAlert(
-        "Success",
-        "Your support inquiry has been submitted successfully. A support representative will get back to you soon.",
-        "success"
+
+    try {
+      await createSupportTicket(
+        sectionId,
+        userId.toString(),
+        childId,
+        ticketSubject,
+        ticketMessage,
+        (selectedCategory.charAt(0).toUpperCase() +
+          selectedCategory.slice(1)) as SupportTicketCategory
       );
+
       setTicketSubject("");
       setTicketMessage("");
+      showAlert("Success", "Your support ticket has been submitted", "success");
+
+      fetchTickets();
+
       setActiveTab("history");
-    }, 1500);
+    } catch (error) {
+      console.error("Failed to submit support ticket:", error);
+      showAlert(
+        "Error",
+        "Failed to submit your ticket. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSubmitReply = (ticketId: string) => {
-    if (!replyText.trim()) {
-      showAlert("Error", "Please enter a reply message", "error");
+  const handleSubmitReply = async (ticketId: string) => {
+    if (!replyText.trim() || !userId) {
+      showAlert("Error", "Reply text cannot be empty", "warning");
       return;
     }
 
     setIsReplying(true);
 
-    setTimeout(() => {
-      const updatedTickets = [...pastTickets];
-      const ticketIndex = updatedTickets.findIndex((t) => t.id === ticketId);
+    try {
+      await replySupportTicket(
+        parseInt(ticketId),
+        userId.toString(),
+        replyText
+      );
 
-      if (ticketIndex !== -1) {
-        const newReply = {
-          id: `r${Date.now()}`,
-          message: replyText,
-          date: new Date().toISOString(),
-          isParent: true,
-        };
+      setReplyText("");
 
-        if (!updatedTickets[ticketIndex].replies) {
-          updatedTickets[ticketIndex].replies = [];
-        }
+      showAlert("Success", "Your reply has been sent", "success");
 
-        updatedTickets[ticketIndex].replies!.push(newReply);
-
-        if (updatedTickets[ticketIndex].status === "open") {
-          updatedTickets[ticketIndex].status = "in-progress";
-        }
-
-        setReplyText("");
-        setIsReplying(false);
-        showAlert("Success", "Your reply has been sent", "success");
-
-        setTimeout(() => {
-          historyScrollViewRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
-    }, 1000);
+      fetchTickets();
+    } catch (error) {
+      console.error("Failed to send reply:", error);
+      showAlert(
+        "Error",
+        "Failed to send your reply. Please try again.",
+        "error"
+      );
+    } finally {
+      setIsReplying(false);
+    }
   };
 
   const adjustScrollForInput = (inputRef: React.RefObject<TextInput>) => {
@@ -486,21 +420,15 @@ export default function ChildSupport({ childId, showAlert }: Props) {
     });
   };
 
-  const getFilteredTickets = () => {
-    if (statusFilter === "all") {
-      return pastTickets;
-    }
-    return pastTickets.filter((ticket) => ticket.status === statusFilter);
-  };
+  const getFilteredTickets = useCallback(() => {
+    let filtered = supportTickets || [];
 
-  const fetchChildSectionData = async () => {
-    try {
-      const sectionId = getSectionId(childSectionDetail);
-      // Use sectionId for API calls
-    } catch (error) {
-      console.error("Error fetching section data:", error);
+    if (statusFilter && statusFilter !== "all") {
+      filtered = filtered.filter((ticket) => ticket.status === statusFilter);
     }
-  };
+
+    return filtered;
+  }, [statusFilter, supportTickets]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -582,117 +510,49 @@ export default function ChildSupport({ childId, showAlert }: Props) {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.statusFilterContainer}
               >
-                <TouchableOpacity
-                  style={[
-                    styles.statusFilterButton,
-                    statusFilter === "all" && styles.activeStatusFilter,
-                  ]}
-                  onPress={() => setStatusFilter("all")}
-                >
-                  <Text
+                {statusFilters.map((filter) => (
+                  <TouchableOpacity
+                    key={filter.id}
                     style={[
-                      styles.statusFilterText,
-                      statusFilter === "all" && styles.activeStatusFilterText,
+                      styles.statusFilterButton,
+                      statusFilter === filter.id && styles.activeStatusFilter,
+                      statusFilter === filter.id &&
+                        filter.id !== "all" && {
+                          backgroundColor: filter.bgColor,
+                          borderColor: filter.color,
+                        },
                     ]}
+                    onPress={() => setStatusFilter(filter.id)}
                   >
-                    All
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusFilterButton,
-                    statusFilter === "open" && styles.activeStatusFilter,
-                    { borderColor: getStatusColor("open") },
-                  ]}
-                  onPress={() => setStatusFilter("open")}
-                >
-                  <View
-                    style={styles.statusFilterDot}
-                    backgroundColor={getStatusColor("open")}
-                  />
-                  <Text
-                    style={[
-                      styles.statusFilterText,
-                      statusFilter === "open" && styles.activeStatusFilterText,
-                    ]}
-                  >
-                    Open
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusFilterButton,
-                    statusFilter === "in-progress" && styles.activeStatusFilter,
-                    { borderColor: getStatusColor("in-progress") },
-                  ]}
-                  onPress={() => setStatusFilter("in-progress")}
-                >
-                  <View
-                    style={styles.statusFilterDot}
-                    backgroundColor={getStatusColor("in-progress")}
-                  />
-                  <Text
-                    style={[
-                      styles.statusFilterText,
-                      statusFilter === "in-progress" &&
-                        styles.activeStatusFilterText,
-                    ]}
-                  >
-                    In Progress
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusFilterButton,
-                    statusFilter === "resolved" && styles.activeStatusFilter,
-                    { borderColor: getStatusColor("resolved") },
-                  ]}
-                  onPress={() => setStatusFilter("resolved")}
-                >
-                  <View
-                    style={styles.statusFilterDot}
-                    backgroundColor={getStatusColor("resolved")}
-                  />
-                  <Text
-                    style={[
-                      styles.statusFilterText,
-                      statusFilter === "resolved" &&
-                        styles.activeStatusFilterText,
-                    ]}
-                  >
-                    Resolved
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.statusFilterButton,
-                    statusFilter === "closed" && styles.activeStatusFilter,
-                    { borderColor: getStatusColor("closed") },
-                  ]}
-                  onPress={() => setStatusFilter("closed")}
-                >
-                  <View
-                    style={styles.statusFilterDot}
-                    backgroundColor={getStatusColor("closed")}
-                  />
-                  <Text
-                    style={[
-                      styles.statusFilterText,
-                      statusFilter === "closed" &&
-                        styles.activeStatusFilterText,
-                    ]}
-                  >
-                    Closed
-                  </Text>
-                </TouchableOpacity>
+                    {filter.id !== "all" && (
+                      <MaterialCommunityIcons
+                        name={filter.icon}
+                        size={16}
+                        color={
+                          statusFilter === filter.id ? filter.color : "#666"
+                        }
+                        style={{ marginRight: 4 }}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.statusFilterText,
+                        statusFilter === filter.id &&
+                          styles.activeStatusFilterText,
+                        statusFilter === filter.id &&
+                          filter.id !== "all" && {
+                            color: filter.color,
+                          },
+                      ]}
+                    >
+                      {filter.label} ({filter.count})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </ScrollView>
             </View>
 
-            {pastTickets.length > 0 ? (
+            {supportTickets.length > 0 ? (
               <ScrollView
                 ref={historyScrollViewRef}
                 contentContainerStyle={styles.ticketList}
@@ -717,22 +577,31 @@ export default function ChildSupport({ childId, showAlert }: Props) {
                             {getRelativeTime(ticket.date)}
                           </Text>
                         </View>
+
                         <View
                           style={[
                             styles.statusBadge,
                             {
-                              backgroundColor:
-                                getStatusColor(ticket.status) + "20",
+                              backgroundColor: getStatusInfo(ticket.status)
+                                .bgColor,
                             },
                           ]}
                         >
+                          <MaterialCommunityIcons
+                            name={getStatusInfo(ticket.status).icon}
+                            size={12}
+                            color={getStatusInfo(ticket.status).color}
+                            style={styles.statusIcon}
+                          />
                           <Text
                             style={[
                               styles.statusText,
-                              { color: getStatusColor(ticket.status) },
+                              {
+                                color: getStatusInfo(ticket.status).color,
+                              },
                             ]}
                           >
-                            {ticket.status.replace("-", " ").toUpperCase()}
+                            {ticket.status.toUpperCase()}
                           </Text>
                         </View>
                       </View>
@@ -809,54 +678,53 @@ export default function ChildSupport({ childId, showAlert }: Props) {
                             </View>
                           )}
 
-                          {ticket.status !== "closed" &&
-                            ticket.status !== "resolved" && (
-                              <View style={styles.replyInputContainer}>
-                                <TextInput
-                                  ref={replyInputRef}
-                                  style={styles.replyInput}
-                                  placeholder="Type your reply here..."
-                                  placeholderTextColor="#999"
-                                  value={replyText}
-                                  onChangeText={setReplyText}
-                                  multiline
-                                  textAlignVertical="top"
-                                  inputAccessoryViewID={
-                                    Platform.OS === "ios"
-                                      ? inputAccessoryViewID
-                                      : undefined
-                                  }
-                                  onFocus={() => {
-                                    setTimeout(() => {
-                                      adjustScrollForInput(replyInputRef);
-                                    }, 100);
-                                  }}
-                                />
-                                <View style={styles.replyActions}>
-                                  <TouchableOpacity
-                                    style={[
-                                      styles.actionButton,
-                                      styles.replyButton,
-                                      (!replyText.trim() || isReplying) &&
-                                        styles.disabledButton,
-                                    ]}
-                                    onPress={() => handleSubmitReply(ticket.id)}
-                                    disabled={!replyText.trim() || isReplying}
-                                  >
-                                    {isReplying ? (
-                                      <ActivityIndicator
-                                        size="small"
-                                        color="#fff"
-                                      />
-                                    ) : (
-                                      <Text style={styles.actionButtonText}>
-                                        Send Reply
-                                      </Text>
-                                    )}
-                                  </TouchableOpacity>
-                                </View>
+                          {ticket.status !== "closed" && (
+                            <View style={styles.replyInputContainer}>
+                              <TextInput
+                                ref={replyInputRef}
+                                style={styles.replyInput}
+                                placeholder="Type your reply here..."
+                                placeholderTextColor="#999"
+                                value={replyText}
+                                onChangeText={setReplyText}
+                                multiline
+                                textAlignVertical="top"
+                                inputAccessoryViewID={
+                                  Platform.OS === "ios"
+                                    ? inputAccessoryViewID
+                                    : undefined
+                                }
+                                onFocus={() => {
+                                  setTimeout(() => {
+                                    adjustScrollForInput(replyInputRef);
+                                  }, 100);
+                                }}
+                              />
+                              <View style={styles.replyActions}>
+                                <TouchableOpacity
+                                  style={[
+                                    styles.actionButton,
+                                    styles.replyButton,
+                                    (!replyText.trim() || isReplying) &&
+                                      styles.disabledButton,
+                                  ]}
+                                  onPress={() => handleSubmitReply(ticket.id)}
+                                  disabled={!replyText.trim() || isReplying}
+                                >
+                                  {isReplying ? (
+                                    <ActivityIndicator
+                                      size="small"
+                                      color="#fff"
+                                    />
+                                  ) : (
+                                    <Text style={styles.actionButtonText}>
+                                      Send Reply
+                                    </Text>
+                                  )}
+                                </TouchableOpacity>
                               </View>
-                            )}
+                            </View>
+                          )}
                         </View>
                       )}
                     </TouchableOpacity>
@@ -1358,14 +1226,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 12,
     alignSelf: "flex-start",
   },
+  statusIcon: {
+    marginRight: 4,
+  },
   statusText: {
     fontSize: 10,
-    fontFamily: Typography.fontWeight.medium.primary,
+    fontFamily: Typography.fontWeight.semiBold.primary,
   },
   ticketCategory: {
     flexDirection: "row",
@@ -1544,31 +1417,33 @@ const styles = StyleSheet.create({
   },
   statusFilterContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 6,
-    flexDirection: "row",
-  },
-  statusFilterButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
-    height: 26,
+  },
+  statusFilterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    backgroundColor: "#fff",
   },
   activeStatusFilter: {
     backgroundColor: "rgba(11, 181, 191, 0.1)",
     borderColor: primary,
   },
   statusFilterText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: Typography.fontWeight.medium.primary,
     color: "#555",
   },
   activeStatusFilterText: {
     color: primary,
+    fontFamily: Typography.fontWeight.semiBold.primary,
   },
   statusFilterDot: {
     width: 6,

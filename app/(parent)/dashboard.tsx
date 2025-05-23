@@ -158,7 +158,6 @@ export default function ParentDashboard() {
           studentProfilesWithSections.length > 0 ? (
           <View style={styles.cardsContainer}>
             {studentProfilesWithSections.map((studentWithSection, index) => {
-              console.log("Student Section Data: ", studentWithSection);
               const fullName = formatFullName(studentWithSection);
               const schoolInfo = getSectionSchoolInfo(studentWithSection);
               const { isPresent, percentage } =
@@ -172,10 +171,7 @@ export default function ParentDashboard() {
                   : "#F44336";
 
               return (
-                <View
-                  key={getSectionId(studentWithSection.currentSectionDetail)}
-                  style={styles.studentCard}
-                >
+                <View key={index} style={styles.studentCard}>
                   <View style={styles.cardHeader}>
                     <InitialsAvatar
                       name={fullName}
