@@ -78,7 +78,7 @@ export default function SupportScreen() {
     "new" | "replied" | "closed" | "faqs"
   >("new");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showGradeFilter, setShowGradeFilter] = useState(false);
+  const [showGradeFilter, setShowGradeFilter] = useState(false); // We'll keep this but not use it in the UI
   const [selectedGrade, setSelectedGrade] = useState<string | null>(
     (gradeId as string) || null
   );
@@ -333,16 +333,29 @@ export default function SupportScreen() {
 
   useEffect(() => {
     const fetchTickets = async () => {
-      if (!userId || !sectionId) return;
+      if (!userId) {
+        setTicketsError("User profile not available");
+        return;
+      }
 
       setIsLoadingTickets(true);
       setTicketsError(null);
 
       try {
-        const response = await fetchTeacherSupportTickets(
-          sectionId as string,
-          userId.toString()
-        );
+        let response;
+
+        // If accessed from a section, use the sectionId, otherwise fetch all tickets
+        if (from === "section" && sectionId) {
+          console.log(`Fetching support tickets for section ${sectionId}`);
+          response = await fetchTeacherSupportTickets(
+            userId.toString(),
+            sectionId as string
+          );
+        } else {
+          // Global view - fetch all tickets without sectionId
+          console.log("Fetching all support tickets (global view)");
+          response = await fetchTeacherSupportTickets(userId.toString());
+        }
 
         const transformedTickets: SupportTicket[] = response.tickets.map(
           (ticket) => ({
@@ -350,10 +363,10 @@ export default function SupportScreen() {
             category: ticket.category.toLowerCase(),
             subject: ticket.subject,
             message: ticket.message,
-            date: ticket.createdat, // Using lowercase API field
+            date: ticket.createdat,
             gradeId: selectedGrade || "",
             gradeName: currentGradeName || "",
-            sectionId: sectionId as string,
+            sectionId: ticket.sectionid?.toString() || "",
             sectionName: currentSectionName || "",
             studentId: ticket.studentid.toString(),
             studentName: "",
@@ -365,8 +378,8 @@ export default function SupportScreen() {
               ticket.messages?.map((msg) => ({
                 id: msg.id.toString(),
                 message: msg.message,
-                date: msg.createdat, // Using lowercase API field
-                isTeacher: msg.sentby === userId, // Compare sentby with current userId
+                date: msg.date || msg.createdat,
+                isTeacher: msg.sentby === userId,
               })) || [],
           })
         );
@@ -381,10 +394,18 @@ export default function SupportScreen() {
       }
     };
 
-    if (sectionId && userId) {
+    // Call fetchTickets if userId is available (don't require sectionId)
+    if (userId) {
       fetchTickets();
     }
-  }, [userId, sectionId, selectedGrade, currentGradeName, currentSectionName]);
+  }, [
+    userId,
+    from,
+    sectionId,
+    selectedGrade,
+    currentGradeName,
+    currentSectionName,
+  ]);
 
   const handleReplySubmit = async (ticketId: string) => {
     if (!replyText.trim() || !userId) {
@@ -405,6 +426,7 @@ export default function SupportScreen() {
       if (ticket && ticket.status === "new") {
         await updateTicketStatus(
           parseInt(ticketId),
+          userId.toString(),
           "Replied" as SupportTicketStatus
         );
       }
@@ -455,6 +477,7 @@ export default function SupportScreen() {
         try {
           await updateTicketStatus(
             parseInt(ticketId),
+            userId.toString(),
             "Closed" as SupportTicketStatus
           );
 
@@ -550,19 +573,6 @@ export default function SupportScreen() {
               {ticket.category.charAt(0).toUpperCase() +
                 ticket.category.slice(1)}
             </Text>
-            {ticket.priority && (
-              <View
-                style={[
-                  styles.priorityBadge,
-                  { backgroundColor: priorityColors[ticket.priority] },
-                ]}
-              >
-                <Text style={styles.priorityText}>
-                  {ticket.priority.charAt(0).toUpperCase() +
-                    ticket.priority.slice(1)}
-                </Text>
-              </View>
-            )}
           </View>
           <View style={styles.ticketHeaderRight}>
             <Text style={styles.ticketDate}>
@@ -584,10 +594,6 @@ export default function SupportScreen() {
           <Text style={styles.ticketMeta}>
             <Text style={styles.ticketMetaLabel}>From: </Text>
             {ticket.parentName}
-          </Text>
-          <Text style={styles.ticketMeta}>
-            <Text style={styles.ticketMetaLabel}>Student: </Text>
-            {ticket.studentName} ({ticket.gradeName} {ticket.sectionName})
           </Text>
         </View>
 
@@ -802,19 +808,6 @@ export default function SupportScreen() {
                 </TouchableOpacity>
               )}
             </View>
-
-            {!isFromInternal && (
-              <TouchableOpacity
-                style={styles.filterButton}
-                onPress={() => setShowGradeFilter(!showGradeFilter)}
-              >
-                <MaterialCommunityIcons
-                  name="filter-variant"
-                  size={22}
-                  color={primary}
-                />
-              </TouchableOpacity>
-            )}
           </View>
 
           {isFromInternal && (
@@ -829,37 +822,6 @@ export default function SupportScreen() {
                 {currentSectionName && `- ${currentSectionName}`}
               </Text>
             </View>
-          )}
-
-          {showGradeFilter && !isFromInternal && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.gradeFilterScroll}
-              contentContainerStyle={styles.gradeFilterContainer}
-            >
-              {grades.map((grade) => (
-                <TouchableOpacity
-                  key={grade.id}
-                  style={[
-                    styles.gradeFilterChip,
-                    selectedGrade === grade.id &&
-                      styles.selectedGradeFilterChip,
-                  ]}
-                  onPress={() => setSelectedGrade(grade.id)}
-                >
-                  <Text
-                    style={[
-                      styles.gradeFilterText,
-                      selectedGrade === grade.id &&
-                        styles.selectedGradeFilterText,
-                    ]}
-                  >
-                    {grade.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           )}
 
           <View style={styles.tabsContainer}>
@@ -1206,38 +1168,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
     color: "#333",
-  },
-  filterButton: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    padding: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  gradeFilterScroll: {
-    maxHeight: 50,
-  },
-  gradeFilterContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  gradeFilterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: "#f0f0f0",
-    marginRight: 8,
-  },
-  selectedGradeFilterChip: {
-    backgroundColor: primary,
-  },
-  gradeFilterText: {
-    fontSize: 13,
-    fontFamily: Typography.fontWeight.medium.primary,
-    color: "#666",
-  },
-  selectedGradeFilterText: {
-    color: "#fff",
   },
   tabsContainer: {
     flexDirection: "row",

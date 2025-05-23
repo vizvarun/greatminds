@@ -67,21 +67,25 @@ export const fetchParentSupportTickets = async (
 
 /**
  * Fetch support tickets assigned to a teacher
- * @param sectionId Section ID
  * @param userId User ID of the teacher
+ * @param sectionId Section ID (optional - if not provided, returns all tickets across sections)
  * @param page Page number (optional)
  * @param pageSize Number of items per page (optional)
  */
 export const fetchTeacherSupportTickets = async (
-  sectionId: string,
   userId: string,
+  sectionId?: string,
   page: number = 1,
   pageSize: number = 10
 ): Promise<SupportTicketsResponse> => {
   try {
-    const response = await api.get<SupportTicketsResponse>(
-      `/support/assigned/list?section_id=${sectionId}&user_id=${userId}&page=${page}&page_size=${pageSize}`
-    );
+    // Build URL with optional section_id parameter
+    let url = `/support/assigned/list?user_id=${userId}&page=${page}&page_size=${pageSize}`;
+    if (sectionId) {
+      url += `&section_id=${sectionId}`;
+    }
+
+    const response = await api.get<SupportTicketsResponse>(url);
     return response.data;
   } catch (error) {
     console.error("Error fetching teacher support tickets:", error);
@@ -151,7 +155,7 @@ export const updateTicketStatus = async (
     const response = await api.put("/support/update", {
       support_ticket_id: ticketId,
       message,
-      sentby: Number(userId),
+      sentby: userId,
       action: "close",
     });
     return response.data;
