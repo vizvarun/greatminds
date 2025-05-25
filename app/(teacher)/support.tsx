@@ -471,7 +471,7 @@ export default function SupportScreen() {
   const handleCloseTicket = async (ticketId: string) => {
     showAlert(
       "Close Ticket",
-      "Are you sure you want to close this ticket? This will mark the issue as resolved.",
+      "Are you sure you want to close this ticket? If yes, click OK to mark it as closed.",
       "warning",
       async () => {
         try {
