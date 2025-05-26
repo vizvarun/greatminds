@@ -205,6 +205,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         } else {
           setIsAuthenticated(false);
+          setIsValidatingToken(false); // <-- Ensure token validation is stopped
+          setIsLoading(false); // <-- Ensure loading is stopped
+          return; // <-- Prevent further execution
         }
       } catch (error) {
         console.error("Failed to load auth state:", error);
@@ -354,11 +357,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await authService.logout();
 
-      await AsyncStorage.removeItem("userData");
-      await AsyncStorage.removeItem("phoneNumber");
+      // Remove all relevant keys from AsyncStorage
+      await AsyncStorage.multiRemove([
+        "authToken",
+        "userData",
+        "phoneNumber",
+        "userRole",
+        "hasCompletedOnboarding",
+      ]);
 
       setIsAuthenticated(false);
       setPhoneNumber("");
+      setUserRoleState(null);
+      setUserProfile(null);
+      setStudentProfiles(null);
+      setHasBothRoles(false);
+      setIsValidatingToken(false);
 
       return;
     } catch (error) {
@@ -366,6 +380,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw error;
     } finally {
       setIsLoading(false);
+      setIsValidatingToken(false);
     }
   };
 
