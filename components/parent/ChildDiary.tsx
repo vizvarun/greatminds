@@ -13,6 +13,7 @@ import {
   Easing,
   ActivityIndicator,
   SectionList,
+  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { fetchSectionDiaryEntries } from "@/services/diaryApi";
@@ -32,6 +33,7 @@ type DiaryEntry = {
   formattedDate: string;
   title: string;
   description: string;
+  link?: string;
   isUrgent: boolean;
   type:
     | "homework"
@@ -199,6 +201,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
             title: title,
             description: entry.description,
             isUrgent: entry.isurgent || false,
+            link: entry.link,
             type,
           };
         });
@@ -532,12 +535,31 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
     const entryType =
       entryTypes.find((et) => et.id === item.type) || entryTypes[6];
 
+    const openLink = async (url: string) => {
+      console.log("url", url);
+      try {
+        // Add https:// prefix if no protocol is specified
+        let urlToOpen = url.trim();
+        if (
+          !urlToOpen.startsWith("http://") &&
+          !urlToOpen.startsWith("https://")
+        ) {
+          urlToOpen = "https://" + urlToOpen;
+        }
+
+        console.log("Opening URL:", urlToOpen);
+        await Linking.openURL(urlToOpen);
+      } catch (error) {
+        console.error("Error opening URL:", error);
+        showAlert("Error", "Failed to open the URL", "error");
+      }
+    };
+
     return (
       <View style={styles.entryCard}>
         <View
           style={[styles.entryAccent, { backgroundColor: entryType.color }]}
         />
-
         <View style={styles.entryContent}>
           <View style={styles.entryHeader}>
             <View style={styles.entryTypeContainer}>
@@ -557,11 +579,25 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
               )}
             </View>
           </View>
-
           <Text style={styles.entryTitle}>{item.title}</Text>
-
           <Text style={styles.entryDescription}>{item.description}</Text>
         </View>
+        {item.link !== null ? (
+          <View style={styles.previewButton}>
+            <Text style={styles.entryDescription}>Open Link</Text>
+            <TouchableOpacity
+              accessibilityLabel="Open link in browser"
+              style={styles.linkIcon}
+              onPress={() => openLink(item?.link)}
+            >
+              <MaterialCommunityIcons
+                name="open-in-new"
+                size={18}
+                color={primary}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -904,6 +940,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   entryAccent: {
     width: 4,
@@ -953,6 +991,14 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#666",
     lineHeight: 20,
+  },
+  previewButton: {
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  linkIcon: {
+    marginLeft: 4,
   },
   calendarContainer: {
     backgroundColor: "#fff",

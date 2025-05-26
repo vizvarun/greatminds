@@ -23,6 +23,7 @@ type CustomDropdownProps = {
   onValueChange: (value: string) => void;
   placeholder?: string;
   label: string;
+  disabled: boolean;
 };
 
 const CustomDropdown = ({
@@ -31,6 +32,7 @@ const CustomDropdown = ({
   onValueChange,
   placeholder = "Select an option",
   label,
+  disabled = false,
 }: CustomDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -40,7 +42,8 @@ const CustomDropdown = ({
     <View style={styles.container}>
       <Text style={styles.label}>{label} *</Text>
       <TouchableOpacity
-        style={styles.dropdownButton}
+        style={[styles.dropdownButton, disabled && styles.disabled]}
+        disabled={disabled}
         onPress={() => setIsOpen(true)}
       >
         <Text style={styles.selectedValueText}>
@@ -126,6 +129,10 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  disabled: {
+    backgroundColor: "#f0f0f0",
+    borderColor: "#ddd",
   },
   selectedValueText: {
     fontSize: 14,
