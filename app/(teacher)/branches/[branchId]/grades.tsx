@@ -195,9 +195,6 @@ export default function GradesScreen() {
       <ScrollView
         style={styles.contentContainer}
         contentContainerStyle={styles.scrollContentContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
       >
         {grades.length === 0 && !isLoading ? (
           <View style={styles.emptyState}>

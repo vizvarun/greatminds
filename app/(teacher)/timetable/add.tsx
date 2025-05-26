@@ -84,6 +84,7 @@ export default function AddTimetableEntryScreen() {
         startTime: parseTimeString(startTime),
         endTime: parseTimeString(endTime),
         teacher: teacher?.toString() || "",
+        link: "", // Add link field
       };
     }
     return {
@@ -93,6 +94,7 @@ export default function AddTimetableEntryScreen() {
       startTime: new Date(new Date().setHours(9, 0, 0, 0)),
       endTime: new Date(new Date().setHours(10, 0, 0, 0)),
       teacher: "",
+      link: "", // Add link field
     };
   }, [
     isEditMode,
@@ -537,6 +539,7 @@ export default function AddTimetableEntryScreen() {
         subject: getSubjectLabel(formData.subject),
         description: formData.topic || "",
         teacher_id: formData.teacher ? Number(formData.teacher) : undefined,
+        link: formData.link || "", // Add link to API payload
       };
 
       console.log("Submitting timetable data:", apiData);
@@ -642,6 +645,23 @@ export default function AddTimetableEntryScreen() {
             onChangeText={(text) => setFormData({ ...formData, topic: text })}
             placeholder="e.g. Algebra: Linear Equations"
             placeholderTextColor="#999"
+            inputAccessoryViewID={
+              Platform.OS === "ios" ? inputAccessoryViewID : undefined
+            }
+          />
+        </View>
+
+        {/* Add link input field */}
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Resource Link (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.link}
+            onChangeText={(text) => setFormData({ ...formData, link: text })}
+            placeholder="e.g. https://example.com/resource"
+            placeholderTextColor="#999"
+            keyboardType="url"
+            autoCapitalize="none"
             inputAccessoryViewID={
               Platform.OS === "ios" ? inputAccessoryViewID : undefined
             }

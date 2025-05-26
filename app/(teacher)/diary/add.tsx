@@ -29,6 +29,7 @@ import {
   View,
   Switch,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 
 export default function AddDiaryEntryScreen() {
@@ -37,23 +38,20 @@ export default function AddDiaryEntryScreen() {
   const isEditMode = edit === "true";
   const { userProfile } = useAuth();
 
-  // Fix the date parsing to ensure a valid effective date
   const getInitialEffectiveDate = () => {
-    if (!date) return new Date(); // Default to today
+    if (!date) return new Date();
 
     try {
-      // Try parsing the date param - handle both YYYY-MM-DD format and ISO string
       const parsedDate = new Date(date as string);
 
-      // Check if the date is valid
       if (isNaN(parsedDate.getTime())) {
         console.log("Invalid date from params:", date);
-        return new Date(); // Default to today if invalid
+        return new Date();
       }
       return parsedDate;
     } catch (error) {
       console.error("Error parsing date:", error);
-      return new Date(); // Default to today if there's an error
+      return new Date();
     }
   };
 
@@ -64,11 +62,14 @@ export default function AddDiaryEntryScreen() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    type: "homework", // homework, classwork, preparation, research, other
-    effectiveDate: getInitialEffectiveDate(), // Use the safer method
-    dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), // Default to 1 week later
+    type: "homework",
+    effectiveDate: getInitialEffectiveDate(),
+    dueDate: new Date(
+      new Date().setDate(getInitialEffectiveDate().getDate() + 1)
+    ),
     subject: "",
-    isUrgent: false, // New field for urgent toggle
+    isUrgent: false,
+    link: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,10 +80,8 @@ export default function AddDiaryEntryScreen() {
   const [isFetchingEntry, setIsFetchingEntry] = useState(false);
   const [fetchEntryError, setFetchEntryError] = useState<string | null>(null);
 
-  // Add state to store original entry data
   const [originalEntryData, setOriginalEntryData] = useState<any>(null);
 
-  // Fetch subjects from API when component mounts
   useEffect(() => {
     const getSubjects = async () => {
       if (!userProfile || !branchId) return;
@@ -91,19 +90,15 @@ export default function AddDiaryEntryScreen() {
         setIsLoadingSubjects(true);
         setSubjectError(null);
 
-        // Get user ID from profile
         const userId = userProfile.user?.id.toString() || "";
 
-        // Fetch subjects from API
         const subjectsData = await fetchSubjects(branchId as string, userId);
 
         console.log("Subjects data received:", subjectsData);
 
-        // Transform to format expected by CustomDropdown
-        // Handle both array format and object format responses
         const formattedSubjects = Array.isArray(subjectsData)
           ? subjectsData.map((subject) => ({
-              id: subject.id.toString(), // Ensure ID is a string
+              id: subject.id.toString(),
               label: subject.name || subject.subject_name || "Unknown Subject",
             }))
           : Object.entries(subjectsData).map(
@@ -119,7 +114,6 @@ export default function AddDiaryEntryScreen() {
         if (formattedSubjects.length > 0) {
           setSubjects(formattedSubjects);
 
-          // Only set default subject if not already set
           if (!formData.subject) {
             setFormData((prev) => ({
               ...prev,
@@ -153,7 +147,6 @@ export default function AddDiaryEntryScreen() {
 
       console.log("Retry - Subjects data received:", subjectsData);
 
-      // Transform to format expected by CustomDropdown with more robust handling
       const formattedSubjects = Array.isArray(subjectsData)
         ? subjectsData.map((subject) => ({
             id: subject.id.toString(),
@@ -169,7 +162,6 @@ export default function AddDiaryEntryScreen() {
       if (formattedSubjects.length > 0) {
         setSubjects(formattedSubjects);
 
-        // Only set default subject if not already set
         if (!formData.subject) {
           setFormData((prev) => ({
             ...prev,
@@ -187,51 +179,47 @@ export default function AddDiaryEntryScreen() {
     }
   };
 
-  // Entry types with colors
   const entryTypes = [
     {
       id: "homework",
       name: "Homework",
       icon: "book-open-variant",
-      color: "#4CAF50", // Green - unchanged
+      color: "#4CAF50",
     },
     {
       id: "classwork",
       name: "Classwork",
       icon: "pencil-outline",
-      color: "#00BCD4", // Cyan - updated to match list
+      color: "#00BCD4",
     },
     {
       id: "preparation",
       name: "Preparation",
       icon: "clipboard-outline",
-      color: "#F44336", // Indigo - updated to match list
+      color: "#F44336",
     },
     {
       id: "research",
       name: "Research",
       icon: "magnify",
-      color: "#673AB7", // Deep Purple - updated to match list
+      color: "#673AB7",
     },
     {
       id: "other",
       name: "Other",
       icon: "dots-horizontal-circle",
-      color: "#607D8B", // Gray - unchanged
+      color: "#607D8B",
     },
   ];
 
-  // Format entry types for dropdown
   const entryTypeOptions = entryTypes.map((type) => ({
     id: type.id,
     label: type.name,
   }));
 
-  // Date pickers state
   const [showEffectiveDatePicker, setShowEffectiveDatePicker] = useState(false);
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
 
-  // Alert state
   const [alert, setAlert] = useState({
     visible: false,
     title: "",
@@ -256,16 +244,13 @@ export default function AddDiaryEntryScreen() {
     setAlert((prev) => ({ ...prev, visible: false }));
   };
 
-  // Update formatDate to include error handling
   const formatDate = (date: Date) => {
     try {
-      // Ensure we have a valid date
       if (!date || isNaN(date.getTime())) {
         console.warn("Invalid date provided to formatDate:", date);
-        return formatDate(new Date()); // Fallback to today
+        return formatDate(new Date());
       }
 
-      // Format date as "Wed, May 28" with comma between day and date
       const options: Intl.DateTimeFormatOptions = {
         weekday: "short",
         month: "long",
@@ -274,13 +259,12 @@ export default function AddDiaryEntryScreen() {
       return date.toLocaleDateString("en-US", options);
     } catch (error) {
       console.error("Error formatting date:", error);
-      return "Invalid Date"; // Return a clear error message
+      return "Invalid Date";
     }
   };
 
   const handleEffectiveDatePress = () => {
     setShowDueDatePicker(false);
-    // Ensure we're working with a valid date
     const safeEffectiveDate = isNaN(formData.effectiveDate.getTime())
       ? new Date()
       : formData.effectiveDate;
@@ -289,7 +273,7 @@ export default function AddDiaryEntryScreen() {
 
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({
-        value: safeEffectiveDate, // Use the validated date
+        value: safeEffectiveDate,
         mode: "date",
         onChange: (event, selectedDate) => {
           if (event.type === "set" && selectedDate) {
@@ -298,7 +282,7 @@ export default function AddDiaryEntryScreen() {
             let newDueDate = formData.dueDate;
             if (newEffectiveDate > formData.dueDate) {
               newDueDate = new Date(newEffectiveDate);
-              newDueDate.setDate(newEffectiveDate.getDate() + 7);
+              newDueDate.setDate(newEffectiveDate.getDate() + 1);
             }
 
             setFormData({
@@ -348,8 +332,6 @@ export default function AddDiaryEntryScreen() {
     const currentDate = selectedDate || formData.effectiveDate;
 
     if (Platform.OS === "android") {
-      // This function will not be used for Android anymore
-      // It's handled directly in the DateTimePickerAndroid.open call
     } else {
       setTempEffectiveDate(currentDate);
     }
@@ -359,8 +341,6 @@ export default function AddDiaryEntryScreen() {
     const currentDate = selectedDate || formData.dueDate;
 
     if (Platform.OS === "android") {
-      // This function will not be used for Android anymore
-      // It's handled directly in the DateTimePickerAndroid.open call
     } else {
       setTempDueDate(currentDate);
     }
@@ -373,7 +353,7 @@ export default function AddDiaryEntryScreen() {
       let newDueDate = formData.dueDate;
       if (newEffectiveDate > formData.dueDate) {
         newDueDate = new Date(newEffectiveDate);
-        newDueDate.setDate(newEffectiveDate.getDate() + 7);
+        newDueDate.setDate(newEffectiveDate.getDate() + 1);
       }
 
       setFormData({
@@ -396,16 +376,13 @@ export default function AddDiaryEntryScreen() {
     setFormData({ ...formData, type });
   };
 
-  // Fetch entry data when in edit mode
   useEffect(() => {
     if (isEditMode && entryId) {
       fetchEntryData(entryId as string);
     }
   }, [isEditMode, entryId]);
 
-  // Add a new useEffect to handle subject matching after subjects are loaded
   useEffect(() => {
-    // If we have original entry data and subjects are loaded, try to match the subject
     if (originalEntryData && subjects.length > 0) {
       console.log("Trying to match subject:", originalEntryData.subject);
       console.log(
@@ -415,13 +392,11 @@ export default function AddDiaryEntryScreen() {
 
       let subjectId = "";
       if (originalEntryData.subject) {
-        // Try exact match first
         let matchingSubject = subjects.find(
           (s) =>
             s.label.toLowerCase() === originalEntryData.subject.toLowerCase()
         );
 
-        // If no exact match, try partial match (subject name contains API subject or vice versa)
         if (!matchingSubject) {
           matchingSubject = subjects.find(
             (s) =>
@@ -441,17 +416,16 @@ export default function AddDiaryEntryScreen() {
           console.log(
             "No matching subject found. Using first available subject."
           );
-          // If we still can't find a match, use the first subject as fallback
           if (subjects.length > 0) {
             subjectId = subjects[0].id;
           }
         }
       }
 
-      // Always update the form data with either the matched subject or the first subject
       setFormData((prevData) => ({
         ...prevData,
         subject: subjectId,
+        link: originalEntryData.link || "",
       }));
     }
   }, [subjects, originalEntryData]);
@@ -463,18 +437,14 @@ export default function AddDiaryEntryScreen() {
     try {
       const response = await fetchDiaryEntryById(id);
 
-      // Handle the nested response structure
       const entryData = response.diary_id ? response.diary_id : response;
 
       if (entryData) {
         console.log("Received entry data:", entryData);
-        // Store original entry data for subject matching later
         setOriginalEntryData(entryData);
 
-        // Map API response to form data
         const entryType = mapNoteTypeToFormType(entryData.notetype);
 
-        // Parse dates from API (format could be YYYY-MM-DD or ISO string)
         const effectiveDate = entryData.effectivedate
           ? new Date(entryData.effectivedate)
           : new Date();
@@ -482,8 +452,6 @@ export default function AddDiaryEntryScreen() {
           ? new Date(entryData.duedate)
           : new Date(new Date().setDate(new Date().getDate() + 7));
 
-        // Find matching subject ID - this might fail if subjects aren't loaded yet
-        // We'll handle this in the useEffect above once subjects are available
         let subjectId = "";
         if (subjects.length > 0 && entryData.subject) {
           const matchingSubject = subjects.find(
@@ -494,7 +462,6 @@ export default function AddDiaryEntryScreen() {
           }
         }
 
-        // For "Other" type, use the subject as title
         const title =
           entryType === "other" ? entryData.subject : entryData.notetype || "";
 
@@ -502,10 +469,11 @@ export default function AddDiaryEntryScreen() {
           title: title,
           description: entryData.description || "",
           type: entryType,
-          subject: subjectId, // This will be re-populated in the useEffect if needed
+          subject: subjectId,
           effectiveDate: effectiveDate,
           dueDate: dueDate,
           isUrgent: entryData.isurgent || false,
+          link: entryData.link || "",
         });
       }
     } catch (error) {
@@ -517,7 +485,6 @@ export default function AddDiaryEntryScreen() {
     }
   };
 
-  // Map API note type to our form type
   const mapNoteTypeToFormType = (noteType: string): string => {
     const normalizedType = noteType?.toLowerCase() || "";
 
@@ -548,21 +515,17 @@ export default function AddDiaryEntryScreen() {
   };
 
   const handleSubmit = async () => {
-    // Common validation - description is always required
     if (!formData.description) {
       showAlert("Error", "Please enter a description", "error");
       return;
     }
 
-    // Type-specific validation
     if (formData.type === "other") {
-      // For "Other" type, title is required
       if (!formData.title) {
         showAlert("Error", "Please enter a title", "error");
         return;
       }
     } else {
-      // For standard types, subject is required if we have subjects
       if (!formData.subject && subjects.length > 0) {
         showAlert("Error", "Please select a subject", "error");
         return;
@@ -572,29 +535,24 @@ export default function AddDiaryEntryScreen() {
     setIsSubmitting(true);
 
     try {
-      // Format dates for API (YYYY-MM-DD format)
       const formatDateForApi = (date: Date): string => {
         return date.toISOString().split("T")[0];
       };
 
-      // Prepare API data based on entry type
       let apiData;
 
       if (formData.type === "other") {
-        // IMPORTANT: For "Other" type:
-        // - noteType must be exactly "Other" (fixed string)
-        // - subject should be the value from the title input field
         apiData = {
           sectionid: Number(sectionId),
-          noteType: "Other", // Fixed as "Other"
+          noteType: "Other",
           effectiveDate: formatDateForApi(formData.effectiveDate),
           dueDate: formatDateForApi(formData.effectiveDate),
-          subject: formData.title, // This is the key part - use title as subject
+          subject: formData.title,
           description: formData.description,
           isUrgent: formData.isUrgent,
+          link: formData.link || "",
         };
       } else {
-        // For standard entry types (homework, classwork, etc.)
         apiData = {
           sectionid: Number(sectionId),
           noteType: getNoteTypeFromType(formData.type),
@@ -607,10 +565,10 @@ export default function AddDiaryEntryScreen() {
           subject: getSubjectLabelFromId(formData.subject),
           description: formData.description,
           isUrgent: formData.isUrgent,
+          link: formData.link || "",
         };
       }
 
-      // Add detailed console logging for debugging
       console.log("Form data at submission:", {
         type: formData.type,
         title: formData.title,
@@ -618,7 +576,6 @@ export default function AddDiaryEntryScreen() {
       });
       console.log("Final API payload:", apiData);
 
-      // Call the appropriate API based on mode
       if (isEditMode && entryId) {
         await updateDiaryEntry(entryId as string, apiData);
         showAlert("Success", "Diary entry updated successfully", "success");
@@ -627,7 +584,6 @@ export default function AddDiaryEntryScreen() {
         showAlert("Success", "Diary entry added successfully", "success");
       }
 
-      // Navigate back after successful submission
       setTimeout(() => {
         router.back();
       }, 1500);
@@ -693,6 +649,36 @@ export default function AddDiaryEntryScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  // Debugging helper
+  console.log("Link value:", formData.link);
+
+  // Always show the icon as long as there's any text (even a single character)
+  const isValidUrl = (url: string) => {
+    const result = url && url.trim().length > 0;
+    console.log("URL validation result:", result, "for URL:", url);
+    return result;
+  };
+
+  // Simplified open link function - just try to open whatever was entered
+  const openLink = async (url: string) => {
+    try {
+      // Add https:// prefix if no protocol is specified
+      let urlToOpen = url.trim();
+      if (
+        !urlToOpen.startsWith("http://") &&
+        !urlToOpen.startsWith("https://")
+      ) {
+        urlToOpen = "https://" + urlToOpen;
+      }
+
+      console.log("Opening URL:", urlToOpen);
+      await Linking.openURL(urlToOpen);
+    } catch (error) {
+      console.error("Error opening URL:", error);
+      showAlert("Error", "Failed to open the URL", "error");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -841,6 +827,42 @@ export default function AddDiaryEntryScreen() {
                       Platform.OS === "ios" ? inputAccessoryViewID : undefined
                     }
                   />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Resource Link (Optional)</Text>
+                  <View style={styles.linkInputContainer}>
+                    <TextInput
+                      style={styles.linkInput}
+                      value={formData.link}
+                      onChangeText={(text) => {
+                        console.log("Link input changed:", text);
+                        setFormData({ ...formData, link: text });
+                      }}
+                      placeholder="e.g. example.com/resource"
+                      placeholderTextColor="#999"
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      inputAccessoryViewID={
+                        Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                      }
+                    />
+                    <View style={styles.linkPreviewButtonContainer}>
+                      {formData.link.trim().length > 0 ? (
+                        <TouchableOpacity
+                          style={styles.linkPreviewButton}
+                          onPress={() => openLink(formData.link)}
+                          accessibilityLabel="Open link in browser"
+                        >
+                          <MaterialCommunityIcons
+                            name="open-in-new"
+                            size={24}
+                            color={primary}
+                          />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
                 </View>
 
                 <View style={styles.formGroup}>
@@ -1220,7 +1242,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamily.primary,
     color: "#F44336",
     marginTop: 4,
-    opacity: 0.8, // Make it more subtle
+    opacity: 0.8,
   },
   disabledButton: {
     opacity: 0.7,
@@ -1265,5 +1287,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: Typography.fontFamily.primary,
     marginBottom: 16,
+  },
+  linkInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+    height: 46,
+  },
+  linkInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#333",
+    height: 44,
+  },
+  linkPreviewButtonContainer: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  linkPreviewButton: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
