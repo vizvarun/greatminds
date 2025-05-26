@@ -584,12 +584,12 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
         </View>
         {item.link !== null ? (
           <View style={styles.previewButton}>
-            <Text style={styles.entryDescription}>Open Link</Text>
             <TouchableOpacity
               accessibilityLabel="Open link in browser"
               style={styles.linkIcon}
-              onPress={() => openLink(item?.link)}
+              onPress={() => openLink(item.link)}
             >
+              <Text style={styles.openLinkText}>Open Link</Text>
               <MaterialCommunityIcons
                 name="open-in-new"
                 size={18}
@@ -994,11 +994,17 @@ const styles = StyleSheet.create({
   },
   previewButton: {
     padding: 14,
+  },
+  linkIcon: {
     flexDirection: "row",
     alignItems: "center",
   },
-  linkIcon: {
-    marginLeft: 4,
+  openLinkText: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    lineHeight: 20,
+    marginRight: 6,
   },
   calendarContainer: {
     backgroundColor: "#fff",
