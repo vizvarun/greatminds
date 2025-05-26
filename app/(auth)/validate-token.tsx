@@ -1,9 +1,25 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, View, Image, ImageBackground } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Typography } from "@/constants/Typography";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Redirect } from "expo-router";
 
 export default function ValidateToken() {
+  const [hasToken, setHasToken] = React.useState<null | boolean>(null);
+
+  useEffect(() => {
+    const checkToken = async () => {
+      const token = await AsyncStorage.getItem("authToken");
+      setHasToken(!!token);
+    };
+    checkToken();
+  }, []);
+
+  if (hasToken === false) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
   return (
     <ImageBackground
       source={require("@/assets/images/splash-bg.png")}
