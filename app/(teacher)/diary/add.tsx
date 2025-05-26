@@ -719,6 +719,7 @@ export default function AddDiaryEntryScreen() {
               onValueChange={(value) => handleTypeSelect(value)}
               placeholder="Select entry type"
               label="Entry Type"
+              disabled={isEditMode}
             />
 
             {formData.type === "other" ? (
@@ -756,6 +757,41 @@ export default function AddDiaryEntryScreen() {
                       Platform.OS === "ios" ? inputAccessoryViewID : undefined
                     }
                   />
+                </View>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Resource Link (Optional)</Text>
+                  <View style={styles.linkInputContainer}>
+                    <TextInput
+                      style={styles.linkInput}
+                      value={formData.link}
+                      onChangeText={(text) => {
+                        console.log("Link input changed:", text);
+                        setFormData({ ...formData, link: text });
+                      }}
+                      placeholder="e.g. example.com/resource"
+                      placeholderTextColor="#999"
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      inputAccessoryViewID={
+                        Platform.OS === "ios" ? inputAccessoryViewID : undefined
+                      }
+                    />
+                    <View style={styles.linkPreviewButtonContainer}>
+                      {formData.link.trim().length > 0 ? (
+                        <TouchableOpacity
+                          style={styles.linkPreviewButton}
+                          onPress={() => openLink(formData.link)}
+                          accessibilityLabel="Open link in browser"
+                        >
+                          <MaterialCommunityIcons
+                            name="open-in-new"
+                            size={24}
+                            color={primary}
+                          />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
                 </View>
 
                 <View style={styles.formGroup}>
@@ -807,6 +843,7 @@ export default function AddDiaryEntryScreen() {
                     }
                     placeholder="Select a subject"
                     label="Subject"
+                    disabled={false}
                   />
                 )}
 

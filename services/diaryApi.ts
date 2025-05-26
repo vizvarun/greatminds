@@ -17,6 +17,7 @@ interface DiaryAPIResponse {
     updatedat: string | null; // lowercase in API
     deletedat: string | null; // lowercase in API
     isurgent: boolean; // New field
+    link: string | null;
   }>;
 }
 
