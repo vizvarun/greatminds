@@ -138,7 +138,7 @@ export default function Verify() {
             const navigationTarget = await getUserProfileAndNavigationTarget(
               userData.id
             );
-            console.log("Navigation target:", navigationTarget);
+            console.log("Navigation target otp:", navigationTarget);
             if (navigationTarget === "role-select") {
               router.replace("/(auth)/role-select");
             } else if (navigationTarget === "parent") {

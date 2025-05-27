@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Great Minds",
-    "slug": "greatsminds-mobile",
+    "slug": "greatminds-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.jpeg",
