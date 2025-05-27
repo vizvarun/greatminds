@@ -273,6 +273,32 @@ export default function SectionDetailsScreen() {
             style={styles.actionCard}
             onPress={() =>
               router.push(
+                `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/gallery`
+              )
+            }
+          >
+            <View
+              style={[
+                styles.actionIconContainer,
+                { backgroundColor: "rgba(255, 7, 90, 0.1)" },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="image-multiple-outline"
+                size={24}
+                color="rgb(255, 7, 90)"
+              />
+            </View>
+            <Text style={styles.actionTitle}>Gallery</Text>
+            <Text style={styles.actionDescription}>
+              View and manage class photos
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() =>
+              router.push(
                 `/(teacher)/branches/${branchId}/grades/${gradeId}/sections/${sectionId}/timetable`
               )
             }

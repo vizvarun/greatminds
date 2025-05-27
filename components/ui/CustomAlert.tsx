@@ -6,6 +6,7 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Typography } from "@/constants/Typography";
@@ -20,6 +21,7 @@ type AlertProps = {
   onCancel?: () => void;
   showCancelButton?: boolean;
   cancelable?: boolean;
+  loading?: boolean; // <-- add this
 };
 
 const CustomAlert = ({
@@ -31,6 +33,7 @@ const CustomAlert = ({
   onCancel,
   showCancelButton = false,
   cancelable = true,
+  loading = false, // <-- add this
 }: AlertProps) => {
   // Set the appropriate icon and color based on alert type
   const alertConfig = {
@@ -77,23 +80,40 @@ const CustomAlert = ({
                   <TouchableOpacity
                     style={[styles.button, styles.cancelButton]}
                     onPress={onCancel}
+                    disabled={loading} // <-- add this
                   >
                     <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 )}
 
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.confirmButton,
-                    { backgroundColor: color },
-                  ]}
-                  onPress={onConfirm}
-                >
-                  <Text style={styles.confirmButtonText}>
-                    {type === "info" && showCancelButton ? "Confirm" : "OK"}
-                  </Text>
-                </TouchableOpacity>
+                {loading ? ( // <-- add this
+                  <View
+                    style={[
+                      styles.button,
+                      styles.confirmButton,
+                      {
+                        backgroundColor: color,
+                        justifyContent: "center",
+                        alignItems: "center",
+                      },
+                    ]}
+                  >
+                    <ActivityIndicator size="small" color="#fff" />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.button,
+                      styles.confirmButton,
+                      { backgroundColor: color },
+                    ]}
+                    onPress={onConfirm}
+                  >
+                    <Text style={styles.confirmButtonText}>
+                      {type === "info" && showCancelButton ? "Confirm" : "OK"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </TouchableWithoutFeedback>

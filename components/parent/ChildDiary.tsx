@@ -43,6 +43,7 @@ type DiaryEntry = {
     | "classwork"
     | "preparation"
     | "research";
+  isOtherType?: boolean;
 };
 
 const entryTypes = [
@@ -184,9 +185,15 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
             type = "reminder";
           }
 
-          const title = entry.subject
-            ? `${entry.notetype}: ${entry.subject}`
-            : entry.notetype;
+          const isOtherType = entry.notetype?.trim().toLowerCase() === "other";
+          let title = "";
+          if (isOtherType) {
+            title = entry.subject || entry.description || "";
+          } else {
+            title = entry.subject
+              ? `${entry.notetype}: ${entry.subject}`
+              : entry.notetype;
+          }
 
           const entryDate = new Date(entry.effectivedate);
 
@@ -203,6 +210,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
             isUrgent: entry.isurgent || false,
             link: entry.link,
             type,
+            isOtherType,
           };
         });
 
@@ -569,9 +577,19 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
                 color={entryType.color}
                 style={styles.entryTypeIcon}
               />
-              <Text style={[styles.entryTypeLabel, { color: entryType.color }]}>
-                {entryType.name}
-              </Text>
+              {!item.isOtherType ? (
+                <Text
+                  style={[styles.entryTypeLabel, { color: entryType.color }]}
+                >
+                  {entryType.name}
+                </Text>
+              ) : (
+                <Text
+                  style={[styles.entryTypeLabel, { color: entryType.color }]}
+                >
+                  Announcement
+                </Text>
+              )}
               {item.isUrgent && (
                 <View style={styles.urgentPill}>
                   <Text style={styles.urgentText}>URGENT</Text>
@@ -686,7 +704,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
           ref={dateScrollRef}
           data={dateRange}
           horizontal
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={true}
           renderItem={renderDateItem}
           keyExtractor={(item) => normalizeDate(item)}
           contentContainerStyle={styles.dateScrollerContent}
@@ -749,7 +767,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }
-              stickySectionHeadersEnabled={true}
+              stickySectionHeadersEnabled={false}
             />
           )
         ) : (

@@ -56,6 +56,7 @@ export default function TeacherLayout() {
     if (pathname.includes("/diary/add")) return "Diary Entry";
     if (pathname.includes("/timetable")) return "Class Timetable";
     if (pathname.includes("/support")) return "Support";
+    if (pathname.includes("/gallery")) return "Gallery";
     return "Teacher Portal";
   };
 

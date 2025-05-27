@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getSectionId } from "@/utils/sectionUtils";
+import { BlurView } from "expo-blur";
 
 export default function ParentDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -86,6 +87,15 @@ export default function ParentDashboard() {
     (studentId: string, sectionId: string) => {
       router.push(
         `/(parent)/children/details/${studentId}?sectionId=${sectionId}`
+      );
+    },
+    []
+  );
+
+  const navigateToGallery = useCallback(
+    (studentId: string, sectionId: string) => {
+      router.push(
+        `/(parent)/children/gallery/${studentId}?sectionId=${sectionId}`
       );
     },
     []
@@ -173,13 +183,40 @@ export default function ParentDashboard() {
               return (
                 <View key={index} style={styles.studentCard}>
                   <View style={styles.cardHeader}>
-                    <InitialsAvatar
-                      name={fullName}
-                      size={60}
-                      imageUri={studentWithSection.student.profilePicUrl}
-                      style={styles.avatar}
-                    />
-
+                    <View style={{ position: "relative" }}>
+                      <TouchableOpacity
+                        onPress={() =>
+                          navigateToProfile(
+                            studentWithSection.id.toString(),
+                            getSectionId(
+                              studentWithSection.currentSectionDetail
+                            )
+                          )
+                        }
+                        activeOpacity={0.7}
+                      >
+                        <InitialsAvatar
+                          name={fullName}
+                          size={60}
+                          imageUri={studentWithSection.student.profilePicUrl}
+                          style={styles.avatar}
+                        />
+                        <View style={styles.eyeIconOverlay}>
+                          <BlurView
+                            intensity={100}
+                            tint="light"
+                            style={styles.eyeIconBlurBg}
+                          >
+                            <MaterialCommunityIcons
+                              name="eye"
+                              size={16}
+                              color="rgba(0,0,0,0.75)"
+                              style={{ alignSelf: "center" }}
+                            />
+                          </BlurView>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
                     <View style={styles.headerInfo}>
                       <Text style={styles.studentName}>{fullName}</Text>
                       <Text style={styles.schoolInfo} numberOfLines={2}>
@@ -188,77 +225,7 @@ export default function ParentDashboard() {
                     </View>
                   </View>
 
-                  {/* <View style={styles.infoRow}>
-                    <View
-                      style={[
-                        styles.infoTag,
-                        { backgroundColor: attendanceColor + "15" },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name="calendar-check"
-                        size={16}
-                        color={attendanceColor}
-                      />
-                      <Text
-                        style={[styles.infoTagText, { color: attendanceColor }]}
-                      >
-                        {percentage}% Attendance
-                      </Text>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.infoTag,
-                        {
-                          backgroundColor: isPresent
-                            ? "#4CAF5015"
-                            : "#F4433615",
-                          marginLeft: 8,
-                        },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={isPresent ? "account-check" : "account-cancel"}
-                        size={16}
-                        color={isPresent ? "#4CAF50" : "#F44336"}
-                      />
-                      <Text
-                        style={[
-                          styles.infoTagText,
-                          { color: isPresent ? "#4CAF50" : "#F44336" },
-                        ]}
-                      >
-                        {isPresent ? "Present today" : "Absent today"}
-                      </Text>
-                    </View>
-                  </View> */}
-
                   <View style={styles.actionGrid}>
-                    <TouchableOpacity
-                      style={styles.actionTile}
-                      onPress={() =>
-                        navigateToProfile(
-                          studentWithSection.id.toString(),
-                          getSectionId(studentWithSection.currentSectionDetail)
-                        )
-                      }
-                    >
-                      <View
-                        style={[
-                          styles.actionIconBg,
-                          { backgroundColor: "#795548" + "20" },
-                        ]}
-                      >
-                        <MaterialCommunityIcons
-                          name="account-details"
-                          size={24}
-                          color="#795548"
-                        />
-                      </View>
-                      <Text style={styles.actionText}>Profile</Text>
-                    </TouchableOpacity>
-
                     <TouchableOpacity
                       style={styles.actionTile}
                       onPress={() =>
@@ -384,6 +351,31 @@ export default function ParentDashboard() {
                       </View>
                       <Text style={styles.actionText}>Support</Text>
                     </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.actionTile}
+                      onPress={() =>
+                        navigateToGallery(
+                          studentWithSection.id.toString(),
+                          getSectionId(studentWithSection.currentSectionDetail)
+                        )
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.actionIconBg,
+                          { backgroundColor: "#00BCD4" + "20" },
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name="image-multiple"
+                          size={24}
+                          color="#00BCD4"
+                        />
+                      </View>
+                      <Text style={styles.actionText}>Gallery</Text>
+                    </TouchableOpacity>
+                    {/* End Gallery action tile */}
                   </View>
                 </View>
               );
@@ -495,6 +487,30 @@ const styles = StyleSheet.create({
   avatar: {
     borderWidth: 2,
     borderColor: "#f0f0f0",
+  },
+  eyeIconOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    marginLeft: 40,
+    marginTop: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2,
+    pointerEvents: "none",
+  },
+  eyeIconBlurBg: {
+    width: 24,
+    height: 24,
+    borderRadius: 19,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(200,200,200,0.25)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    overflow: "hidden",
   },
   headerInfo: {
     marginLeft: 14,
