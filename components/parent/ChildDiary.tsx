@@ -686,7 +686,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
           ref={dateScrollRef}
           data={dateRange}
           horizontal
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={true}
           renderItem={renderDateItem}
           keyExtractor={(item) => normalizeDate(item)}
           contentContainerStyle={styles.dateScrollerContent}
@@ -749,7 +749,7 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }
-              stickySectionHeadersEnabled={true}
+              stickySectionHeadersEnabled={false}
             />
           )
         ) : (

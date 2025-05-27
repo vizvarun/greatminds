@@ -19,6 +19,7 @@ import {
   View,
   ActivityIndicator,
   SectionList,
+  Linking,
 } from "react-native";
 
 type DiaryEntry = {
@@ -36,6 +37,7 @@ type DiaryEntry = {
     | "note"
     | "reminder"
     | "test";
+  link?: string;
 };
 
 const entryTypes = [
@@ -205,6 +207,7 @@ export default function SectionDiaryScreen() {
             description: entry.description,
             isUrgent: entry.isurgent || false,
             type,
+            link: entry.link,
           };
         });
 
@@ -531,6 +534,21 @@ export default function SectionDiaryScreen() {
     const entryType =
       entryTypes.find((et) => et.id === item.type) || entryTypes[6];
 
+    const openLink = async (url: string) => {
+      try {
+        let urlToOpen = url.trim();
+        if (
+          !urlToOpen.startsWith("http://") &&
+          !urlToOpen.startsWith("https://")
+        ) {
+          urlToOpen = "https://" + urlToOpen;
+        }
+        await Linking.openURL(urlToOpen);
+      } catch (error) {
+        showAlert("Error", "Failed to open the URL", "error");
+      }
+    };
+
     return (
       <View style={styles.entryCard}>
         <View
@@ -580,6 +598,22 @@ export default function SectionDiaryScreen() {
           <Text style={styles.entryTitle}>{item.title}</Text>
 
           <Text style={styles.entryDescription}>{item.description}</Text>
+          {item.link ? (
+            <View style={styles.previewButton}>
+              <TouchableOpacity
+                accessibilityLabel="Open link in browser"
+                style={styles.linkIcon}
+                onPress={() => openLink(item.link!)}
+              >
+                <Text style={styles.openLinkText}>Open Link</Text>
+                <MaterialCommunityIcons
+                  name="open-in-new"
+                  size={18}
+                  color={primary}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -659,15 +693,6 @@ export default function SectionDiaryScreen() {
             ? formatScrollerDate(item)
             : item.toLocaleDateString("en-US", { weekday: "short" })}
         </Text>
-        {/* {hasEntries && (
-          <View
-            style={[
-              styles.dateEntryDot,
-              isSelected && { backgroundColor: "#fff" },
-              isToday && !isSelected && { backgroundColor: primary, opacity: 0.9 },
-            ]}
-          />
-        )} */}
       </TouchableOpacity>
     );
   };
@@ -760,7 +785,7 @@ export default function SectionDiaryScreen() {
           ref={dateScrollRef}
           data={dateRange}
           horizontal
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={true}
           renderItem={renderDateItem}
           keyExtractor={(item) => normalizeDate(item)}
           contentContainerStyle={styles.dateScrollerContent}
@@ -823,7 +848,7 @@ export default function SectionDiaryScreen() {
               refreshControl={
                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
               }
-              stickySectionHeadersEnabled={true}
+              stickySectionHeadersEnabled={false}
             />
           )
         ) : (
@@ -1255,5 +1280,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 7,
     borderRightColor: "transparent",
     borderTopColor: primary,
+  },
+  previewButton: {
+    paddingVertical: 4,
+  },
+  linkIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  openLinkText: {
+    fontSize: 14,
+    fontFamily: Typography.fontFamily.primary,
+    color: "#666",
+    lineHeight: 20,
+    marginRight: 6,
   },
 });
