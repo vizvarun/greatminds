@@ -702,6 +702,14 @@ export default function GalleryScreen() {
     setUploading(false);
   };
 
+  // Helper to check if selectedDate is today
+  const isSelectedDateToday = (() => {
+    if (!selectedDate) return true;
+    const today = new Date();
+    const todayStr = normalizeDate(today);
+    return selectedDate === todayStr;
+  })();
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -717,16 +725,19 @@ export default function GalleryScreen() {
             <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.title}>Gallery</Text>
-          <TouchableOpacity
-            style={{ marginLeft: "auto", padding: 4 }}
-            onPress={handleAddMedia}
-          >
-            <MaterialCommunityIcons
-              name="plus-circle-outline"
-              size={26}
-              color={primary}
-            />
-          </TouchableOpacity>
+          {/* Show add icon only if selected date is today */}
+          {isSelectedDateToday && (
+            <TouchableOpacity
+              style={{ marginLeft: "auto", padding: 4 }}
+              onPress={handleAddMedia}
+            >
+              <MaterialCommunityIcons
+                name="plus-circle-outline"
+                size={26}
+                color={primary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
         {/* Media Upload Modal */}
         <Modal

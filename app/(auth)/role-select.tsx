@@ -19,7 +19,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import CustomAlert from "@/components/ui/CustomAlert";
 
 export default function RoleSelect() {
-  const { setUserRole, isLoading, authError, clearError } = useAuth();
+  const { setUserRole, isLoading, authError, clearError, userProfile } =
+    useAuth();
   const [selectedRole, setSelectedRole] = useState<"parent" | "teacher" | null>(
     null
   );
@@ -37,6 +38,32 @@ export default function RoleSelect() {
       clearError();
     }
   }, [authError, clearError]);
+
+  // Auto-redirect logic based on userProfile data
+  useEffect(() => {
+    if (!userProfile) return;
+
+    // Check for student and school data
+    const hasStudents =
+      Array.isArray(userProfile.student_ids) &&
+      userProfile.student_ids.length > 0;
+    const hasSchools =
+      Array.isArray(userProfile.school_ids) &&
+      userProfile.school_ids.length > 0;
+
+    // If both present, show role select (do nothing)
+    // If only students, go to parent dashboard
+    if (hasStudents && !hasSchools) {
+      setUserRole("parent");
+      router.replace("/(parent)/dashboard");
+    }
+    // If only schools, go to teacher dashboard
+    else if (!hasStudents && hasSchools) {
+      setUserRole("teacher");
+      router.replace("/(teacher)/dashboard");
+    }
+    // If neither, optionally handle as needed (stay on this screen)
+  }, [userProfile, setUserRole]);
 
   const showAlert = (
     title: string,

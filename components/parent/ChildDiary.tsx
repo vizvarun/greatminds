@@ -600,12 +600,12 @@ export default function ChildDiary({ sectionId, showAlert }: Props) {
           <Text style={styles.entryTitle}>{item.title}</Text>
           <Text style={styles.entryDescription}>{item.description}</Text>
         </View>
-        {item.link !== null ? (
+        {item.link && item.link.trim() !== "" ? (
           <View style={styles.previewButton}>
             <TouchableOpacity
               accessibilityLabel="Open link in browser"
               style={styles.linkIcon}
-              onPress={() => openLink(item.link)}
+              onPress={() => openLink(item.link!)}
             >
               <Text style={styles.openLinkText}>Open Link</Text>
               <MaterialCommunityIcons
