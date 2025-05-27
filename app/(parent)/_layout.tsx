@@ -63,6 +63,7 @@ export default function ParentLayout() {
   const isSupportScreen = pathname.includes("/children/support/");
   const isPaymentScreen = pathname.includes("/children/fees/");
   const isNotificationScreen = pathname.includes("/notifications");
+  const isGalleryScreen = pathname.includes("/gallery");
 
   // These screens should completely bypass the layout
   const shouldBypassLayout =
@@ -73,7 +74,8 @@ export default function ParentLayout() {
     isTimetableScreen ||
     isSupportScreen ||
     isPaymentScreen ||
-    isNotificationScreen;
+    isNotificationScreen ||
+    isGalleryScreen;
 
   // Hide role switcher on certain screens but keep the layout
   const hideRoleSwitcher = false;
