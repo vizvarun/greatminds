@@ -38,6 +38,7 @@ type DiaryEntry = {
     | "reminder"
     | "test";
   link?: string;
+  isOtherType?: boolean;
 };
 
 const entryTypes = [
@@ -172,7 +173,7 @@ export default function SectionDiaryScreen() {
 
       if (Array.isArray(response.items)) {
         const transformedEntries: DiaryEntry[] = response.items.map((entry) => {
-          let type: DiaryEntry["type"] = "note";
+          let type: DiaryEntry["type"] = "other";
           const noteType = entry.notetype?.toLowerCase() || "";
 
           if (noteType.includes("home") || noteType.includes("homework")) {
@@ -189,9 +190,15 @@ export default function SectionDiaryScreen() {
             type = "reminder";
           }
 
-          const title = entry.subject
-            ? `${entry.notetype}: ${entry.subject}`
-            : entry.notetype;
+          const isOtherType = entry.notetype?.trim().toLowerCase() === "other";
+          let title = "";
+          if (isOtherType) {
+            title = entry.subject || entry.description || "";
+          } else {
+            title = entry.subject
+              ? `${entry.notetype}: ${entry.subject}`
+              : entry.notetype;
+          }
 
           const entryDate = new Date(entry.effectivedate);
 
@@ -208,6 +215,7 @@ export default function SectionDiaryScreen() {
             isUrgent: entry.isurgent || false,
             type,
             link: entry.link,
+            isOtherType,
           };
         });
 
@@ -530,7 +538,11 @@ export default function SectionDiaryScreen() {
 
   const groupedEntries = selectedDate ? [] : groupEntriesByDate(diaryEntries);
 
-  const renderEntryItem = ({ item }: { item: DiaryEntry }) => {
+  const renderEntryItem = ({
+    item,
+  }: {
+    item: DiaryEntry & { isOtherType?: boolean };
+  }) => {
     const entryType =
       entryTypes.find((et) => et.id === item.type) || entryTypes[6];
 
@@ -564,9 +576,19 @@ export default function SectionDiaryScreen() {
                 color={entryType.color}
                 style={styles.entryTypeIcon}
               />
-              <Text style={[styles.entryTypeLabel, { color: entryType.color }]}>
-                {entryType.name}
-              </Text>
+              {!item.isOtherType ? (
+                <Text
+                  style={[styles.entryTypeLabel, { color: entryType.color }]}
+                >
+                  {entryType.name}
+                </Text>
+              ) : (
+                <Text
+                  style={[styles.entryTypeLabel, { color: entryType.color }]}
+                >
+                  Announcement
+                </Text>
+              )}
               {item.isUrgent && (
                 <View style={styles.urgentPill}>
                   <Text style={styles.urgentText}>URGENT</Text>
