@@ -352,9 +352,6 @@ export default function ChildSupport({
       setTicketSubject("");
       setTicketMessage("");
       showAlert("Success", "Your support ticket has been submitted", "success");
-
-      fetchTickets();
-
       setActiveTab("history");
     } catch (error) {
       console.error("Failed to submit support ticket:", error);
@@ -386,8 +383,6 @@ export default function ChildSupport({
       setReplyText("");
 
       showAlert("Success", "Your reply has been sent", "success");
-
-      fetchTickets();
     } catch (error) {
       console.error("Failed to send reply:", error);
       showAlert(
@@ -562,12 +557,7 @@ export default function ChildSupport({
               >
                 {getFilteredTickets().length > 0 ? (
                   getFilteredTickets().map((ticket) => (
-                    <TouchableOpacity
-                      key={ticket.id}
-                      style={styles.ticketCard}
-                      onPress={() => toggleTicketExpansion(ticket.id)}
-                      activeOpacity={0.7}
-                    >
+                    <View key={ticket.id} style={styles.ticketCard}>
                       <View style={styles.ticketHeader}>
                         <View style={styles.ticketInfo}>
                           <Text style={styles.ticketSubject}>
@@ -616,16 +606,21 @@ export default function ChildSupport({
                           {ticket.category.charAt(0).toUpperCase() +
                             ticket.category.slice(1)}
                         </Text>
-                        <MaterialCommunityIcons
-                          name={
-                            expandedTicket === ticket.id
-                              ? "chevron-up"
-                              : "chevron-down"
-                          }
-                          size={20}
-                          color="#666"
+                        <TouchableOpacity
+                          onPress={() => toggleTicketExpansion(ticket.id)}
                           style={{ marginLeft: "auto" }}
-                        />
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <MaterialCommunityIcons
+                            name={
+                              expandedTicket === ticket.id
+                                ? "chevron-up"
+                                : "chevron-down"
+                            }
+                            size={20}
+                            color="#666"
+                          />
+                        </TouchableOpacity>
                       </View>
 
                       {!expandedTicket || expandedTicket !== ticket.id ? (
@@ -727,7 +722,7 @@ export default function ChildSupport({
                           )}
                         </View>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   ))
                 ) : (
                   <View style={styles.noFilteredResults}>
